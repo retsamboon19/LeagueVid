@@ -1,0 +1,31 @@
+node_modules/
+out/
+dist/
+dist-electron/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+Thumbs.db
+
+# IDE / editor artifacts
+.vs/
+.vscode/
+*.suo
+*.user
+
+# Local scratch/debug files
+c.txt
+mintest/
+
+# SQLite artifacts if ever created outside userData during local testing
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.tsbuildinfo
+
+# Exported clips live inside the app folder by default (see clipService.ts),
+# so keep the user's own video output out of version control.
+clips/

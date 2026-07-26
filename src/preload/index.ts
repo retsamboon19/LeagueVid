@@ -1,0 +1,339 @@
+import { contextBridge, ipcRenderer } from 'electron'
+import { electronAPI } from '@electron-toolkit/preload'
+import type {
+  AppSettings,
+  AutoTagEvent,
+  DDragonBundle,
+  LeadSwingResult,
+  MatchActionTimelineResult,
+  MatchPickerSummary,
+  MatchRosterData,
+  MatchStatsResult,
+  PlatformRouting,
+  PlayerPreferences,
+  RiotAccountDto,
+  TagRow,
+  VideoFileInfo,
+  VideoRow
+} from '../shared/types'
+
+export interface MatchBundleParticipant {
+  puuid: string
+  participantId: number
+  championName: string
+  kills: number
+  deaths: number
+  assists: number
+  win: boolean
+  teamPosition: string
+  goldEarned: number
+  summoner1Id: number
+  summoner2Id: number
+}
+
+export interface MatchBundleResult {
+  match: {
+    metadata: { matchId: string; participants: string[] }
+    info: {
+      gameStartTimestamp: number
+      gameEndTimestamp: number
+      gameDuration: number
+      gameMode: string
+      gameVersion: string
+    }
+  }
+  participant: MatchBundleParticipant
+  events: AutoTagEvent[]
+  derived: {
+    enemyChampionName: string | null
+    cs: number
+    enemyCs: number | null
+    goldDiff: number | null
+    keystoneId: number | null
+    rosterData: MatchRosterData
+    teamPosition: string | null
+    queueId: number | null
+  }
+}
+
+export interface LinkedFolderRow {
+  id: number
+  folder_path: string
+  added_at: number
+  last_scanned_at: number | null
+  last_scan_imported: number
+  last_scan_skipped: number
+}
+
+const api = {
+  riot: {
+    findAccount: (args: {
+      platform: PlatformRouting
+      gameName: string
+      tagLine: string
+    }): Promise<RiotAccountDto> => ipcRenderer.invoke('riot:findAccount', args),
+
+    fetchRecentMatches: (args: {
+      accounts: Array<{ platform: PlatformRouting; puuid: string; accountLabel: string }>
+      count?: number
+      startTimeMs?: number
+      endTimeMs?: number
+    }): Promise<MatchPickerSummary[]> => ipcRenderer.invoke('riot:fetchRecentMatches', args),
+
+    fetchMatchBundle: (args: {
+      platform: PlatformRouting
+      matchId: string
+      puuid: string
+    }): Promise<MatchBundleResult> => ipcRenderer.invoke('riot:fetchMatchBundle', args),
+
+    // Every locally-downloaded match the given accounts played in. No
+    // network, no date window -- backs manual linking, where the user
+    // filters over already-downloaded history instead of picking a range.
+    listCachedMatches: (args: {
+      accounts: Array<{ platform: PlatformRouting; puuid: string; accountLabel: string }>
+    }): Promise<MatchPickerSummary[]> => ipcRenderer.invoke('riot:listCachedMatches', args),
+
+    // Full stats payload for the player page's stats panel, derived from
+    // locally cached match + timeline data. Issues no Riot API requests.
+    getMatchStats: (args: {
+      matchId: string
+      accounts: Array<{ platform: PlatformRouting; puuid: string }>
+    }): Promise<MatchStatsResult> => ipcRenderer.invoke('riot:getMatchStats', args),
+
+    // Match-wide action events (every player, not just the linked account) --
+    // backs the action-density curve so it reflects the whole game.
+    getMatchActionTimeline: (args: {
+      matchId: string
+      accounts: Array<{ platform: PlatformRouting; puuid: string }>
+    }): Promise<MatchActionTimelineResult> =>
+      ipcRenderer.invoke('riot:getMatchActionTimeline', args),
+
+    // Gold-diff-vs-lane-opponent series for many matches at once, backing
+    // the library's comeback/lead-throw filter.
+    getLeadSwingBulk: (args: {
+      matches: Array<{ videoId: number; matchId: string }>
+      accounts: Array<{ platform: PlatformRouting; puuid: string }>
+    }): Promise<Record<number, LeadSwingResult>> =>
+      ipcRenderer.invoke('riot:getLeadSwingBulk', args),
+
+    // Kicks off an immediate check for match data that isn't downloaded yet.
+    downloadMatchData: (): Promise<void> => ipcRenderer.invoke('riot:downloadMatchData')
+  },
+  ddragon: {
+    getBundle: (): Promise<DDragonBundle> => ipcRenderer.invoke('ddragon:getBundle')
+  },
+  db: {
+    getSettings: (): Promise<AppSettings | null> => ipcRenderer.invoke('db:getSettings'),
+    saveSettings: (settings: AppSettings): Promise<void> =>
+      ipcRenderer.invoke('db:saveSettings', settings),
+
+    getPlayerPreferences: (): Promise<PlayerPreferences> =>
+      ipcRenderer.invoke('db:getPlayerPreferences'),
+    savePlayerPreferences: (prefs: PlayerPreferences): Promise<void> =>
+      ipcRenderer.invoke('db:savePlayerPreferences', prefs),
+
+    listVideos: (): Promise<VideoRow[]> => ipcRenderer.invoke('db:listVideos'),
+    getVideo: (id: number): Promise<VideoRow | undefined> => ipcRenderer.invoke('db:getVideo', id),
+    insertVideo: (input: {
+      filePath: string
+      fileName: string
+      recordedAt?: number | null
+      durationMs?: number | null
+    }): Promise<VideoRow> => ipcRenderer.invoke('db:insertVideo', input),
+
+    linkVideoToMatch: (input: {
+      videoId: number
+      matchId: string
+      syncOffsetMs: number
+      championName: string
+      kda: string
+      win: boolean
+      kills: number
+      deaths: number
+      assists: number
+      cs: number
+      goldDiff: number | null
+      enemyChampionName: string | null
+      summoner1Id: number
+      summoner2Id: number
+      keystoneId: number | null
+      gameMode: string
+      matchData: MatchRosterData
+      teamPosition?: string | null
+      queueId?: number | null
+    }): Promise<void> => ipcRenderer.invoke('db:linkVideoToMatch', input),
+
+    updateSyncOffset: (input: { videoId: number; syncOffsetMs: number }): Promise<void> =>
+      ipcRenderer.invoke('db:updateSyncOffset', input),
+
+    // Manual star marker, independent of any computed filter data.
+    setFavorite: (input: { videoId: number; isFavorite: boolean }): Promise<void> =>
+      ipcRenderer.invoke('db:setFavorite', input),
+
+    // Persists roughly where playback stopped, so re-opening a video resumes
+    // near there instead of always restarting from 0:00.
+    updateLastPosition: (input: { videoId: number; positionMs: number }): Promise<void> =>
+      ipcRenderer.invoke('db:updateLastPosition', input),
+
+    resyncTags: (input: { videoId: number; recordingStartSeconds: number }): Promise<void> =>
+      ipcRenderer.invoke('db:resyncTags', input),
+
+    insertTags: (input: {
+      videoId: number
+      tags: Array<{
+        timestampMs: number
+        type: string
+        label: string
+        detail?: string | null
+        source: 'auto' | 'manual'
+      }>
+    }): Promise<void> => ipcRenderer.invoke('db:insertTags', input),
+
+    clearAutoTags: (videoId: number): Promise<void> => ipcRenderer.invoke('db:clearAutoTags', videoId),
+
+    listTags: (videoId: number): Promise<TagRow[]> => ipcRenderer.invoke('db:listTags', videoId),
+
+    updateTag: (input: {
+      tagId: number
+      timestampMs?: number
+      label?: string
+      detail?: string | null
+    }): Promise<void> => ipcRenderer.invoke('db:updateTag', input),
+
+    deleteTag: (tagId: number): Promise<void> => ipcRenderer.invoke('db:deleteTag', tagId),
+
+    insertManualTag: (input: {
+      videoId: number
+      timestampMs: number
+      type: string
+      label: string
+      detail?: string
+    }): Promise<TagRow> => ipcRenderer.invoke('db:insertManualTag', input),
+
+    addLinkedFolder: (folderPath: string): Promise<LinkedFolderRow> =>
+      ipcRenderer.invoke('db:addLinkedFolder', folderPath),
+    listLinkedFolders: (): Promise<LinkedFolderRow[]> => ipcRenderer.invoke('db:listLinkedFolders'),
+    removeLinkedFolder: (id: number): Promise<void> => ipcRenderer.invoke('db:removeLinkedFolder', id),
+    recordFolderScan: (input: { id: number; imported: number; skipped: number }): Promise<void> =>
+      ipcRenderer.invoke('db:recordFolderScan', input),
+    deleteVideo: (videoId: number): Promise<void> => ipcRenderer.invoke('db:deleteVideo', videoId),
+
+    // Removes a chosen subset of recordings in one batch -- the middle
+    // ground between deleteVideo and deleteAllVideos, for multi-select.
+    deleteVideos: (videoIds: number[]): Promise<void> =>
+      ipcRenderer.invoke('db:deleteVideos', videoIds),
+
+    // Removes every recording from the library (does NOT delete the
+    // underlying video files on disk).
+    deleteAllVideos: (): Promise<void> => ipcRenderer.invoke('db:deleteAllVideos'),
+
+    // How much Riot match data is currently downloaded locally.
+    getApiCacheStats: (): Promise<{ count: number; oldestAt: number | null }> =>
+      ipcRenderer.invoke('db:getApiCacheStats'),
+
+    // Discards all downloaded Riot match/timeline data and resets backfill
+    // progress so history re-downloads. Videos/bookmarks/links are kept.
+    clearMatchCache: (): Promise<void> => ipcRenderer.invoke('db:clearMatchCache'),
+
+    // Wrap long write loops in these: the database is saved by rewriting the
+    // entire file, so persisting once at the end instead of per step is the
+    // difference between seconds and milliseconds per item.
+    beginBulkWrites: (): Promise<void> => ipcRenderer.invoke('db:beginBulkWrites'),
+    endBulkWrites: (): Promise<void> => ipcRenderer.invoke('db:endBulkWrites'),
+
+    // Returns ids of videos whose auto-generated bookmarks are all clamped
+    // to timestamp <= 0 -- the signature of a video linked to the wrong
+    // match (see findVideosWithSuspiciousBookmarks in the main-process repo).
+    findVideosWithSuspiciousBookmarks: (): Promise<number[]> =>
+      ipcRenderer.invoke('db:findVideosWithSuspiciousBookmarks'),
+
+    // Every multikill tag across every video (Double/Triple/Quadra/Penta,
+    // plus whether it was solo) -- backs the library's multikill filters.
+    listMultikillTags: (): Promise<Array<{ videoId: number; type: string; solo: boolean }>> =>
+      ipcRenderer.invoke('db:listMultikillTags'),
+
+    // Riot API key management -- lets the user swap keys from Settings
+    // instead of only via .env. The actual key value is never sent back to
+    // the renderer except as a masked preview (first 8 + last 4 chars).
+    getRiotApiKeyStatus: (): Promise<{
+      hasCustomKey: boolean
+      hasEnvKey: boolean
+      maskedKey: string | null
+    }> => ipcRenderer.invoke('db:getRiotApiKeyStatus'),
+    setRiotApiKey: (apiKey: string | null): Promise<void> =>
+      ipcRenderer.invoke('db:setRiotApiKey', apiKey),
+
+    getRiotRateLimit: (): Promise<{ perSecond: number; per2Minutes: number } | null> =>
+      ipcRenderer.invoke('db:getRiotRateLimit'),
+    setRiotRateLimit: (config: { perSecond: number; per2Minutes: number } | null): Promise<void> =>
+      ipcRenderer.invoke('db:setRiotRateLimit', config),
+
+    // Background match-history warming progress across a set of accounts,
+    // for the library page's "downloading your match history" indicator.
+    getBackfillStatus: (puuids: string[]): Promise<{
+      totalAccounts: number
+      accountsFullyBackfilled: number
+      matchesDownloaded: number
+      matchesTotal: number | null
+      matchesCached: number
+    }> => ipcRenderer.invoke('db:getBackfillStatus', puuids)
+  },
+  video: {
+    selectFile: (): Promise<VideoFileInfo | null> => ipcRenderer.invoke('video:selectFile'),
+    selectFolder: (): Promise<string | null> => ipcRenderer.invoke('video:selectFolder'),
+    scanFolder: (folderPath: string): Promise<VideoFileInfo[]> =>
+      ipcRenderer.invoke('video:scanFolder', folderPath),
+    toFileUrl: (filePath: string): Promise<string> => ipcRenderer.invoke('video:toFileUrl', filePath),
+
+    // Tries the on-disk cache, then a fast MP4/MOV container header read.
+    // Returns null if neither resolves it (unsupported container, or first
+    // time seeing this file) -- caller should fall back to probeVideoDurationMs.
+    probeDurationFast: (args: { filePath: string; sizeBytes: number }): Promise<number | null> =>
+      ipcRenderer.invoke('video:probeDurationFast', args),
+
+    // Persists a duration resolved via the renderer's <video>-element
+    // fallback, so future scans of this file (same size) skip probing.
+    cacheDuration: (args: { filePath: string; sizeBytes: number; durationMs: number }): Promise<void> =>
+      ipcRenderer.invoke('video:cacheDuration', args),
+
+    // --- Clipping ---
+    // 'fast' stream-copies (instant, lossless, but starts on the nearest
+    // keyframe); 'exact' re-encodes to hit the requested frame precisely.
+    createClip: (request: {
+      sourcePath: string
+      startMs: number
+      endMs: number
+      name: string
+      mode: 'fast' | 'exact'
+    }): Promise<{ outputPath: string; sizeBytes: number; durationMs: number }> =>
+      ipcRenderer.invoke('video:createClip', request),
+
+    getClipsDir: (): Promise<string> => ipcRenderer.invoke('video:getClipsDir'),
+
+    // Clip output folder. Defaults to a 'clips' folder inside the app's own
+    // directory; the user can point it anywhere writable.
+    getClipsDirInfo: (): Promise<{ current: string; default: string; isCustom: boolean }> =>
+      ipcRenderer.invoke('video:getClipsDirInfo'),
+    chooseClipsDir: (): Promise<string | null> => ipcRenderer.invoke('video:chooseClipsDir'),
+    resetClipsDir: (): Promise<string> => ipcRenderer.invoke('video:resetClipsDir'),
+    revealClipsFolder: (): Promise<void> => ipcRenderer.invoke('video:revealClipsFolder'),
+    revealClip: (filePath: string): Promise<void> =>
+      ipcRenderer.invoke('video:revealClip', filePath)
+  }
+}
+
+if (process.contextIsolated) {
+  try {
+    contextBridge.exposeInMainWorld('electron', electronAPI)
+    contextBridge.exposeInMainWorld('api', api)
+  } catch (error) {
+    console.error(error)
+  }
+} else {
+  // @ts-ignore (define in dts)
+  window.electron = electronAPI
+  // @ts-ignore (define in dts)
+  window.api = api
+}
+
+export type LeagueVidApi = typeof api

@@ -1,0 +1,3516 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #0f1117;
+  color: #e6e6e6;
+}
+
+.app-shell {
+  padding: 2rem;
+  height: 100vh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-content {
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.app-content--wide {
+  max-width: none;
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.app-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.app-header-account {
+  font-size: 0.85rem;
+  color: #9fb8d9;
+}
+
+.app-settings-icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+}
+
+button {
+  background: #3b6ea5;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.6rem 1rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #4a80bd;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+button.secondary {
+  background: #2a2d38;
+  color: #e6e6e6;
+}
+
+button.secondary:hover {
+  background: #383c4a;
+}
+
+button.danger-button {
+  background: #d9534f;
+  color: white;
+}
+
+button.danger-button:hover {
+  background: #e0685f;
+}
+
+button.secondary.danger-button {
+  background: #1c1f28;
+  color: #ee8d89;
+  border: 1px solid #4a2f2f;
+}
+
+button.secondary.danger-button:hover {
+  background: #2a1d1d;
+}
+
+button.link-button {
+  background: none;
+  color: #9fb8d9;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+button.link-button:hover {
+  background: #1c1f28;
+}
+
+.status {
+  opacity: 0.8;
+  font-size: 0.9rem;
+}
+
+.status-error {
+  color: #ff8080;
+}
+
+.status-success {
+  color: #7ed6a5;
+}
+
+.view {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.view-header h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.subtitle {
+  color: #a0a4ae;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 420px;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.form-row label {
+  font-size: 0.85rem;
+  color: #a0a4ae;
+}
+
+input,
+select {
+  background: #1c1f28;
+  border: 1px solid #2f333f;
+  border-radius: 6px;
+  color: #e6e6e6;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.95rem;
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: #3b6ea5;
+}
+
+.riot-id-input {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.riot-id-input input {
+  flex: 1;
+  min-width: 0;
+}
+
+.riot-id-input span {
+  color: #a0a4ae;
+}
+
+.video-list,
+.match-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.video-item,
+.match-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: #1c1f28;
+  border: 1px solid #2f333f;
+  border-radius: 8px;
+  padding: 0.8rem 1rem;
+}
+
+.video-item-info,
+.match-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.video-name,
+.match-champion {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-meta,
+.video-tags,
+.match-meta {
+  font-size: 0.82rem;
+  color: #a0a4ae;
+}
+
+.video-tags-unlinked {
+  color: #d9a45a;
+}
+
+.auto-match-badge {
+  margin-left: 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #7ed6a5;
+  background: rgba(126, 214, 165, 0.15);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+
+.auto-match-badge--warning {
+  color: #d9a45a;
+  background: rgba(217, 164, 90, 0.15);
+}
+
+.video-item {
+  cursor: pointer;
+}
+
+.video-item:hover {
+  background: #22252f;
+}
+
+/* --- Video player view --- */
+
+.player-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  height: 100%;
+  min-height: 0;
+}
+
+.player-topbar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 1rem;
+}
+
+.player-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  min-width: 0;
+  text-align: center;
+}
+
+.player-filename {
+  font-weight: 600;
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 480px;
+}
+
+.player-subtitle {
+  font-size: 0.8rem;
+  color: #a0a4ae;
+}
+
+.player-sync {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  justify-self: end;
+}
+
+.player-sync-label {
+  font-size: 0.78rem;
+  color: #a0a4ae;
+  white-space: nowrap;
+}
+
+.player-sync-input {
+  width: 56px;
+  padding: 0.3rem 0.4rem;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.player-sync-btn {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+.player-sync-status {
+  text-align: right;
+  margin: -0.4rem 0 0;
+  color: #7ed6a5;
+}
+
+.player-settings-btn {
+  font-size: 1.05rem;
+  padding: 0.4rem 0.55rem;
+}
+
+/* --- Settings panel modal --- */
+
+.settings-panel-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.settings-panel {
+  background: #1c1f28;
+  border: 1px solid #2f333f;
+  border-radius: 10px;
+  width: 420px;
+  max-width: calc(100vw - 3rem);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.settings-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-panel-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.settings-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.settings-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.settings-row label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.settings-row-input {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.settings-row-input input {
+  width: 70px;
+}
+
+.settings-row-input span {
+  font-size: 0.82rem;
+  color: #a0a4ae;
+}
+
+.settings-row-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #7d818c;
+  line-height: 1.4;
+}
+
+.settings-row-checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.settings-row-checkbox input {
+  width: auto;
+}
+
+.settings-panel-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.player-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: #000;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.player-video {
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  cursor: pointer;
+}
+
+/* The stage is what goes fullscreen (not the <video>), so it has to fill the
+   screen itself and drop its rounded corners while it's there. */
+.player-stage:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  border-radius: 0;
+}
+
+.player-active-tag {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  background: rgba(15, 17, 23, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  backdrop-filter: blur(4px);
+}
+
+.player-active-tag-icon {
+  font-size: 1rem;
+}
+
+.player-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.player-icon-btn {
+  background: #1c1f28;
+  border: 1px solid #2f333f;
+  color: #e6e6e6;
+  border-radius: 6px;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.95rem;
+  min-width: 2.4rem;
+}
+
+.player-icon-btn:hover {
+  background: #2a2d38;
+}
+
+.player-time {
+  font-size: 0.85rem;
+  color: #a0a4ae;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.player-rate-select {
+  padding: 0.4rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+.player-volume {
+  width: 90px;
+}
+
+.player-add-tag {
+  margin-left: auto;
+}
+
+.player-timeline {
+  padding: 0.6rem 0;
+  cursor: pointer;
+}
+
+.player-timeline-track {
+  position: relative;
+  height: 8px;
+  background: #1c1f28;
+  border-radius: 4px;
+}
+
+.player-timeline-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: #3b6ea5;
+  border-radius: 4px;
+}
+
+.player-timeline-scrubber {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #e6e6e6;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.4);
+}
+
+.player-timeline-marker {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  cursor: pointer;
+  background: #d9534f;
+  border: 2px solid #0f1117;
+}
+
+.player-timeline-marker--assist {
+  background: #4a90d9;
+}
+
+.player-timeline-marker--death {
+  background: #6b6f7a;
+}
+
+.player-timeline-marker--kill,
+.player-timeline-marker--multikill {
+  background: #d9534f;
+}
+
+.player-timeline-marker--turret,
+.player-timeline-marker--dragon,
+.player-timeline-marker--baron,
+.player-timeline-marker--herald,
+.player-timeline-marker--other_objective {
+  background: #d9a45a;
+}
+
+.player-timeline-marker--outplay {
+  background: #7ed6a5;
+}
+
+.player-timeline-marker:hover {
+  z-index: 2;
+  transform: translate(-50%, -50%) scale(1.25);
+}
+
+.player-bookmark-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  max-height: 160px;
+  overflow-y: auto;
+  padding-bottom: 0.25rem;
+}
+
+.bookmark-column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: #171a22;
+  border: 1px solid #2f333f;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.bookmark-column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #a0a4ae;
+  border-bottom: 1px solid #2f333f;
+  background: #1c1f28;
+}
+
+.bookmark-column--kill .bookmark-column-header {
+  color: #ff8f8a;
+}
+
+.bookmark-column--death .bookmark-column-header {
+  color: #b8bcc6;
+}
+
+.bookmark-column--assist .bookmark-column-header {
+  color: #7fb3e0;
+}
+
+.bookmark-column--objective .bookmark-column-header {
+  color: #e0bd7f;
+}
+
+.bookmark-column--manual .bookmark-column-header {
+  color: #7ed6a5;
+}
+
+.bookmark-column-count {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 0.05rem 0.45rem;
+  font-weight: 600;
+}
+
+.bookmark-column-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.4rem;
+  overflow-y: auto;
+}
+
+.bookmark-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #1c1f28;
+  border: 1px solid #2f333f;
+  border-radius: 6px;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.78rem;
+  color: #e6e6e6;
+  cursor: pointer;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.bookmark-chip:hover {
+  background: #2a2d38;
+}
+
+.bookmark-chip-time {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
+.bookmark-chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.bookmark-chip-delete {
+  margin-left: 0.2rem;
+  opacity: 0.6;
+  font-weight: 700;
+}
+
+.bookmark-chip-delete:hover {
+  opacity: 1;
+  color: #ff8080;
+}
+
+/* --- Library layout (red/blue/green grid) --- */
+
+.library-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.9fr);
+  /* Without an explicit row size, a CSS grid's implicit row defaults to
+     "auto" -- sized by its content -- even though the container itself has
+     height:100%. That let the row (and therefore the whole grid) grow
+     taller than the actual window, and since .app-shell above it is a fixed
+     100vh with no overflow of its own, the overflow just got clipped with
+     nothing to scroll: the columns' own overflow-y:auto never even
+     kicked in because their height:100% was measured against a row that
+     had already over-grown to fit the content. Pinning the row to exactly
+     the grid's own height is what makes the columns' height:100% (and thus
+     their scrolling) actually mean something.
+   */
+  grid-template-rows: minmax(0, 1fr);
+  gap: 1.25rem;
+  height: 100%;
+  min-height: 0;
+}
+
+.library-column--tiles {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.library-column--side {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* Below this width the sidebar squeezes the tiles harder than it earns its
+   place, so it stacks above the list instead. The whole view scrolls as one
+   column at that point, rather than each column scrolling separately. */
+@media (max-width: 1000px) {
+  .library-view {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+    max-height: 100%;
+    overflow-y: auto;
+  }
+
+  .library-column--side {
+    order: -1;
+    height: auto;
+    overflow-y: visible;
+  }
+
+  .library-column--tiles {
+    height: auto;
+    overflow-y: visible;
+    padding-right: 0;
+  }
+}
+
+.view-header button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* --- Match tile (red box) --- */
+
+.match-tile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.match-tile {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  background: #1c1f28;
+  border: 1px solid #2f333f;
+  border-radius: 8px;
+  overflow: hidden;
+  /* Named container so the tile's own width drives its layout breakpoints
+     (see the @container rules further down), independent of window width. */
+  container-type: inline-size;
+  container-name: match-tile;
+}
+
+.match-tile-stripe {
+  width: 4px;
+  flex-shrink: 0;
+  background: #4a4f5c;
+}
+
+.match-tile--win .match-tile-stripe {
+  background: #4caf7d;
+}
+
+.match-tile--loss .match-tile-stripe {
+  background: #d9534f;
+}
+
+/* Tile matching whichever video was last opened -- a subtle tint plus a
+   left border echo so it's noticeable while scanning a long scrolled list,
+   without looking like a selection/active state. */
+.match-tile--last-viewed {
+  background: #23283a;
+  border-color: #3b4a6e;
+}
+
+.match-tile--last-viewed .match-tile-body:hover {
+  background: #29304a;
+}
+
+.match-tile-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: none;
+  border: none;
+  color: inherit;
+  text-align: left;
+  padding: 0.7rem 0.9rem;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.match-tile-body:hover {
+  background: #22252f;
+}
+
+.result-win {
+  color: #6fcf9a;
+}
+
+.result-loss {
+  color: #ee8d89;
+}
+
+.match-tile-item-slot {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background: #0f1117;
+  border: 1px solid #2f333f;
+  overflow: hidden;
+}
+
+.match-tile-item-slot img {
+  width: 100%;
+  height: 100%;
+}
+
+.match-tile-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  color: #a0a4ae;
+}
+
+.gold-positive {
+  color: #6fcf9a;
+}
+
+.gold-negative {
+  color: #ee8d89;
+}
+
+.match-tile-unlinked {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.match-tile-link-btn {
+  align-self: center;
+  margin: 0.5rem;
+  white-space: nowrap;
+}
+
+/* Tile currently checked in multi-select mode -- a blue tint plus border,
+   distinct from the last-viewed tint so the two states can't be confused. */
+.match-tile--selected {
+  background: #1e2a3d;
+  border-color: #3b6ea5;
+}
+
+.match-tile-select-checkbox {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  z-index: 1;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 5px;
+  background: #14161d;
+  border: 1px solid #4a4f5c;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.match-tile-select-checkbox--checked {
+  background: #3b6ea5;
+  border-color: #3b6ea5;
+}
+
+/* Pinned top-right corner of the tile, mirroring the select checkbox's
+   pinned top-left -- a fixed, predictable spot rather than inline among
+   other toprow content (where it previously got pushed around by another
+   margin-left:auto element and ended up hard to notice). */
+.match-tile-favorite-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 1;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 6px;
+  background: rgba(20, 22, 29, 0.85);
+  border: 1px solid #2f333f;
+  color: #7d818c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.match-tile-favorite-btn:hover {
+  color: #d9c27a;
+  background: rgba(20, 22, 29, 0.85);
+  border-color: #d9c27a;
+}
+
+.match-tile-favorite-btn--active {
+  color: #f0c85a;
+  border-color: #f0c85a;
+  background: rgba(240, 200, 90, 0.16);
+}
+
+/* --- Filter panel (blue box) & folders panel (green box) --- */
+
+.filter-panel,
+.folders-panel {
+  background: #1c1f28;
+  border: 1px solid #2f333f;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.filter-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 0.9rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  border-bottom: 1px solid #2f333f;
+  background: #171a22;
+}
+
+.filter-panel-header span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.filter-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding: 0.9rem;
+}
+
+.filter-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.filter-row label {
+  font-size: 0.8rem;
+  color: #a0a4ae;
+}
+
+.filter-row input[type='text'],
+.filter-row input[type='number'] {
+  width: 100%;
+}
+
+.filter-threshold {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.filter-threshold select {
+  flex: 1.1;
+  font-size: 0.82rem;
+  padding: 0.5rem 0.4rem;
+}
+
+.filter-threshold input {
+  flex: 1;
+  min-width: 0;
+}
+
+.filter-spell-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 0.25rem;
+}
+
+.filter-spell-btn {
+  background: #14161d;
+  border: 1px solid #2f333f;
+  border-radius: 5px;
+  padding: 0.15rem;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.filter-spell-btn img {
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+}
+
+.filter-spell-btn--active {
+  border-color: #3b6ea5;
+  box-shadow: 0 0 0 1px #3b6ea5;
+}
+
+/* --- Multikill filter buttons ---
+   Five buttons (4 tiers + Solo) laid out to fill the sidebar's width the way
+   the tightly-packed, small summoner-spell icons above do not -- two per row
+   at a comfortable size rather than ten cramped icons across one line. */
+.filter-multikill-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.4rem;
+}
+
+.filter-multikill-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  background: #14161d;
+  border: 1px solid #2f333f;
+  border-radius: 6px;
+  color: #c4c8d1;
+  font-size: 0.82rem;
+  padding: 0.45rem 0.5rem;
+}
+
+.filter-multikill-btn:hover:not(:disabled) {
+  background: #1c1f28;
+}
+
+.filter-multikill-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Each tier borrows its colour from the matching bookmark/badge elsewhere in
+   the app, so "Triple kill" means the same purple everywhere it appears. */
+.filter-multikill-btn--doublekill.filter-multikill-btn--active {
+  background: rgba(74, 144, 217, 0.22);
+  border-color: #4a90d9;
+  color: #9fcaf0;
+}
+
+.filter-multikill-btn--triplekill.filter-multikill-btn--active {
+  background: rgba(201, 139, 219, 0.22);
+  border-color: #c98bdb;
+  color: #d9a5e8;
+}
+
+.filter-multikill-btn--quadrakill.filter-multikill-btn--active {
+  background: rgba(238, 141, 137, 0.22);
+  border-color: #ee8d89;
+  color: #ff9d98;
+}
+
+.filter-multikill-btn--pentakill.filter-multikill-btn--active {
+  background: linear-gradient(90deg, rgba(217, 164, 90, 0.3), rgba(240, 208, 137, 0.3));
+  border-color: #d9a45a;
+  color: #f0d089;
+}
+
+/* Solo spans both columns: it's a modifier on whichever tiers are picked
+   above, not a fifth tier of equal standing, so it reads as attached to them
+   rather than a sixth peer button competing for the same row. */
+.filter-multikill-btn--solo {
+  grid-column: 1 / -1;
+}
+
+.filter-multikill-btn--solo.filter-multikill-btn--active {
+  background: rgba(126, 214, 165, 0.2);
+  border-color: #7ed6a5;
+  color: #7ed6a5;
+}
+
+/* --- Lead swing filter (comeback / threw the lead) --- */
+
+.filter-leadswing {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.filter-leadswing-direction {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.4rem;
+}
+
+.filter-toggle-btn {
+  background: #14161d;
+  border: 1px solid #2f333f;
+  border-radius: 6px;
+  color: #c4c8d1;
+  font-size: 0.82rem;
+  padding: 0.45rem 0.5rem;
+}
+
+.filter-toggle-btn:hover {
+  background: #1c1f28;
+}
+
+.filter-toggle-btn--active {
+  background: rgba(74, 144, 217, 0.22);
+  border-color: #4a90d9;
+  color: #9fcaf0;
+}
+
+.filter-leadswing-fields {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.filter-leadswing-field {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.filter-leadswing-field span {
+  font-size: 0.78rem;
+  color: #a0a4ae;
+  white-space: nowrap;
+}
+
+.filter-leadswing-field input {
+  width: 100%;
+  min-width: 0;
+}
+
+.filter-leadswing-loading {
+  padding: 0 0.2rem;
+  font-size: 0.78rem;
+}
+
+/* --- Generic filter toggle row (Result / Role / Queue) --- */
+
+.filter-toggle-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+/* --- Favorites-only toggle --- */
+
+.filter-favorite-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #14161d;
+  border: 1px solid #2f333f;
+  color: #c4c8d1;
+  font-size: 0.82rem;
+  padding: 0.45rem 0.6rem;
+}
+
+.filter-favorite-toggle--active {
+  background: rgba(240, 200, 90, 0.18);
+  border-color: #f0c85a;
+  color: #f0c85a;
+}
+
+/* --- Champion multi-select chips --- */
+
+.filter-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: rgba(74, 144, 217, 0.16);
+  border: 1px solid #3b6ea5;
+  border-radius: 999px;
+  color: #9fcaf0;
+  font-size: 0.78rem;
+  padding: 0.2rem 0.3rem 0.2rem 0.65rem;
+}
+
+.filter-chip-remove {
+  background: transparent;
+  border: none;
+  color: inherit;
+  padding: 0.15rem;
+  display: inline-flex;
+  border-radius: 999px;
+}
+
+.filter-chip-remove:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* --- Saved filter presets --- */
+
+.filter-presets-row {
+  border-top: 1px solid #2f333f;
+  padding-top: 0.7rem;
+}
+
+.filter-preset-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.filter-chip--preset {
+  background: rgba(126, 214, 165, 0.14);
+  border-color: #7ed6a5;
+  color: #7ed6a5;
+  padding-left: 0.2rem;
+}
+
+.filter-preset-load-btn {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 0.78rem;
+  padding: 0.1rem 0.3rem;
+}
+
+.filter-preset-save-row {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.filter-preset-save-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.filter-preset-save-toggle {
+  width: 100%;
+}
+
+/* --- Linked folders (green box) --- */
+
+.folders-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.9rem;
+}
+
+.folder-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  background: #171a22;
+  border: 1px solid #2f333f;
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem;
+}
+
+.folder-row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.folder-row-name {
+  font-weight: 600;
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-row-meta {
+  font-size: 0.75rem;
+  color: #a0a4ae;
+}
+
+.folder-row-progress {
+  font-size: 0.72rem;
+  color: #7ed6a5;
+}
+
+.folder-row-actions {
+  display: flex;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* --- Add media popup --- */
+
+.add-media-panel {
+  background: #1c1f28;
+  border: 1px solid #2f333f;
+  border-radius: 10px;
+  width: 480px;
+  max-width: calc(100vw - 3rem);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.add-media-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.add-media-option {
+  background: #171a22;
+  border: 1px solid #2f333f;
+  border-radius: 8px;
+  padding: 1.1rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: center;
+  color: #e6e6e6;
+}
+
+.add-media-option:hover {
+  background: #22252f;
+  border-color: #3b6ea5;
+}
+
+.add-media-option-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.add-media-option-hint {
+  font-size: 0.75rem;
+  color: #a0a4ae;
+  line-height: 1.4;
+}
+
+.add-media-progress {
+  color: #7fb3e0;
+}
+
+/* --- Linked Riot accounts list (Settings) --- */
+
+.account-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 420px;
+}
+
+.account-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: #1c1f28;
+  border: 1px solid #2f333f;
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+}
+
+.account-item-name {
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.account-item-platform {
+  font-size: 0.8rem;
+  color: #a0a4ae;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-item-remove {
+  flex-shrink: 0;
+}
+
+/* --- Autocomplete --- */
+
+.autocomplete {
+  position: relative;
+}
+
+.autocomplete input {
+  width: 100%;
+}
+
+.autocomplete-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background: #22252f;
+  border: 1px solid #3b3f4a;
+  border-radius: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.autocomplete-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.autocomplete-item--active,
+.autocomplete-item:hover {
+  background: #3b6ea5;
+}
+
+.autocomplete-item-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+/* --- Backfill status banner (library page only) --- */
+
+.backfill-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(59, 110, 165, 0.12);
+  border: 1px solid rgba(59, 110, 165, 0.35);
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.82rem;
+  color: #c4d4e8;
+}
+
+.backfill-banner-icon {
+  flex-shrink: 0;
+  color: #7fb3e0;
+}
+
+.backfill-banner-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.backfill-banner--idle {
+  background: rgba(126, 214, 165, 0.08);
+  border-color: rgba(126, 214, 165, 0.28);
+}
+
+.backfill-banner--idle .backfill-banner-icon {
+  color: #7ed6a5;
+}
+
+.backfill-banner-text {
+  line-height: 1.4;
+}
+
+.backfill-banner-note {
+  font-size: 0.68rem;
+  color: #7d818c;
+  line-height: 1.35;
+}
+
+.backfill-banner-btn {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  padding: 0.35rem 0.6rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.backfill-banner-track {
+  height: 5px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.backfill-banner-fill {
+  height: 100%;
+  background: #4a90d9;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+/* --- Toast notification --- */
+
+.toast {
+  position: fixed;
+  bottom: 1.25rem;
+  right: 1.25rem;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  background: #1c1f28;
+  border: 1px solid rgba(126, 214, 165, 0.4);
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  max-width: 360px;
+  animation: toast-in 0.2s ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.toast-icon {
+  flex-shrink: 0;
+  color: #7ed6a5;
+}
+
+.toast-message {
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #dfe3ea;
+}
+
+.toast-close {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: #7d818c;
+  padding: 0.2rem;
+  margin-left: 0.2rem;
+}
+
+.toast-close:hover {
+  color: #dfe3ea;
+  background: transparent;
+}
+
+/* --- Manual re-link filters --- */
+
+.manual-relink-filters {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.8rem;
+  align-items: end;
+  background: #1c1f28;
+  border: 1px solid #2f333f;
+  border-radius: 8px;
+  padding: 0.9rem;
+}
+
+.manual-relink-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* --- Re-link mode chooser --- */
+
+.relink-menu-wrap {
+  position: relative;
+}
+
+.relink-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 30;
+  background: #22252f;
+  border: 1px solid #3b3f4a;
+  border-radius: 6px;
+  min-width: 220px;
+  padding: 0.3rem;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.relink-menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  background: none;
+  color: #e6e6e6;
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem 0.6rem;
+  text-align: left;
+  width: 100%;
+}
+
+.relink-menu-item:hover {
+  background: #3b6ea5;
+}
+
+.relink-menu-item-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.relink-menu-item-hint {
+  font-size: 0.72rem;
+  color: #c4c8d1;
+}
+
+/* --- View header actions / sort --- */
+
+.view-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sort-select {
+  font-size: 0.85rem;
+  padding: 0.5rem 0.6rem;
+}
+
+/* --- Match tile layout (U.GG-style regions) ---
+   Every region gets an explicit width track so the same information sits at
+   the same horizontal position on every tile in the list. Exactly one track
+   (the roster) is flexible and absorbs leftover width -- that's what stops
+   the mid-tile dead space the older `auto` tracks + `justify-self: end`
+   combination produced.
+
+   Breakpoints are CONTAINER queries on the tile, not media queries on the
+   window: the library sidebar changes how much width a tile actually gets,
+   so the tile has to respond to its own size. */
+
+.match-tile-toprow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.match-tile-toprow-time {
+  margin-left: auto;
+}
+
+.match-tile-mode {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #7fb3e0;
+  white-space: nowrap;
+}
+
+.match-tile-main {
+  display: grid;
+  grid-template-columns:
+    /* result */ 3.6rem
+    /* champion + loadout */ auto
+    /* KDA */ minmax(5.5rem, auto)
+    /* items */ auto
+    /* rosters (flexible) */ minmax(0, 1fr);
+  align-items: center;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+/* min-width: 0 on every region is the fix for the overlap seen at small
+   window sizes: grid children default to min-width: auto, which refuses to
+   shrink below their content width and makes neighbouring columns collide
+   instead of compressing. */
+.match-tile-region {
+  min-width: 0;
+}
+
+.match-tile-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+}
+
+.match-tile-result {
+  font-weight: 800;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+}
+
+.match-tile-duration {
+  font-size: 0.78rem;
+  color: #a0a4ae;
+  font-variant-numeric: tabular-nums;
+}
+
+.match-tile-champ-block {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.match-tile-champ-icon-wrap {
+  position: relative;
+}
+
+.match-tile-champ-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+}
+
+.match-tile-loadout {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.match-tile-loadout-row {
+  display: flex;
+  gap: 0.2rem;
+  min-height: 18px;
+}
+
+.match-tile-mini-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid #2f333f;
+}
+
+.match-tile-mini-icon--rune {
+  border-radius: 50%;
+  background: #171a22;
+}
+
+.match-tile-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.match-tile-stats .match-tile-kda {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.match-tile-stats-secondary {
+  display: flex;
+  gap: 0.6rem;
+  font-size: 0.75rem;
+  color: #a0a4ae;
+}
+
+.match-tile-items {
+  display: grid;
+  grid-template-columns: repeat(4, 22px);
+  grid-template-rows: repeat(2, 22px);
+  gap: 0.2rem;
+}
+
+.match-tile-rosters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0 1rem;
+}
+
+.match-tile-roster-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.match-tile-roster-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  color: #c4c8d1;
+}
+
+.match-tile-roster-row--me {
+  font-weight: 700;
+  color: #d9a45a;
+}
+
+.match-tile-roster-row .match-tile-roster-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.match-tile-roster-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* Extra-wide: on a maximised window the fixed-size regions leave a gulf of
+   dead space before the rosters. Growing the artwork and letting names take
+   more room fills it with something useful instead of stretching one column.
+   Sizes step up rather than scaling fluidly, so icons stay on pixel bounds
+   and don't look soft. */
+@container match-tile (min-width: 1200px) {
+  .match-tile-main {
+    grid-template-columns:
+      4.2rem
+      auto
+      minmax(7rem, auto)
+      auto
+      minmax(0, 1fr);
+    gap: 1.4rem;
+  }
+
+  .match-tile-champ-icon {
+    width: 54px;
+    height: 54px;
+  }
+
+  .match-tile-mini-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .match-tile-items {
+    grid-template-columns: repeat(4, 28px);
+    grid-template-rows: repeat(2, 28px);
+  }
+
+  .match-tile-item-slot {
+    width: 28px;
+    height: 28px;
+  }
+
+  .match-tile-rosters {
+    gap: 0 2rem;
+  }
+
+  .match-tile-roster-row {
+    font-size: 0.78rem;
+  }
+
+  .match-tile-roster-row .match-tile-roster-icon {
+    width: 19px;
+    height: 19px;
+  }
+
+  .match-tile-stats .match-tile-kda {
+    font-size: 1.05rem;
+  }
+
+  .match-tile-body {
+    padding: 0.9rem 1.2rem;
+  }
+}
+
+/* Medium: not enough room for names beside ten champion icons, so the
+   rosters collapse to icon rows. */
+@container match-tile (max-width: 899px) {
+  .match-tile-roster-name {
+    display: none;
+  }
+
+  .match-tile-roster-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+  }
+}
+
+/* Narrow: drop the rosters entirely and let the items wrap to one row.
+   Result and KDA are kept -- they're the two things worth scanning at any
+   width. */
+@container match-tile (max-width: 639px) {
+  .match-tile-main {
+    grid-template-columns: 3.6rem auto minmax(0, 1fr);
+  }
+
+  .match-tile-rosters {
+    display: none;
+  }
+
+  .match-tile-items {
+    grid-template-columns: repeat(7, 22px);
+    grid-template-rows: 22px;
+    grid-column: 1 / -1;
+  }
+}
+
+.match-tile-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem;
+  flex-shrink: 0;
+}
+
+.match-tile-link-btn {
+  white-space: nowrap;
+}
+
+.match-tile-remove-btn {
+  color: #a0a4ae;
+}
+
+.match-tile-remove-btn:hover {
+  color: #ff8080;
+  background: #2a2d38;
+}
+
+/* --- Player page layout: video + stats panel, bookmarks below --- */
+
+.player-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 30%);
+  gap: 1rem;
+  flex: 1;
+  min-height: 0;
+  transition: grid-template-columns 0.15s ease;
+}
+
+/* Collapsing match stats should actually give that width back to the video,
+   not just hide the panel's content while the column keeps its old size --
+   that was the "space doesn't move" complaint. The column shrinks to just
+   its header row's width, and the video's track (minmax(0,1fr)) expands
+   into everything that frees up. */
+.player-body--stats-collapsed {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.player-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* The panel scrolls its own overflow rather than stretching the page, so the
+   video and bookmarks stay where they are however much data a match has. */
+.player-stats-col {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+@media (max-width: 1100px) {
+  .player-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .player-stats-col {
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  /* Stacked, the three regions exceed the viewport, so the page itself
+     scrolls instead of the panel. The video keeps a fixed share of the
+     viewport so it doesn't collapse to nothing on a short window. */
+  .player-view {
+    height: auto;
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
+  }
+
+  .player-stage {
+    flex: none;
+    height: min(56vh, 60vw);
+  }
+}
+
+/* --- Match stats panel --- */
+
+.stats-panel {
+  background: #171a22;
+  border: 1px solid #2f333f;
+  border-radius: 8px;
+  padding: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.stats-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.stats-panel-focus {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.stats-panel-focus-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.stats-panel-focus-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stats-panel-focus-meta {
+  font-size: 0.75rem;
+  color: #a0a4ae;
+}
+
+.stats-panel-viewing {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  color: #d9a45a;
+  background: rgba(217, 164, 90, 0.12);
+  border-radius: 6px;
+  padding: 0.2rem 0.4rem;
+}
+
+.stats-champ-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+/* --- Tabs --- */
+
+.stats-tablist {
+  display: flex;
+  gap: 0.2rem;
+  border-bottom: 1px solid #2f333f;
+  overflow-x: auto;
+}
+
+.stats-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: #a0a4ae;
+  font-size: 0.82rem;
+  padding: 0.45rem 0.6rem;
+  white-space: nowrap;
+}
+
+.stats-tab:hover {
+  background: #1c1f28;
+  color: #e6e6e6;
+}
+
+.stats-tab--active {
+  color: #e6e6e6;
+  border-bottom-color: #4a90d9;
+  font-weight: 600;
+}
+
+.stats-tab:focus-visible {
+  outline: 2px solid #7fb3e0;
+  outline-offset: -2px;
+}
+
+.stats-tabpanel {
+  min-width: 0;
+}
+
+.stats-tab-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.stats-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.stats-section-title {
+  margin: 0;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #a0a4ae;
+}
+
+/* --- Tables (scoreboard / performance) --- */
+
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.76rem;
+}
+
+.stats-table th,
+.stats-table td {
+  text-align: right;
+  padding: 0.28rem 0.35rem;
+  white-space: nowrap;
+}
+
+.stats-table thead th {
+  color: #a0a4ae;
+  font-weight: 600;
+  border-bottom: 1px solid #2f333f;
+}
+
+.stats-table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.stats-cell-player {
+  text-align: left;
+  min-width: 0;
+  max-width: 190px;
+}
+
+.stats-player-btn {
+  background: none;
+  border: none;
+  padding: 0.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: inherit;
+  font-size: 0.76rem;
+  min-width: 0;
+  width: 100%;
+  text-align: left;
+}
+
+.stats-player-btn:hover {
+  background: #22252f;
+}
+
+.stats-player-btn .stats-champ-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+}
+
+.stats-player-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.stats-tag {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  background: rgba(126, 214, 165, 0.18);
+  color: #7ed6a5;
+  border-radius: 3px;
+  padding: 0.05rem 0.25rem;
+  flex-shrink: 0;
+}
+
+.stats-row--owner {
+  background: rgba(217, 164, 90, 0.1) !important;
+}
+
+.stats-row--focus {
+  box-shadow: inset 2px 0 0 #4a90d9;
+}
+
+.scoreboard-team {
+  border: 1px solid #2f333f;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.scoreboard-team-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: #1c1f28;
+}
+
+.scoreboard-team-totals {
+  font-weight: 400;
+  color: #a0a4ae;
+  font-size: 0.72rem;
+}
+
+/* --- Performance bars --- */
+
+.stats-bar-cell {
+  min-width: 3.4rem;
+  /* Column gap: keeps neighbouring bars visibly apart. */
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  vertical-align: middle;
+}
+
+.stats-bar-value {
+  display: block;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+
+/* Faint track behind every bar, so each cell reads as its own meter with a
+   defined start and end -- previously the bars were bottom-aligned across
+   the whole row with no gap or backing, which made them look like one
+   continuous line. */
+.stats-bar-track {
+  display: block;
+  height: 4px;
+  margin-top: 2px;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.stats-bar {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  min-width: 1px;
+}
+
+.stats-bar--blue {
+  background: #4a90d9;
+}
+
+.stats-bar--red {
+  background: #d9534f;
+}
+
+.stats-sort-btn {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  padding: 0.1rem 0.2rem;
+  border-radius: 4px;
+}
+
+.stats-sort-btn:hover {
+  background: #22252f;
+  color: #e6e6e6;
+}
+
+.stats-sort-btn--active {
+  color: #7fb3e0;
+  font-weight: 700;
+}
+
+/* --- Build tab --- */
+
+.rune-trees {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.6rem;
+}
+
+.rune-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.rune-tree-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #7d818c;
+}
+
+.rune-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  background: #1c1f28;
+  border: 1px solid #2f333f;
+  border-radius: 6px;
+  padding: 0.35rem 0.45rem;
+  min-width: 0;
+}
+
+.rune-row-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.rune-row-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #0f1117;
+  flex-shrink: 0;
+}
+
+.rune-row-icon--placeholder {
+  border: 1px dashed #3b3f4a;
+}
+
+.rune-row-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rune-row-vars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  padding-left: 1.7rem;
+}
+
+.rune-row-empty {
+  padding-left: 1.7rem;
+  font-size: 0.7rem;
+  color: #6b6f7a;
+}
+
+.rune-var {
+  font-size: 0.72rem;
+  color: #c4c8d1;
+}
+
+.rune-var-label {
+  color: #a0a4ae;
+}
+
+.rune-var-value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.rune-var-unlabeled {
+  font-size: 0.65rem;
+  color: #d9a45a;
+  border-bottom: 1px dotted #d9a45a;
+  cursor: help;
+}
+
+.skill-order {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.skill-order-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.skill-order-key {
+  width: 1.1rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #a0a4ae;
+  flex-shrink: 0;
+}
+
+.skill-order-cells {
+  display: grid;
+  grid-template-columns: repeat(18, minmax(0, 1fr));
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.skill-order-cell {
+  aspect-ratio: 1;
+  background: #14161d;
+  border: 1px solid #2f333f;
+  border-radius: 3px;
+  font-size: 0.55rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #7d818c;
+}
+
+.skill-order-cell--taken {
+  background: #3b6ea5;
+  border-color: #4a90d9;
+  color: #fff;
+  font-weight: 700;
+}
+
+.item-build {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.item-build-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.item-build-icons {
+  display: flex;
+  gap: 0.15rem;
+}
+
+.item-build-slot {
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  background: #0f1117;
+  border: 1px solid #2f333f;
+  overflow: hidden;
+}
+
+.item-build-slot img {
+  width: 100%;
+  height: 100%;
+}
+
+.item-build-time {
+  font-size: 0.65rem;
+  color: #a0a4ae;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Graphs tab --- */
+
+.graph-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.graph-metric-tabs,
+.insight-group-tabs {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.graph-metric-btn {
+  background: #1c1f28;
+  border: 1px solid #2f333f;
+  color: #a0a4ae;
+  font-size: 0.74rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 5px;
+}
+
+.graph-metric-btn--active {
+  background: #3b6ea5;
+  border-color: #4a90d9;
+  color: #fff;
+  font-weight: 600;
+}
+
+.graph-player-picker {
+  display: flex;
+  gap: 0.2rem;
+  flex-wrap: wrap;
+}
+
+.graph-player-btn {
+  background: #14161d;
+  border: 1px solid #2f333f;
+  border-radius: 5px;
+  padding: 1px;
+  width: 26px;
+  height: 26px;
+  opacity: 0.45;
+}
+
+.graph-player-btn img {
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  display: block;
+}
+
+.graph-player-btn--active {
+  opacity: 1;
+  border-color: #4a90d9;
+  box-shadow: 0 0 0 1px #4a90d9;
+}
+
+.graph-svg {
+  width: 100%;
+  height: auto;
+  background: #14161d;
+  border: 1px solid #2f333f;
+  border-radius: 6px;
+}
+
+.graph-gridline {
+  stroke: #262a35;
+  stroke-width: 1;
+}
+
+.graph-axis-label {
+  fill: #7d818c;
+  font-size: 9px;
+}
+
+.graph-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.graph-hover-line {
+  stroke: #7fb3e0;
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.graph-marker-line--playback {
+  stroke: #e6e6e6;
+  stroke-width: 1.5;
+}
+
+.graph-marker-line--bookmark {
+  stroke: #d9a45a;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+.graph-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  font-size: 0.72rem;
+  color: #c4c8d1;
+}
+
+.graph-readout-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.graph-readout-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.graph-table-details summary {
+  font-size: 0.74rem;
+  color: #9fb8d9;
+  cursor: pointer;
+}
+
+.graph-table-details[open] {
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+/* --- Insights gauges --- */
+
+.gauge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+  gap: 0.6rem;
+}
+
+.gauge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  text-align: center;
+  min-width: 0;
+}
+
+.gauge-ring-wrap {
+  position: relative;
+  width: 64px;
+  height: 64px;
+}
+
+.gauge-ring {
+  width: 100%;
+  height: 100%;
+}
+
+.gauge-track {
+  fill: none;
+  stroke: #262a35;
+  stroke-width: 6;
+}
+
+.gauge-fill {
+  fill: none;
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.gauge-fill--good {
+  stroke: #6fcf9a;
+}
+
+.gauge-fill--bad {
+  stroke: #ee8d89;
+}
+
+.gauge-fill--neutral {
+  stroke: #4a90d9;
+}
+
+.gauge-value {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.gauge-name {
+  font-size: 0.68rem;
+  color: #a0a4ae;
+  line-height: 1.25;
+}
+
+.gauge-estimate {
+  margin-left: 0.2rem;
+  font-size: 0.6rem;
+  color: #d9a45a;
+  border-bottom: 1px dotted #d9a45a;
+  cursor: help;
+}
+
+.gauge--unavailable .gauge-value {
+  color: #6b6f7a;
+}
+
+.gauge-unavailable-note {
+  font-size: 0.6rem;
+  color: #6b6f7a;
+}
+
+/* --- Lane comparison strip --- */
+
+.lane-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  background: #1c1f28;
+  border: 1px solid #2f333f;
+  border-radius: 6px;
+  padding: 0.4rem 0.55rem;
+  flex-wrap: wrap;
+}
+
+.lane-strip-champs {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.lane-strip-champs img {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+}
+
+.lane-strip-vs {
+  font-size: 0.68rem;
+  color: #6b6f7a;
+}
+
+.lane-strip-metrics {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.lane-strip-metric {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.7rem;
+  line-height: 1.3;
+}
+
+.lane-strip-metric-label {
+  color: #7d818c;
+  text-transform: uppercase;
+  font-size: 0.6rem;
+  letter-spacing: 0.03em;
+}
+
+.lane-strip-metric-values {
+  font-variant-numeric: tabular-nums;
+  color: #e6e6e6;
+}
+
+/* --- Objective timeline --- */
+
+.objective-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  border-top: 1px solid #2f333f;
+  padding-top: 0.55rem;
+}
+
+.objective-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.objective-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: #1c1f28;
+  border: 1px solid #2f333f;
+  border-radius: 5px;
+  padding: 0.2rem 0.4rem;
+  font-size: 0.68rem;
+  color: #c4c8d1;
+}
+
+.objective-chip:hover {
+  background: #22252f;
+}
+
+.objective-chip--ours {
+  border-left: 3px solid #4caf7d;
+}
+
+.objective-chip--theirs {
+  border-left: 3px solid #d9534f;
+}
+
+.objective-chip-time {
+  font-variant-numeric: tabular-nums;
+  color: #a0a4ae;
+}
+
+.objective-chip-part {
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  border-radius: 3px;
+  padding: 0.05rem 0.2rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: #7d818c;
+}
+
+.objective-chip--participated .objective-chip-part {
+  background: rgba(126, 214, 165, 0.18);
+  color: #7ed6a5;
+}
+
+/* --- Multikill badges + bookmark colours --- */
+
+.multikill-badge {
+  margin-left: 0.4rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 3px;
+  padding: 0.1rem 0.3rem;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* Each tier gets its own colour so the size of the streak is readable at a
+   glance, escalating from a plain highlight to gold for a pentakill. */
+.multikill-badge--doublekill {
+  background: rgba(127, 179, 224, 0.2);
+  color: #9fcaf0;
+}
+
+.multikill-badge--triplekill {
+  background: rgba(201, 139, 219, 0.22);
+  color: #d9a5e8;
+}
+
+.multikill-badge--quadrakill {
+  background: rgba(238, 141, 137, 0.22);
+  color: #ff9d98;
+}
+
+.multikill-badge--pentakill {
+  background: linear-gradient(90deg, #d9a45a, #f0d089);
+  color: #241a08;
+}
+
+/* Timeline markers and bookmark chips share the tier colours, so a streak
+   reads the same wherever it appears. */
+.player-timeline-marker--doublekill {
+  background: #4a90d9;
+}
+
+.player-timeline-marker--triplekill {
+  background: #c98bdb;
+}
+
+.player-timeline-marker--quadrakill {
+  background: #ee8d89;
+}
+
+.player-timeline-marker--pentakill {
+  background: #f0d089;
+  border-color: #d9a45a;
+}
+
+.player-timeline-marker--inhibitor {
+  background: #d98fb0;
+}
+
+.bookmark-column--multikill .bookmark-column-header {
+  color: #d9a5e8;
+}
+
+.bookmark-chip--doublekill {
+  border-left: 3px solid #4a90d9;
+}
+
+.bookmark-chip--triplekill {
+  border-left: 3px solid #c98bdb;
+}
+
+.bookmark-chip--quadrakill {
+  border-left: 3px solid #ee8d89;
+}
+
+.bookmark-chip--pentakill {
+  border-left: 3px solid #f0d089;
+  background: rgba(240, 208, 137, 0.1);
+}
+
+.bookmark-chip--inhibitor {
+  border-left: 3px solid #d98fb0;
+}
+
+/* --- Active filter toggle (library header) --- */
+
+.filter-toggle--active {
+  background: #3b6ea5 !important;
+  color: #fff;
+  border-color: #4a90d9;
+}
+
+/* --- Clickable app title (home) --- */
+
+.app-home-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  border-radius: 6px;
+  color: inherit;
+  cursor: pointer;
+}
+
+.app-home-btn:hover {
+  background: none;
+}
+
+.app-home-btn:hover h1 {
+  color: #9fcaf0;
+}
+
+.app-home-btn h1 {
+  transition: color 0.15s ease;
+}
+
+/* --- Empty-state escape hatch --- */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  align-items: flex-start;
+  background: #1c1f28;
+  border: 1px solid #2f333f;
+  border-radius: 8px;
+  padding: 1.1rem;
+}
+
+.empty-state-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* --- Player highlights strip --- */
+
+.player-highlights {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+  margin-left: 0.5rem;
+}
+
+.player-highlights-label {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #7d818c;
+  flex-shrink: 0;
+}
+
+.highlight-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: #1c1f28;
+  border: 1px solid #2f333f;
+  border-radius: 5px;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.72rem;
+  color: #e6e6e6;
+  white-space: nowrap;
+}
+
+.highlight-chip:hover {
+  background: #2a2d38;
+}
+
+.highlight-chip-time {
+  font-variant-numeric: tabular-nums;
+  color: #a0a4ae;
+}
+
+/* A solo multikill is the more impressive version, so it gets called out. */
+.highlight-chip-solo {
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #7ed6a5;
+  background: rgba(126, 214, 165, 0.18);
+  border-radius: 3px;
+  padding: 0.05rem 0.24rem;
+}
+
+.highlight-chip--doublekill {
+  border-left: 3px solid #4a90d9;
+}
+
+.highlight-chip--triplekill {
+  border-left: 3px solid #c98bdb;
+}
+
+.highlight-chip--quadrakill {
+  border-left: 3px solid #ee8d89;
+}
+
+.highlight-chip--pentakill {
+  border-left: 3px solid #f0d089;
+  background: rgba(240, 208, 137, 0.12);
+}
+
+/* --- Link scope chooser --- */
+
+.link-scope-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Reuses the add-media option styling, but laid out as rows: the titles
+   carry counts and the hints are full sentences, which read better wide
+   than in narrow columns. */
+.link-scope-options .add-media-option {
+  align-items: flex-start;
+  text-align: left;
+  flex-direction: row;
+  gap: 0.7rem;
+  padding: 0.8rem 0.9rem;
+}
+
+.link-scope-options .add-media-option > svg {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  color: #7fb3e0;
+}
+
+.link-scope-options .add-media-option-title {
+  display: block;
+}
+
+.link-scope-options .add-media-option:disabled {
+  opacity: 0.45;
+}
+
+/* --- Action density curve --- */
+
+.clip-density-fill {
+  fill: rgba(74, 144, 217, 0.28);
+  stroke: #4a90d9;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.player-density {
+  width: 100%;
+  height: 34px;
+  display: block;
+  margin-bottom: -0.4rem;
+  opacity: 0.85;
+}
+
+/* --- Clip editor --- */
+
+.clip-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  background: #171a22;
+  border: 1px solid #3b4a6e;
+  border-radius: 8px;
+  padding: 0.85rem;
+}
+
+.clip-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.clip-editor-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.clip-editor-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.clip-zoom-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.clip-zoom-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.clip-field-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #7d818c;
+}
+
+.clip-scroll-hint {
+  text-transform: none;
+  letter-spacing: normal;
+  opacity: 0.7;
+}
+
+/* The zoomed scrub area. Tall enough to hold the action curve behind the
+   selection, since both compete for the same horizontal space. */
+.clip-track {
+  position: relative;
+  height: 62px;
+  background: #14161d;
+  border: 1px solid #2f333f;
+  border-radius: 6px;
+  overflow: hidden;
+  /* Crosshair signals "click-drag here to select", distinct from the
+     selection's own grab cursor and the handles' ew-resize. */
+  cursor: crosshair;
+  user-select: none;
+}
+
+.clip-density {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.clip-shade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(15, 17, 23, 0.66);
+  pointer-events: none;
+}
+
+/* pointer-events was 'none' here, which is exactly why the selected region
+   couldn't be dragged before -- clicks fell straight through it to the track
+   underneath. Now grabbable so a 50-second clip can be slid into place
+   without having to redo both ends by hand. */
+.clip-selection {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-top: 2px solid #4a90d9;
+  border-bottom: 2px solid #4a90d9;
+  background: rgba(74, 144, 217, 0.12);
+  cursor: grab;
+}
+
+.clip-selection--dragging {
+  cursor: grabbing;
+  background: rgba(74, 144, 217, 0.2);
+}
+
+.clip-selection-duration {
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.68rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: #4a90d9;
+  color: #fff;
+  border-radius: 3px;
+  padding: 0.05rem 0.3rem;
+  white-space: nowrap;
+}
+
+/* Grab handles: wide hit area, thin visual line -- dragging a 2px target is
+   miserable, so the target is 13px while the mark stays precise. */
+.clip-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 13px;
+  margin-left: -6.5px;
+  cursor: ew-resize;
+  background: none;
+  border: none;
+}
+
+.clip-handle::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 5px;
+  width: 3px;
+  background: #e6e6e6;
+  border-radius: 2px;
+}
+
+.clip-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 1px;
+  width: 11px;
+  height: 22px;
+  transform: translateY(-50%);
+  background: #e6e6e6;
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.clip-handle:hover::after,
+.clip-handle--active::after {
+  background: #7fb3e0;
+}
+
+.clip-handle:focus-visible::after {
+  outline: 2px solid #7fb3e0;
+  outline-offset: 2px;
+}
+
+.clip-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: #d9a45a;
+  pointer-events: none;
+}
+
+.clip-tick {
+  position: absolute;
+  bottom: 2px;
+  width: 3px;
+  height: 9px;
+  margin-left: -1.5px;
+  border-radius: 1px;
+  background: #6b6f7a;
+}
+
+.clip-tick--kill {
+  background: #d9534f;
+}
+
+.clip-tick--doublekill {
+  background: #4a90d9;
+}
+
+.clip-tick--triplekill {
+  background: #c98bdb;
+}
+
+.clip-tick--quadrakill {
+  background: #ee8d89;
+}
+
+.clip-tick--pentakill {
+  background: #f0d089;
+  height: 13px;
+}
+
+.clip-tick--death {
+  background: #6b6f7a;
+}
+
+.clip-tick--assist {
+  background: #4a90d9;
+}
+
+.clip-tick--outplay {
+  background: #7ed6a5;
+}
+
+.clip-tick--turret,
+.clip-tick--inhibitor,
+.clip-tick--dragon,
+.clip-tick--baron,
+.clip-tick--herald {
+  background: #d9a45a;
+}
+
+.clip-bounds-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 0.6rem;
+}
+
+.clip-bound {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.clip-bound-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.clip-bound-controls .player-icon-btn {
+  padding: 0.25rem 0.4rem;
+  font-size: 0.75rem;
+  min-width: 1.9rem;
+}
+
+.clip-bound-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 0.9rem;
+  min-width: 4rem;
+  text-align: center;
+}
+
+.clip-output-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.clip-name-field {
+  flex: 1;
+  min-width: 200px;
+}
+
+.clip-output-row select {
+  font-size: 0.8rem;
+}
+
+.clip-result {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  background: rgba(126, 214, 165, 0.1);
+  border: 1px solid rgba(126, 214, 165, 0.3);
+  border-radius: 6px;
+  padding: 0.5rem 0.65rem;
+}
+
+.clip-result .status {
+  word-break: break-all;
+}
+
+/* --- Clips folder setting --- */
+
+.clips-dir-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  background: #1c1f28;
+  border: 1px solid #2f333f;
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+}
+
+.clips-dir-path {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.clips-dir-path code {
+  font-size: 0.82rem;
+  color: #e6e6e6;
+  /* Long paths must wrap rather than force the panel wider. */
+  word-break: break-all;
+}
+
+.clips-dir-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+/* --- Collapsible player sections (match stats / bookmarks) --- */
+
+.player-section-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: none;
+  border: none;
+  color: #e6e6e6;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.3rem 0.1rem;
+  width: 100%;
+  text-align: left;
+}
+
+.player-section-toggle:hover {
+  background: none;
+  color: #9fcaf0;
+}
+
+.player-section-toggle-chevron {
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.player-section-toggle-chevron--collapsed {
+  transform: rotate(-90deg);
+}
+
+/* Collapsed stats column shrinks to just its toggle row instead of leaving
+   an empty panel-shaped gap beside the video -- width now comes from the
+   parent grid switching to `auto` for this column (see
+   .player-body--stats-collapsed), this only needs to stop scrolling/
+   claiming height once there's no panel content left to scroll. */
+.player-stats-col--collapsed {
+  overflow: visible;
+  min-width: 0;
+  width: max-content;
+}
+
+.player-bookmarks-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
