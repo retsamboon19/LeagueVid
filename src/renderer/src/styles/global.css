@@ -985,6 +985,17 @@ select:focus {
   border: 1px solid #2f333f;
   border-radius: 8px;
   overflow: hidden;
+  /* A flex child with overflow other than "visible" gets its automatic
+     minimum size forced to 0 (see the CSS flexbox spec on automatic
+     minimum size), which let the parent .library-column--side shrink this
+     panel down to fit the visible area instead of letting it keep its full
+     content height -- and since overflow is hidden, everything past that
+     shrunk height (the Solo button, Lead swing, saved presets, etc.) was
+     silently clipped instead of being reachable by scrolling. flex-shrink:0
+     keeps the panel at its natural full height so the parent's own
+     overflow-y:auto (the same mechanism the match tile list already uses)
+     is what scrolls, not this box clipping itself. */
+  flex-shrink: 0;
 }
 
 .filter-panel-header {
