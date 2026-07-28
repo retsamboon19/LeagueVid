@@ -374,6 +374,19 @@ export interface StatsTeam {
   goldEarned: number
 }
 
+/**
+ * Kills and deaths inside the laning phase, counted from timeline events.
+ *
+ * Riot's challenge data has no early-deaths field (and its
+ * `takedownsFirstXMinutes` blends kills with assists), so "how did the first
+ * 15 minutes go" has to be counted from CHAMPION_KILL events directly.
+ */
+export interface EarlyPhaseStats {
+  kills: number
+  deaths: number
+  assists: number
+}
+
 /** One timeline frame's values for one participant. */
 export interface TimelineParticipantFrame {
   participantId: number
@@ -403,6 +416,8 @@ export interface MatchStats {
   frames: TimelineFrameStats[]
   /** Keyed by participantId. Empty when there's no timeline. */
   heuristicsByParticipant: Record<number, HeuristicStats>
+  /** Laning-phase kills/deaths, keyed by participantId. Empty without a timeline. */
+  earlyPhaseByParticipant: Record<number, EarlyPhaseStats>
   objectives: ObjectiveEvent[]
 }
 

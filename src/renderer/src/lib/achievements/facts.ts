@@ -24,15 +24,6 @@ function challenge(p: StatsParticipant, key: string): number | null {
   return typeof value === 'number' ? value : null
 }
 
-/** First challenge key that's actually present. Riot renames these. */
-function firstChallenge(p: StatsParticipant, keys: string[]): number | null {
-  for (const key of keys) {
-    const value = challenge(p, key)
-    if (value !== null) return value
-  }
-  return null
-}
-
 function safeDivide(numerator: number, denominator: number): number {
   return denominator > 0 ? numerator / denominator : 0
 }
@@ -153,6 +144,7 @@ export function buildMatchFacts({ stats, focus, tags }: BuildFactsArgs): MatchFa
     reportedKp ?? (teamKills > 0 ? (focus.kills + focus.assists) / teamKills : null)
 
   const heuristics = stats.heuristicsByParticipant[focus.participantId]
+  const earlyPhase = stats.earlyPhaseByParticipant?.[focus.participantId]
   const goldSeries = stats.hasTimeline ? teamGoldSeries(stats, focus.teamId) : []
   const phases = csPhases(stats, focus.participantId)
 
@@ -160,10 +152,23 @@ export function buildMatchFacts({ stats, focus, tags }: BuildFactsArgs): MatchFa
     ? tags.filter((t) => t.type === 'towerdive').length
     : null
 
-  const maxLevel = Math.max(...stats.participants.map((p) => p.champLevel))
+  // Strictly highest, not tied-highest: level ties are common (measured in
+  // 64% of games), and "highest level in the game" alongside four other
+  // players at the same level isn't an achievement.
+  const othersMaxLevel = Math.max(
+    0,
+    ...stats.participants
+      .filter((p) => p.participantId !== focus.participantId)
+      .map((p) => p.champLevel)
+  )
   const topDamage = Math.max(...teammates.map((p) => p.damageToChampions))
   const topDamageTaken = Math.max(...teammates.map((p) => p.damageTaken))
   const topVision = Math.max(...teammates.map((p) => p.visionScore))
+  // Strictly most, so a shared top spot doesn't count.
+  const othersTopAssists = Math.max(
+    0,
+    ...teammates.filter((p) => p.participantId !== focus.participantId).map((p) => p.assists)
+  )
 
   return {
     role: focus.teamPosition,
@@ -179,8 +184,8 @@ export function buildMatchFacts({ stats, focus, tags }: BuildFactsArgs): MatchFa
     largestKillingSpree: focus.largestKillingSpree,
     killParticipation,
     soloKills: challenge(focus, 'soloKills'),
-    killsBefore15Min: firstChallenge(focus, ['killsBefore15Minutes', 'takedownsFirst15Minutes']),
-    deathsBefore15Min: challenge(focus, 'deathsBefore15Minutes'),
+    earlyKills: earlyPhase?.kills ?? null,
+    earlyDeaths: earlyPhase?.deaths ?? null,
 
     damageToChampions: focus.damageToChampions,
     damagePerMinute: safeDivide(focus.damageToChampions, durationMinutes),
@@ -192,6 +197,7 @@ export function buildMatchFacts({ stats, focus, tags }: BuildFactsArgs): MatchFa
     damageSelfMitigated: focus.damageSelfMitigated,
     isTopDamageTakenOnTeam: focus.damageTaken >= topDamageTaken && topDamageTaken > 0,
     timeCCingOthers: focus.timeCCingOthers,
+    isTopAssistsOnTeam: focus.assists > othersTopAssists && focus.assists > 0,
 
     cs: focus.cs,
     csPerMinute: safeDivide(focus.cs, durationMinutes),
@@ -232,7 +238,7 @@ export function buildMatchFacts({ stats, focus, tags }: BuildFactsArgs): MatchFa
     shieldedOnTeammates: focus.shieldedOnTeammates,
 
     champLevel: focus.champLevel,
-    isHighestLevelInGame: focus.champLevel >= maxLevel && maxLevel > 0,
+    isHighestLevelInGame: focus.champLevel > othersMaxLevel,
     finalLevelReachedAtMinute: finalLevelMinute(stats, focus.participantId, focus.champLevel),
 
     teamGoldDiff: (myTeam?.goldEarned ?? 0) - (enemyTeam?.goldEarned ?? 0),

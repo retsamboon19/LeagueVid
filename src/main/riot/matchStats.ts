@@ -1,4 +1,5 @@
 import type {
+  EarlyPhaseStats,
   ItemPurchaseGroup,
   MatchStats,
   MatchStatsResult,
@@ -209,6 +210,41 @@ function extractObjectives(
   return objectives.sort((a, b) => a.timestampMs - b.timestampMs)
 }
 
+/** End of the laning phase, for early-game splits. */
+const EARLY_PHASE_END_MS = 15 * 60 * 1000
+
+/**
+ * Kills/deaths/assists inside the laning phase for every participant.
+ *
+ * Counted from CHAMPION_KILL events because Riot's challenge data has no
+ * early-deaths equivalent, and its `takedownsFirstXMinutes` mixes kills and
+ * assists into one number -- which can't answer "did this player die a lot
+ * early", the thing worth surfacing.
+ */
+function extractEarlyPhase(
+  frames: TimelineFrameDto[],
+  participantIds: number[]
+): Record<number, EarlyPhaseStats> {
+  const result: Record<number, EarlyPhaseStats> = {}
+  for (const id of participantIds) result[id] = { kills: 0, deaths: 0, assists: 0 }
+
+  for (const frame of frames) {
+    for (const event of frame.events ?? []) {
+      if (event.type !== 'CHAMPION_KILL') continue
+      if (event.timestamp > EARLY_PHASE_END_MS) continue
+
+      const killerId = event.killerId ?? 0
+      if (killerId > 0 && result[killerId]) result[killerId].kills++
+      if (event.victimId && result[event.victimId]) result[event.victimId].deaths++
+      for (const assistId of event.assistingParticipantIds ?? []) {
+        if (result[assistId]) result[assistId].assists++
+      }
+    }
+  }
+
+  return result
+}
+
 function extractFrames(timeline: MatchTimelineDto): TimelineFrameStats[] {
   return (timeline.info?.frames ?? []).map((frame) => {
     const participantFrames = frame.participantFrames ?? {}
@@ -371,6 +407,12 @@ export function getMatchStats(args: GetMatchStatsArgs): MatchStatsResult {
     frames: timeline && hasTimeline ? extractFrames(timeline) : [],
     heuristicsByParticipant: hasTimeline
       ? analyzeAllParticipants(
+          frames,
+          participants.map((p) => p.participantId)
+        )
+      : {},
+    earlyPhaseByParticipant: hasTimeline
+      ? extractEarlyPhase(
           frames,
           participants.map((p) => p.participantId)
         )

@@ -135,9 +135,8 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     group: 'kill_volume',
     priority: 60,
     icon: 'sunrise',
-    condition: (f, t) =>
-      f.killsBefore15Min !== null && f.killsBefore15Min >= t.combat.earlyKills,
-    describe: (f) => `You were already ahead early, with ${f.killsBefore15Min} kills before 15 minutes.`
+    condition: (f, t) => f.earlyKills !== null && f.earlyKills >= t.combat.earlyKills,
+    describe: (f) => `You were already ahead early, with ${f.earlyKills} kills inside the laning phase.`
   },
   {
     id: 'crowd_control',
@@ -146,7 +145,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     group: 'damage',
     priority: 52,
     icon: 'snowflake',
-    condition: (f, t) => f.timeCCingOthers >= t.combat.ccSeconds,
+    condition: (f, t) => f.timeCCingOthers >= forRole(t.combat.ccSeconds, f.role),
     describe: (f) => `You held enemies still for ${n(f.timeCCingOthers)} seconds in total.`
   },
 
@@ -158,7 +157,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     group: 'damage',
     priority: 72,
     icon: 'flame',
-    condition: (f, t) => f.damageToChampions >= t.damage.highDamage,
+    condition: (f, t) => f.damageToChampions >= forRole(t.damage.highDamage, f.role),
     describe: (f) => `You did tons of damage, ${n(f.damageToChampions)} to be exact.`
   },
   {
@@ -182,7 +181,8 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     priority: 64,
     icon: 'shield',
     condition: (f, t) =>
-      f.damageSelfMitigated >= t.survival.selfMitigated && f.deaths <= t.survival.fewDeaths + 2,
+      f.damageSelfMitigated >= t.survival.selfMitigated &&
+      f.deaths <= forRole(t.survival.fewDeaths, f.role) + 2,
     describe: (f) => `You absorbed ${n(f.damageSelfMitigated)} damage and still only died ${f.deaths} times.`
   },
   {
@@ -219,7 +219,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
       f.midCsPerMinute !== null &&
       f.earlyCsPerMinute - f.midCsPerMinute <= t.farming.consistentDropoff,
     describe: (f) =>
-      `Farming is about consistency, and you didn't fall off at all. ${n(f.cs)} CS by the end.`
+      `You farmed harder after laning, ${one(f.earlyCsPerMinute ?? 0)} up to ${one(f.midCsPerMinute ?? 0)} CS per minute. ${n(f.cs)} in total.`
   },
   {
     id: 'early_farmer',
@@ -250,7 +250,8 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     priority: 54,
     icon: 'wheat',
     condition: (f, t) =>
-      f.csDiffVsLaneOpponent !== null && f.csDiffVsLaneOpponent >= t.farming.csLead,
+      f.csDiffVsLaneOpponent !== null &&
+      f.csDiffVsLaneOpponent >= forRole(t.farming.csLead, f.role),
     describe: (f) => `You out-farmed your lane opponent by ${n(f.csDiffVsLaneOpponent ?? 0)} CS.`
   },
   {
@@ -260,7 +261,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     group: 'gold_rate',
     priority: 50,
     icon: 'coins',
-    condition: (f, t) => f.goldPerMinute >= t.farming.goldPerMinute,
+    condition: (f, t) => f.goldPerMinute >= forRole(t.farming.goldPerMinute, f.role),
     describe: (f) => `You made so much gold this game, about ${n(f.goldPerMinute)} per minute.`
   },
 
@@ -306,7 +307,8 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     priority: 57,
     icon: 'target',
     condition: (f, t) =>
-      f.dragonTakedowns !== null && f.dragonTakedowns >= t.objectives.dragonTakedowns,
+      f.dragonTakedowns !== null &&
+      f.dragonTakedowns >= forRole(t.objectives.dragonTakedowns, f.role),
     describe: (f) => `You were there for ${f.dragonTakedowns} dragon takedowns.`
   },
   {
@@ -316,11 +318,9 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     group: 'objectives',
     priority: 53,
     icon: 'crown',
-    condition: (f) => f.baronTakedowns !== null && f.baronTakedowns >= 1,
-    describe: (f) =>
-      f.baronTakedowns === 1
-        ? 'You helped take Baron Nashor down.'
-        : `You were in on ${f.baronTakedowns} Baron takedowns.`
+    condition: (f, t) =>
+      f.baronTakedowns !== null && f.baronTakedowns >= t.objectives.baronTakedowns,
+    describe: (f) => `You were in on ${f.baronTakedowns} Baron takedowns.`
   },
 
   // --- Vision ---------------------------------------------------------------
@@ -331,7 +331,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     group: 'vision_denied',
     priority: 61,
     icon: 'eye-off',
-    condition: (f, t) => f.wardsKilled >= t.vision.wardsKilled,
+    condition: (f, t) => f.wardsKilled >= forRole(t.vision.wardsKilled, f.role),
     describe: (f) => `Enemy wards aren't safe when you're around. You cleared ${f.wardsKilled} of them.`
   },
   {
@@ -362,7 +362,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     group: 'control_wards',
     priority: 47,
     icon: 'eye',
-    condition: (f, t) => f.controlWardsPlaced >= t.vision.controlWards,
+    condition: (f, t) => f.controlWardsPlaced >= forRole(t.vision.controlWards, f.role),
     describe: (f) => `${f.controlWardsPlaced} control wards. Denying vision is winning vision.`
   },
 
@@ -384,7 +384,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     group: 'deaths',
     priority: 63,
     icon: 'heart',
-    condition: (f, t) => f.deaths > 0 && f.deaths <= t.survival.fewDeaths,
+    condition: (f, t) => f.deaths > 0 && f.deaths <= forRole(t.survival.fewDeaths, f.role),
     describe: (f) => `Hard to pin down. You only died ${f.deaths} times all game.`
   },
   {
@@ -421,6 +421,17 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     describe: (f) => `You shielded your teammates for ${n(f.shieldedOnTeammates)} damage.`
   },
   {
+    id: 'assist_king',
+    title: 'Enabler',
+    category: 'positive',
+    group: 'support_utility',
+    priority: 55,
+    icon: 'users',
+    condition: (f, t) =>
+      f.isTopAssistsOnTeam && f.assists >= forRole(t.support.topAssistsMin, f.role),
+    describe: (f) => `${f.assists} assists, more than anyone else on your team.`
+  },
+  {
     id: 'team_player',
     title: 'Team Player',
     category: 'positive',
@@ -428,7 +439,8 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     priority: 67,
     icon: 'users',
     condition: (f, t) =>
-      f.killParticipation !== null && f.killParticipation >= t.combat.highKillParticipation,
+      f.killParticipation !== null &&
+      f.killParticipation >= forRole(t.combat.highKillParticipation, f.role),
     describe: (f) => `You were in on ${pct(f.killParticipation ?? 0)} of your team's kills.`
   },
   {
@@ -442,7 +454,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     condition: (f, t) =>
       f.teamfightParticipation !== null &&
       f.teamfightCount >= t.combat.teamfightMinSample &&
-      f.teamfightParticipation >= t.combat.teamfightParticipation,
+      f.teamfightParticipation >= forRole(t.combat.teamfightParticipation, f.role),
     describe: (f) =>
       `You turned up for about ${pct(f.teamfightParticipation ?? 0)} of the ${f.teamfightCount} teamfights.`
   },
@@ -486,6 +498,23 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
         : `Highest level in the game, reaching ${f.champLevel}.`
   },
 
+  // --- Fallback -------------------------------------------------------------
+  // Shown only when no other positive qualified (see isFallback). Calibration
+  // found won games that produced nothing but criticism, which reads badly for
+  // a game the player actually won.
+  {
+    id: 'win_secured',
+    title: 'Got It Done',
+    category: 'positive',
+    group: 'outcome',
+    priority: 5,
+    icon: 'trophy',
+    isFallback: true,
+    condition: (f) => f.win,
+    describe: (f) =>
+      `Not your cleanest game, but you closed it out. ${f.kills}/${f.deaths}/${f.assists} in ${Math.round(f.durationMinutes)} minutes.`
+  },
+
   // ---------------------------------------------------------------- negative
   // Tone matters here: these read as observations, not insults. They belong
   // under a "Things to improve" heading, the way the reference layout does.
@@ -496,7 +525,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     group: 'deaths',
     priority: 85,
     icon: 'skull',
-    condition: (f, t) => f.deaths >= t.survival.manyDeaths,
+    condition: (f, t) => f.deaths >= forRole(t.survival.manyDeaths, f.role),
     describe: (f) => `${f.deaths} deaths is a lot to give away. Worth a rewatch to spot the pattern.`
   },
   {
@@ -518,8 +547,8 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     priority: 60,
     icon: 'sunrise',
     condition: (f, t) =>
-      f.deathsBefore15Min !== null && f.deathsBefore15Min >= t.survival.earlyDeaths,
-    describe: (f) => `${f.deathsBefore15Min} deaths before 15 minutes put you behind early.`
+      f.earlyDeaths !== null && f.earlyDeaths >= forRole(t.survival.earlyDeaths, f.role),
+    describe: (f) => `${f.earlyDeaths} deaths inside the laning phase put you behind early.`
   },
   {
     id: 'time_dead',
@@ -539,9 +568,12 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     group: 'control_wards',
     priority: 58,
     icon: 'eye-off',
-    condition: (f) => f.controlWardsPlaced === 0,
-    describe: () =>
-      "You didn't place a single control ward. They're cheap, and vision wins fights before they start."
+    // Gated on game length: in a short game there genuinely isn't spare gold,
+    // and flagging it reads as unfair. By 25 minutes there's no excuse.
+    condition: (f, t) =>
+      f.controlWardsPlaced === 0 && f.durationMinutes >= t.vision.negativeMinMinutes,
+    describe: (f) =>
+      `${Math.round(f.durationMinutes)} minutes and not one control ward. They're cheap, and they win fights before they start.`
   },
   {
     id: 'low_vision',
@@ -560,7 +592,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     group: 'vision_denied',
     priority: 40,
     icon: 'eye-off',
-    condition: (f) => f.wardsKilled === 0,
+    condition: (f, t) => f.wardsKilled === 0 && f.durationMinutes >= t.vision.negativeMinMinutes,
     describe: () => "You didn't clear a single enemy ward, so they saw you coming all game."
   },
   {
@@ -595,7 +627,8 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     priority: 54,
     icon: 'trending-down',
     condition: (f, t) =>
-      f.csDiffVsLaneOpponent !== null && f.csDiffVsLaneOpponent <= -t.farming.csDeficit,
+      f.csDiffVsLaneOpponent !== null &&
+      f.csDiffVsLaneOpponent <= -forRole(t.farming.csDeficit, f.role),
     describe: (f) =>
       `Your lane opponent finished ${n(Math.abs(f.csDiffVsLaneOpponent ?? 0))} CS ahead of you.`
   },
@@ -607,7 +640,8 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     priority: 62,
     icon: 'users',
     condition: (f, t) =>
-      f.killParticipation !== null && f.killParticipation < t.combat.lowKillParticipation,
+      f.killParticipation !== null &&
+      f.killParticipation < forRole(t.combat.lowKillParticipation, f.role),
     describe: (f) => `You were only in on ${pct(f.killParticipation ?? 0)} of your team's kills.`
   },
   {
@@ -621,7 +655,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     condition: (f, t) =>
       f.teamfightParticipation !== null &&
       f.teamfightCount >= t.combat.teamfightMinSample &&
-      f.teamfightParticipation < t.combat.lowTeamfightParticipation,
+      f.teamfightParticipation < forRole(t.combat.lowTeamfightParticipation, f.role),
     describe: (f) =>
       `You were in about ${pct(f.teamfightParticipation ?? 0)} of the ${f.teamfightCount} teamfights your team took.`
   },

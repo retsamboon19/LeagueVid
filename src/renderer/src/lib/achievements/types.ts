@@ -40,8 +40,10 @@ export interface MatchFacts {
   /** 0..1. Falls back to a manual calculation when Riot omits the challenge. */
   killParticipation: number | null
   soloKills: number | null
-  killsBefore15Min: number | null
-  deathsBefore15Min: number | null
+  /** Kills inside the laning phase (first 15 min), from timeline events. */
+  earlyKills: number | null
+  /** Deaths inside the laning phase. Riot reports no equivalent challenge. */
+  earlyDeaths: number | null
 
   // --- Damage ---
   damageToChampions: number
@@ -53,6 +55,8 @@ export interface MatchFacts {
   damageSelfMitigated: number
   isTopDamageTakenOnTeam: boolean
   timeCCingOthers: number
+  /** Most assists on the team, and not tied for it. */
+  isTopAssistsOnTeam: boolean
 
   // --- Economy ---
   cs: number
@@ -103,6 +107,7 @@ export interface MatchFacts {
 
   // --- Levels ---
   champLevel: number
+  /** Strictly higher than every other player, not merely tied for the lead. */
   isHighestLevelInGame: boolean
   /** Minute at which the player reached their final level. */
   finalLevelReachedAtMinute: number | null
@@ -175,6 +180,12 @@ export interface AchievementDefinition {
   icon: string
   /** True when the rule leans on LeagueVid's estimates rather than Riot data. */
   isEstimate?: boolean
+  /**
+   * Only used when nothing else in its category qualified. Exists so a won
+   * game can never render as a wall of criticism with no positives at all,
+   * which measured at ~2% of games before this existed.
+   */
+  isFallback?: boolean
   /**
    * Whether the achievement applies. Must return false (not throw) when a
    * needed fact is null.

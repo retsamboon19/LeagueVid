@@ -1,6 +1,7 @@
 import { ACHIEVEMENTS } from './definitions'
 import { THRESHOLDS } from './thresholds'
 import type {
+  AchievementCategory,
   AchievementDefinition,
   EarnedAchievement,
   MatchFacts,
@@ -85,11 +86,26 @@ export function selectAchievements(
 ): SelectedAchievements {
   const all = evaluateAchievements(facts, thresholds, definitions)
 
+  const fallbackIds = new Set(
+    definitions.filter((d) => d.isFallback).map((d) => d.id)
+  )
+  const isFallback = (a: EarnedAchievement): boolean => fallbackIds.has(a.id)
+
   // Dedupe positives and negatives separately, so a group with both a good
   // and a bad rule (e.g. `farming`) can still contribute to each side. The
   // conditions themselves are mutually exclusive, so this can't double up.
-  const positives = dedupeByGroup(all.filter((a) => a.category === 'positive')).sort(byPriorityDesc)
-  const negatives = dedupeByGroup(all.filter((a) => a.category === 'negative')).sort(byPriorityDesc)
+  //
+  // Fallbacks are held back and only spliced in when their category came up
+  // empty, so they never displace a real achievement.
+  const rank = (category: AchievementCategory): EarnedAchievement[] => {
+    const matching = all.filter((a) => a.category === category)
+    const real = dedupeByGroup(matching.filter((a) => !isFallback(a))).sort(byPriorityDesc)
+    if (real.length > 0) return real
+    return dedupeByGroup(matching.filter(isFallback)).sort(byPriorityDesc)
+  }
+
+  const positives = rank('positive')
+  const negatives = rank('negative')
 
   const { maxTotal, maxNegativeWhenWinning, maxNegativeWhenLosing, minPositive } =
     thresholds.display

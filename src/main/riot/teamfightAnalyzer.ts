@@ -24,8 +24,26 @@ const FIGHT_GAP_MS = 10_000
 // happening in different lanes.
 const FIGHT_RADIUS = 2_000
 
-/** Distinct champions involved for a group to count as a teamfight. */
-const MIN_TEAMFIGHT_PARTICIPANTS = 3
+// What makes an engagement a "teamfight".
+//
+// These count every champion involved, victims included -- which is why the
+// bar isn't 3. A single kill with one assist involves three champions (killer,
+// assister, victim), so a bar of 3 would classify every routine 2v1 gank as a
+// teamfight and report ~30 of them per game. Requiring five champions overall
+// AND at least two per side means both teams genuinely committed bodies.
+const MIN_TEAMFIGHT_PARTICIPANTS = 5
+const MIN_TEAMFIGHT_PER_SIDE = 2
+
+function isTeamfight(engagement: Engagement): boolean {
+  if (engagement.participantIds.size < MIN_TEAMFIGHT_PARTICIPANTS) return false
+  let blue = 0
+  let red = 0
+  for (const id of engagement.participantIds) {
+    if (teamOf(id) === 100) blue++
+    else red++
+  }
+  return blue >= MIN_TEAMFIGHT_PER_SIDE && red >= MIN_TEAMFIGHT_PER_SIDE
+}
 
 interface KillEvent {
   timestampMs: number
@@ -144,9 +162,7 @@ export function analyzeParticipant(
 ): HeuristicStats {
   const myTeam = teamOf(participantId)
 
-  const teamfights = engagements.filter(
-    (e) => e.participantIds.size >= MIN_TEAMFIGHT_PARTICIPANTS
-  )
+  const teamfights = engagements.filter(isTeamfight)
   const duels = engagements.filter((e) => e.participantIds.size === 2)
 
   let teamfightsWon = 0
