@@ -8,6 +8,7 @@ import type {
   MatchActionTimelineResult,
   MatchPickerSummary,
   MatchRosterData,
+  MatchStats,
   MatchStatsResult,
   PlatformRouting,
   PlayerPreferences,
@@ -99,6 +100,15 @@ const api = {
       matchId: string
       accounts: Array<{ platform: PlatformRouting; puuid: string }>
     }): Promise<MatchStatsResult> => ipcRenderer.invoke('riot:getMatchStats', args),
+
+    // Timeline-free stats for many matches at once, keyed by videoId. Backs the
+    // achievement chips on the library's match tiles; skipping timelines is
+    // what makes it cheap enough to call for a whole library.
+    getMatchStatsBulkLite: (args: {
+      matches: Array<{ videoId: number; matchId: string }>
+      accounts: Array<{ platform: PlatformRouting; puuid: string }>
+    }): Promise<Record<number, MatchStats>> =>
+      ipcRenderer.invoke('riot:getMatchStatsBulkLite', args),
 
     // Match-wide action events (every player, not just the linked account) --
     // backs the action-density curve so it reflects the whole game.

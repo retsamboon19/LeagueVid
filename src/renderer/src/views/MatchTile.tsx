@@ -1,5 +1,7 @@
+import { useMemo } from 'react'
 import { Check, Clock, Star, X } from 'lucide-react'
-import type { MatchRosterData, RosterParticipant, VideoRow } from '../../../shared/types'
+import type { MatchRosterData, MatchStats, RosterParticipant, VideoRow } from '../../../shared/types'
+import { buildLiteMatchFacts, buildMatchFacts, selectAchievements } from '../lib/achievements'
 import {
   useDDragon,
   championIconUrl,
@@ -11,6 +13,16 @@ import {
 
 interface MatchTileProps {
   video: VideoRow
+  /**
+   * Timeline-free stats for this match, when the library has loaded them.
+   *
+   * Optional on purpose: chips render immediately from the row's own data and
+   * then sharpen once this arrives, so opening the library never waits on a
+   * bulk cache read. With it, the tile can evaluate the vision, damage and
+   * objective rules too, which is the difference between a chip that says
+   * something and a generic one.
+   */
+  stats?: MatchStats
   // True when every auto-generated bookmark on this video is clamped to
   // 0:00 -- the signature of a video linked to the wrong match (see
   // findVideosWithSuspiciousBookmarks). Surfaced so a bad link can be
@@ -34,6 +46,11 @@ interface MatchTileProps {
 // Item slots always rendered, so the grid keeps a stable shape whether or
 // not the player filled every slot (6 items + trinket).
 const ITEM_SLOT_COUNT = 7
+
+// Chips shown on a tile. The full Achievements tab shows up to six; a tile has
+// far less room and is meant to be scannable at a glance, so it takes the
+// highest-priority few and lets CSS hide any that don't fit the width.
+const TILE_CHIP_LIMIT = 5
 
 function formatDuration(ms: number | null): string {
   if (!ms) return '--:--'
@@ -109,6 +126,7 @@ function RosterColumn({
 
 function MatchTile({
   video,
+  stats,
   suspiciousLink,
   lastViewed,
   selectMode,
@@ -134,7 +152,38 @@ function MatchTile({
         : ((video.kills + video.assists) / video.deaths).toFixed(2)
       : null
 
+  // Kill participation, from the roster snapshot's own team kill total. Shown
+  // as a third stat column so the region has enough content to spread across a
+  // wide tile rather than leaving a gap.
+  const killParticipation = (() => {
+    if (!roster || video.kills === null || video.assists === null) return null
+    const teamKills = roster.allies.reduce((sum, p) => sum + p.kills, 0)
+    if (teamKills <= 0) return null
+    return Math.round(((video.kills + video.assists) / teamKills) * 100)
+  })()
+
   const myItems = roster?.allies.find((p) => p.isMe)?.items ?? []
+
+  // Achievement chips. Uses the bulk stats when the library has them (full rule
+  // coverage bar the timeline ones), and falls back to the row's own data so
+  // chips show up instantly rather than after a round trip.
+  //
+  // Fillers are excluded here: they exist to stop the player page's dedicated
+  // panel from looking broken when it's near-empty, but on a tile a chip has to
+  // mean something. With them on, over half of all tiles led with "Kept Farming"
+  // or "Banked It", which is exactly the noise the panel's real rules avoid. A
+  // tile with nothing notable shows no chips at all.
+  const chips = useMemo(() => {
+    const focus = stats?.participants.find((p) => p.puuid === stats.ownerPuuid)
+    const facts =
+      stats && focus
+        ? buildMatchFacts({ stats, focus })
+        : buildLiteMatchFacts({ video, roster })
+    if (!facts) return []
+
+    const selection = selectAchievements(facts, undefined, undefined, { includeFillers: false })
+    return [...selection.positive, ...selection.negative].slice(0, TILE_CHIP_LIMIT)
+  }, [video, roster, stats])
 
   return (
     <div
@@ -182,16 +231,14 @@ function MatchTile({
           <>
             <div className="match-tile-toprow">
               <span className="match-tile-mode">{friendlyGameMode(video.game_mode)}</span>
-              {video.gold_diff !== null && video.enemy_champion_name && (
+              {/* Gold difference lives in the stat columns now, so this is
+                  just the matchup. */}
+              {video.enemy_champion_name && (
                 <span className="match-tile-meta">
                   vs{' '}
                   {ddragon
                     ? championDisplayName(ddragon, video.enemy_champion_name)
-                    : video.enemy_champion_name}{' '}
-                  <span className={video.gold_diff >= 0 ? 'gold-positive' : 'gold-negative'}>
-                    ({video.gold_diff >= 0 ? '+' : ''}
-                    {video.gold_diff}g)
-                  </span>
+                    : video.enemy_champion_name}
                 </span>
               )}
               <span className="match-tile-meta match-tile-toprow-time">
@@ -257,16 +304,50 @@ function MatchTile({
                 </div>
               </div>
 
+              {/* Stat columns, mirroring a post-game scoreboard: each is its
+                  own cell so this region can spread to absorb the tile's slack
+                  width instead of leaving a gap before the rosters. */}
               <div className="match-tile-region match-tile-stats">
-                <span className="match-tile-kda">{video.kda}</span>
-                <span className="match-tile-stats-secondary">
-                  {kdaRatio && <span>{kdaRatio} KDA</span>}
-                  {csPerMin && (
-                    <span>
-                      {video.cs} CS ({csPerMin}/min)
+                <span className="match-tile-stat">
+                  <span className="match-tile-stat-value match-tile-kda">{video.kda}</span>
+                  {kdaRatio && (
+                    <span className="match-tile-stat-sub">
+                      {kdaRatio} <span className="match-tile-stat-label">KDA</span>
                     </span>
                   )}
                 </span>
+
+                {video.cs !== null && (
+                  <span className="match-tile-stat">
+                    <span className="match-tile-stat-value">
+                      {video.cs}
+                      {csPerMin && <span className="match-tile-stat-rate"> ({csPerMin})</span>}{' '}
+                      <span className="match-tile-stat-label">CS</span>
+                    </span>
+                    {video.gold_diff !== null && (
+                      <span className="match-tile-stat-sub">
+                        <span
+                          className={video.gold_diff >= 0 ? 'gold-positive' : 'gold-negative'}
+                        >
+                          {video.gold_diff >= 0 ? '+' : ''}
+                          {video.gold_diff}g
+                        </span>{' '}
+                        <span className="match-tile-stat-label">vs lane</span>
+                      </span>
+                    )}
+                  </span>
+                )}
+
+                {killParticipation !== null && (
+                  <span className="match-tile-stat">
+                    <span className="match-tile-stat-value match-tile-kp">
+                      {killParticipation}%
+                    </span>
+                    <span className="match-tile-stat-sub">
+                      <span className="match-tile-stat-label">KP</span>
+                    </span>
+                  </span>
+                )}
               </div>
 
               {ddragon && (
@@ -290,7 +371,22 @@ function MatchTile({
                 </div>
               )}
             </div>
+
+            {chips.length > 0 && (
+              <div className="match-tile-chips">
+                {chips.map((chip) => (
+                  <span
+                    key={chip.id}
+                    className={`match-chip match-chip--${chip.category}`}
+                    title={chip.description}
+                  >
+                    {chip.title}
+                  </span>
+                ))}
+              </div>
+            )}
           </>
+
         ) : (
           <div className="match-tile-unlinked">
             <span className="video-name" title={video.file_name}>

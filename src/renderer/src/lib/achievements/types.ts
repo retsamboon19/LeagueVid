@@ -47,7 +47,11 @@ export interface MatchFacts {
 
   // --- Damage ---
   damageToChampions: number
-  damagePerMinute: number
+  /**
+   * Null when damage isn't known for this source (see liteFacts.ts). Must be
+   * null rather than 0, or the "low damage" rule fires on missing data.
+   */
+  damagePerMinute: number | null
   /** 0..1 share of the team's total champion damage. */
   teamDamageShare: number | null
   isTopDamageOnTeam: boolean
@@ -90,17 +94,19 @@ export interface MatchFacts {
   heraldTakedowns: number | null
 
   // --- Vision ---
-  visionScore: number
-  visionPerMinute: number
+  // All nullable: vision is absent from the tile-level data source, and a 0
+  // here would wrongly earn "placed no control wards" / "Blind Spot".
+  visionScore: number | null
+  visionPerMinute: number | null
   wardsPlaced: number
-  wardsKilled: number
-  controlWardsPlaced: number
+  wardsKilled: number | null
+  controlWardsPlaced: number | null
   isTopVisionOnTeam: boolean
 
   // --- Survival and support ---
   totalTimeSpentDead: number
-  /** 0..1 share of the match spent waiting to respawn. */
-  deadTimeShare: number
+  /** 0..1 share of the match spent waiting to respawn. Null when unknown. */
+  deadTimeShare: number | null
   longestTimeSpentLiving: number
   healsOnTeammates: number
   shieldedOnTeammates: number

@@ -805,6 +805,14 @@ select:focus {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+  /* Caps how wide a single match row can get. Past roughly this width a
+     one-line row stops being scannable -- the eye has to travel too far
+     between the champion and the roster -- and no amount of redistributing
+     slack fixes that. On a 2K display the rows stay dense and centred instead
+     of stretching thin. Below this it has no effect at all. */
+  max-width: 1700px;
+  width: 100%;
+  margin-inline: auto;
 }
 
 .match-tile {
@@ -1764,16 +1772,35 @@ select:focus {
   white-space: nowrap;
 }
 
+/* Column order is fixed so every tile in the list lines up vertically:
+   result, champion+loadout, stats, items, rosters.
+
+   Which column absorbs slack is the whole story for dead space. Previously the
+   roster column was the flexible one, so on a wide window the extra width
+   became empty space inside the roster grid -- champion names are short, so
+   nothing filled it. Now the STAT column is flexible and spreads its cells
+   across whatever width exists, while the roster is sized to its content and
+   sits flush right. Widening the window spreads real information instead of
+   opening a gap. */
 .match-tile-main {
   display: grid;
   grid-template-columns:
-    /* result */ 3.6rem
+    /* result */ auto
     /* champion + loadout */ auto
-    /* KDA */ minmax(5.5rem, auto)
+    /* stats: absorbs slack, but the track is capped rather than the item.
+       Capping the item would leave it short inside a stretched track, which
+       is just the same hole one column over. Past the cap, space-between
+       would fling three small cells to opposite ends, so the residual goes
+       to the roster track instead. */ minmax(8rem, 32rem)
     /* items */ auto
-    /* rosters (flexible) */ minmax(0, 1fr);
+    /* rosters: takes whatever is left, content pinned right. min-content as
+       the floor, not 0 -- with a 0 floor this track got crushed at middling
+       widths and the right-aligned roster spilled back over the items. */
+    minmax(min-content, 1fr);
   align-items: center;
-  gap: 0.9rem;
+  /* Gap scales with the tile so a narrow tile stays tight and a wide one
+     breathes, without needing a breakpoint for every step. */
+  gap: clamp(0.6rem, 1.6cqi, 1.8rem);
   min-width: 0;
 }
 
@@ -1790,6 +1817,7 @@ select:focus {
   flex-direction: column;
   align-items: flex-start;
   gap: 0.1rem;
+  min-width: 3.2rem;
 }
 
 .match-tile-result {
@@ -1844,23 +1872,56 @@ select:focus {
   background: #171a22;
 }
 
+/* The flexible region. space-between spreads the stat cells to the full width
+   of whatever the grid hands over, which is what keeps a maximised window from
+   showing a gulf of nothing between the items and the rosters. */
 .match-tile-stats {
   display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(0.5rem, 1.2cqi, 1.6rem);
   min-width: 0;
 }
 
-.match-tile-stats .match-tile-kda {
-  font-weight: 700;
-  font-size: 0.95rem;
+.match-tile-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  white-space: nowrap;
 }
 
-.match-tile-stats-secondary {
-  display: flex;
-  gap: 0.6rem;
-  font-size: 0.75rem;
+.match-tile-stat-value {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #e8eaf0;
+  font-variant-numeric: tabular-nums;
+}
+
+.match-tile-stat-sub {
+  font-size: 0.72rem;
   color: #a0a4ae;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Units and captions sit quieter than the numbers they annotate, so the row
+   reads as values first. */
+.match-tile-stat-label {
+  color: #7d818c;
+  font-weight: 600;
+}
+
+.match-tile-stat-rate {
+  color: #6fcf9a;
+  font-weight: 600;
+}
+
+.match-tile-stats .match-tile-kda {
+  font-size: 1rem;
+}
+
+.match-tile-kp {
+  color: #e8629b;
 }
 
 .match-tile-items {
@@ -1870,10 +1931,14 @@ select:focus {
   gap: 0.2rem;
 }
 
+/* Fixed-width columns rather than 1fr: the roster no longer absorbs slack, so
+   its columns are sized to hold a champion name and stop. Two equal columns
+   keep the ally/enemy split aligned across every tile. */
 .match-tile-rosters {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 0 1rem;
+  grid-template-columns: repeat(2, minmax(0, 6.5rem));
+  gap: 0 0.8rem;
+  justify-self: end;
 }
 
 .match-tile-roster-list {
@@ -1909,84 +1974,165 @@ select:focus {
   min-width: 0;
 }
 
-/* Extra-wide: on a maximised window the fixed-size regions leave a gulf of
-   dead space before the rosters. Growing the artwork and letting names take
-   more room fills it with something useful instead of stretching one column.
-   Sizes step up rather than scaling fluidly, so icons stay on pixel bounds
-   and don't look soft. */
-@container match-tile (min-width: 1200px) {
-  .match-tile-main {
-    grid-template-columns:
-      4.2rem
-      auto
-      minmax(7rem, auto)
-      auto
-      minmax(0, 1fr);
-    gap: 1.4rem;
-  }
+/* --- Achievement chips ---
+   The bottom row of the tile. Chips flow left to right and wrap, so this row
+   soaks up leftover width at any size and the tile never ends in a blank
+   band. Ordered highest-priority first by the engine, so when the row wraps or
+   overflows it's the least interesting chip that goes. */
+.match-tile-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
 
+.match-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.5rem;
+  border-radius: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+  background: #262a36;
+  border: 1px solid #343846;
+  color: #c4c8d1;
+}
+
+.match-chip--positive {
+  border-color: #2f5f4a;
+  background: rgba(78, 207, 160, 0.12);
+  color: #7fdcb4;
+}
+
+.match-chip--negative {
+  border-color: #6b3450;
+  background: rgba(232, 98, 155, 0.12);
+  color: #f095b9;
+}
+
+/* Filler chips describe a routine game rather than an accomplishment, so they
+   sit visually quieter than an earned one -- the colour still says whether it's
+   good or bad, just with less shout. */
+.match-chip--filler {
+  background: #22252f;
+  border-color: #343846;
+  color: #9aa0ad;
+}
+
+/* Extra-wide (maximised on a 1440p/2K display). Sizes step up rather than
+   scaling fluidly, so icons land on whole pixels and stay crisp. The stat
+   region is already fluid, so this only grows the fixed-size pieces. */
+@container match-tile (min-width: 1100px) {
   .match-tile-champ-icon {
-    width: 54px;
-    height: 54px;
+    width: 52px;
+    height: 52px;
   }
 
   .match-tile-mini-icon {
-    width: 22px;
-    height: 22px;
+    width: 21px;
+    height: 21px;
   }
 
   .match-tile-items {
-    grid-template-columns: repeat(4, 28px);
-    grid-template-rows: repeat(2, 28px);
+    grid-template-columns: repeat(4, 26px);
+    grid-template-rows: repeat(2, 26px);
   }
 
   .match-tile-item-slot {
-    width: 28px;
-    height: 28px;
+    width: 26px;
+    height: 26px;
   }
 
   .match-tile-rosters {
-    gap: 0 2rem;
+    grid-template-columns: repeat(2, minmax(0, 7.5rem));
+    gap: 0 1.2rem;
   }
 
   .match-tile-roster-row {
-    font-size: 0.78rem;
+    font-size: 0.76rem;
   }
 
   .match-tile-roster-row .match-tile-roster-icon {
-    width: 19px;
-    height: 19px;
+    width: 18px;
+    height: 18px;
+  }
+
+  .match-tile-stat-value {
+    font-size: 0.94rem;
   }
 
   .match-tile-stats .match-tile-kda {
-    font-size: 1.05rem;
+    font-size: 1.08rem;
   }
 
   .match-tile-body {
-    padding: 0.9rem 1.2rem;
+    padding: 0.85rem 1.1rem;
+  }
+
+  .match-chip {
+    font-size: 0.75rem;
+    padding: 0.22rem 0.6rem;
+  }
+}
+
+/* Very wide (2K and beyond, or a collapsed sidebar). One more step up, plus a
+   third roster-name width, so the extra pixels go into legibility. */
+@container match-tile (min-width: 1500px) {
+  .match-tile-champ-icon {
+    width: 58px;
+    height: 58px;
+  }
+
+  .match-tile-items {
+    grid-template-columns: repeat(4, 30px);
+    grid-template-rows: repeat(2, 30px);
+  }
+
+  .match-tile-item-slot {
+    width: 30px;
+    height: 30px;
+  }
+
+  .match-tile-rosters {
+    grid-template-columns: repeat(2, minmax(0, 9rem));
+  }
+
+  .match-tile-roster-row {
+    font-size: 0.8rem;
+  }
+
+  .match-tile-stat-value {
+    font-size: 1rem;
   }
 }
 
 /* Medium: not enough room for names beside ten champion icons, so the
-   rosters collapse to icon rows. */
+   rosters collapse to two compact icon columns. */
 @container match-tile (max-width: 899px) {
   .match-tile-roster-name {
     display: none;
   }
 
+  .match-tile-rosters {
+    grid-template-columns: repeat(2, auto);
+    gap: 0 0.5rem;
+  }
+
   .match-tile-roster-list {
-    flex-direction: row;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(2, auto);
     gap: 0.2rem;
   }
 }
 
-/* Narrow: drop the rosters entirely and let the items wrap to one row.
-   Result and KDA are kept -- they're the two things worth scanning at any
-   width. */
+/* Narrow: drop the rosters and let the items take one row. Result, stats and
+   chips are kept -- they're what's worth scanning at any width. */
 @container match-tile (max-width: 639px) {
   .match-tile-main {
-    grid-template-columns: 3.6rem auto minmax(0, 1fr);
+    grid-template-columns: auto auto minmax(0, 1fr);
+    row-gap: 0.5rem;
   }
 
   .match-tile-rosters {
@@ -1997,6 +2143,32 @@ select:focus {
     grid-template-columns: repeat(7, 22px);
     grid-template-rows: 22px;
     grid-column: 1 / -1;
+    justify-content: start;
+  }
+}
+
+/* Very narrow (a split window or a small laptop). The stat cells stop
+   spreading and pack left, since space-between across a tiny width pushes them
+   into the tile's edges. */
+@container match-tile (max-width: 460px) {
+  .match-tile-main {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  /* Full-width own row, and allowed to wrap. The stat cells are nowrap, so
+     squeezed into a half-width column they overflowed the tile instead of
+     compressing. */
+  .match-tile-stats {
+    grid-column: 1 / -1;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 0.4rem 0.9rem;
+    max-width: none;
+  }
+
+  /* Two chips is about all that fits legibly at this width. */
+  .match-tile-chips .match-chip:nth-child(n + 3) {
+    display: none;
   }
 }
 

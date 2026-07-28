@@ -318,7 +318,8 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     group: 'vision_denied',
     priority: 61,
     icon: 'eye-off',
-    condition: (f, t) => f.wardsKilled >= forRole(t.vision.wardsKilled, f.role),
+    condition: (f, t) =>
+      f.wardsKilled !== null && f.wardsKilled >= forRole(t.vision.wardsKilled, f.role),
     describe: (f) => `Enemy wards aren't safe when you're around. You cleared ${f.wardsKilled} of them.`
   },
   {
@@ -329,8 +330,10 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     priority: 59,
     icon: 'eye',
     condition: (f, t) =>
-      f.isTopVisionOnTeam && f.visionScore >= forRole(t.vision.strongVisionScore, f.role),
-    describe: (f) => `Best vision score on your team at ${n(f.visionScore)}.`
+      f.isTopVisionOnTeam &&
+      f.visionScore !== null &&
+      f.visionScore >= forRole(t.vision.strongVisionScore, f.role),
+    describe: (f) => `Best vision score on your team at ${n(f.visionScore ?? 0)}.`
   },
   {
     id: 'ward_provider',
@@ -349,7 +352,9 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     group: 'control_wards',
     priority: 47,
     icon: 'eye',
-    condition: (f, t) => f.controlWardsPlaced >= forRole(t.vision.controlWards, f.role),
+    condition: (f, t) =>
+      f.controlWardsPlaced !== null &&
+      f.controlWardsPlaced >= forRole(t.vision.controlWards, f.role),
     describe: (f) => `${f.controlWardsPlaced} control wards. Denying vision is winning vision.`
   },
 
@@ -584,8 +589,9 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     priority: 16,
     icon: 'eye',
     isFiller: true,
-    condition: (f, t) => f.wardsPlaced >= forRole(t.filler.someWards, f.role),
-    describe: (f) => `${f.wardsPlaced} wards placed, for a ${n(f.visionScore)} vision score.`
+    condition: (f, t) =>
+      f.visionScore !== null && f.wardsPlaced >= forRole(t.filler.someWards, f.role),
+    describe: (f) => `${f.wardsPlaced} wards placed, for a ${n(f.visionScore ?? 0)} vision score.`
   },
   {
     id: 'held_on',
@@ -682,9 +688,9 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     group: 'deaths',
     priority: 55,
     icon: 'clock',
-    condition: (f, t) => f.deadTimeShare >= t.survival.deadTimeShare,
+    condition: (f, t) => f.deadTimeShare !== null && f.deadTimeShare >= t.survival.deadTimeShare,
     describe: (f) =>
-      `You spent ${Math.round(f.totalTimeSpentDead / 60)} minutes dead, about ${pct(f.deadTimeShare)} of the game.`
+      `You spent ${Math.round(f.totalTimeSpentDead / 60)} minutes dead, about ${pct(f.deadTimeShare ?? 0)} of the game.`
   },
   {
     id: 'no_control',
@@ -697,6 +703,8 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     // and flagging it reads as unfair. By 25 minutes there's no excuse.
     condition: (f, t) =>
       f.controlWardsPlaced === 0 && f.durationMinutes >= t.vision.negativeMinMinutes,
+    // controlWardsPlaced === 0 is deliberately an identity check, so a null
+    // (vision unavailable) can't satisfy it.
     describe: (f) =>
       `${Math.round(f.durationMinutes)} minutes and not one control ward. They're cheap, and they win fights before they start.`
   },
@@ -707,8 +715,9 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     group: 'vision_provided',
     priority: 50,
     icon: 'eye-off',
-    condition: (f, t) => f.visionScore < forRole(t.vision.weakVisionScore, f.role),
-    describe: (f) => `Vision score of ${n(f.visionScore)} is light for your role.`
+    condition: (f, t) =>
+      f.visionScore !== null && f.visionScore < forRole(t.vision.weakVisionScore, f.role),
+    describe: (f) => `Vision score of ${n(f.visionScore ?? 0)} is light for your role.`
   },
   {
     id: 'nothing_cleared',
@@ -717,6 +726,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     group: 'vision_denied',
     priority: 40,
     icon: 'eye-off',
+    // Identity check on 0 so a null (vision unavailable) can't satisfy it.
     condition: (f, t) => f.wardsKilled === 0 && f.durationMinutes >= t.vision.negativeMinMinutes,
     describe: () => "You didn't clear a single enemy ward, so they saw you coming all game."
   },
@@ -791,8 +801,10 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     group: 'damage',
     priority: 51,
     icon: 'crosshair',
-    condition: (f, t) => f.damagePerMinute < forRole(t.damage.lowDamagePerMinute, f.role),
-    describe: (f) => `${n(f.damagePerMinute)} damage per minute is low for your role.`
+    condition: (f, t) =>
+      f.damagePerMinute !== null &&
+      f.damagePerMinute < forRole(t.damage.lowDamagePerMinute, f.role),
+    describe: (f) => `${n(f.damagePerMinute ?? 0)} damage per minute is low for your role.`
   },
   {
     id: 'no_objectives',

@@ -7,8 +7,10 @@ import {
   getLeadSwingBulk,
   getMatchActionTimeline,
   getMatchStats,
+  getMatchStatsBulkLite,
   type GetLeadSwingBulkArgs,
-  type GetMatchStatsArgs
+  type GetMatchStatsArgs,
+  type GetMatchStatsBulkArgs
 } from './matchStats'
 import { requestBackfillNow } from './backfillService'
 import { listCachedMatchEntries } from '../db/repository'
@@ -217,6 +219,13 @@ export function registerRiotHandlers(): void {
   // VODs must not consume Riot API budget (see matchStats.ts).
   ipcMain.handle('riot:getMatchStats', (_e, args: GetMatchStatsArgs) => {
     return getMatchStats(args)
+  })
+
+  // Timeline-free stats for many matches at once, backing the achievement
+  // chips on the library's match tiles. Skipping timelines is what makes this
+  // affordable for a whole library in one call -- see getMatchStatsBulkLite.
+  ipcMain.handle('riot:getMatchStatsBulkLite', (_e, args: GetMatchStatsBulkArgs) => {
+    return getMatchStatsBulkLite(args)
   })
 
   // Match-wide action events (all 10 players) for the "where's the action"

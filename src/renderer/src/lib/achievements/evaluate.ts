@@ -80,11 +80,25 @@ function byPriorityDesc(a: EarnedAchievement, b: EarnedAchievement): number {
  * pointing at. The positive floor works the other way -- even a bad game
  * should surface something that went right, if anything qualified.
  */
+export interface SelectOptions {
+  /**
+   * Whether the filler tier may pad a thin result out to minTotal.
+   *
+   * True (default) for the player page's Achievements panel, where a nearly
+   * empty tab looks broken. False for the library's match-tile chips, where
+   * space is tight and a chip has to earn its place -- with fillers on, more
+   * than half of all tiles led with a routine observation.
+   */
+  includeFillers?: boolean
+}
+
 export function selectAchievements(
   facts: MatchFacts,
   thresholds: Thresholds = THRESHOLDS,
-  definitions: AchievementDefinition[] = ACHIEVEMENTS
+  definitions: AchievementDefinition[] = ACHIEVEMENTS,
+  options: SelectOptions = {}
 ): SelectedAchievements {
+  const { includeFillers = true } = options
   const all = evaluateAchievements(facts, thresholds, definitions)
 
   const byCategory = (category: AchievementCategory, filler: boolean): EarnedAchievement[] =>
@@ -126,7 +140,7 @@ export function selectAchievements(
   //
   // Groups already represented are skipped: "Farm Machine" and "Kept Farming"
   // both describe the same farming, and showing both looks like padding.
-  if (standoutCount < minTotal) {
+  if (includeFillers && standoutCount < minTotal) {
     const usedGroups = new Set(
       [...chosenPositives, ...chosenNegatives].map((a) => a.group)
     )

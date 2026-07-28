@@ -9,7 +9,8 @@
 // copy without editing the defaults.
 
 export { buildMatchFacts } from './facts'
-export { evaluateAchievements, selectAchievements } from './evaluate'
+export { buildLiteMatchFacts } from './liteFacts'
+export { evaluateAchievements, selectAchievements, type SelectOptions } from './evaluate'
 export { ACHIEVEMENTS } from './definitions'
 export { THRESHOLDS, forRole } from './thresholds'
 export type {

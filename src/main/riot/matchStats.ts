@@ -379,6 +379,84 @@ function resolveMatchAndTimeline(
   return { match, timeline: readCachedTimeline(platform, args.matchId), ownerPuuid }
 }
 
+/**
+ * Same as resolveMatchAndTimeline but deliberately skips the timeline read.
+ *
+ * Timelines are 1-5 MB each; the library's match tiles need participant totals
+ * and challenge data only, and reading a timeline per tile would make opening
+ * the library crawl.
+ */
+function resolveMatchOnly(
+  args: GetMatchStatsArgs
+): { match: MatchDto; ownerPuuid: string } | null {
+  let match: MatchDto | null = null
+
+  for (const account of args.accounts) {
+    const candidate = readCachedMatch(account.platform, args.matchId)
+    if (candidate) {
+      match = candidate
+      break
+    }
+  }
+
+  if (!match) return null
+
+  const participantPuuids = new Set((match.info.participants ?? []).map((p) => p.puuid))
+  const ownerPuuid =
+    args.accounts.find((a) => participantPuuids.has(a.puuid))?.puuid ??
+    args.accounts[0]?.puuid ??
+    ''
+
+  return { match, ownerPuuid }
+}
+
+export interface GetMatchStatsBulkArgs {
+  matches: Array<{ videoId: number; matchId: string }>
+  accounts: Array<{ platform: PlatformRouting; puuid: string }>
+}
+
+/**
+ * Timeline-free MatchStats for many matches at once, keyed by videoId.
+ *
+ * Powers the achievement chips on the library's match tiles. Everything the
+ * chips need lives in the match DTO (participant totals plus Riot's challenge
+ * data), so this skips timelines entirely -- which is what makes it viable to
+ * call for a whole library at once. `hasTimeline` is false on every entry, so
+ * the timeline-fed achievement rules stay silent rather than reading zeros.
+ *
+ * Matches not yet cached are simply absent from the result; the caller renders
+ * those tiles without chips.
+ */
+export function getMatchStatsBulkLite(args: GetMatchStatsBulkArgs): Record<number, MatchStats> {
+  const result: Record<number, MatchStats> = {}
+
+  for (const { videoId, matchId } of args.matches) {
+    const resolved = resolveMatchOnly({ matchId, accounts: args.accounts })
+    if (!resolved) continue
+
+    const { match, ownerPuuid } = resolved
+    const participants = match.info.participants ?? []
+
+    result[videoId] = {
+      matchId,
+      gameDurationSeconds: match.info.gameDuration,
+      gameMode: match.info.gameMode,
+      gameVersion: match.info.gameVersion,
+      hasTimeline: false,
+      ownerPuuid,
+      teams: buildTeams(participants),
+      // Empty frames, so the per-participant timeline extractions are skipped.
+      participants: participants.map((p) => toStatsParticipant(p, [])),
+      frames: [],
+      heuristicsByParticipant: {},
+      earlyPhaseByParticipant: {},
+      objectives: []
+    }
+  }
+
+  return result
+}
+
 export function getMatchStats(args: GetMatchStatsArgs): MatchStatsResult {
   const resolved = resolveMatchAndTimeline(args)
   if (!resolved) {

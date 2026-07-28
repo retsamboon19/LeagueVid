@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, CheckSquare, DatabaseBackup, Link2, Plus, Trash2, Wrench } from 'lucide-react'
-import type { AppSettings, LeadSwingResult, VideoRow } from '../../../shared/types'
+import type { AppSettings, LeadSwingResult, MatchStats, VideoRow } from '../../../shared/types'
 import BackfillStatusBanner from './BackfillStatusBanner'
 import MatchLinker from './MatchLinker'
 import VideoPlayer from './VideoPlayer'
@@ -105,6 +105,9 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
   // that's too heavy to do unconditionally on every refresh().
   const [leadSwingByVideo, setLeadSwingByVideo] = useState<Map<number, LeadSwingResult>>(new Map())
   const [leadSwingLoading, setLeadSwingLoading] = useState(false)
+  // Timeline-free match stats per videoId, feeding the tiles' achievement
+  // chips. Cached here rather than per tile so the whole list costs one call.
+  const [statsByVideo, setStatsByVideo] = useState<Map<number, MatchStats>>(new Map())
   const [lastViewedVideoId, setLastViewedVideoId] = useState<number | null>(loadLastViewedVideoId)
   const [showRemoveAllConfirm, setShowRemoveAllConfirm] = useState(false)
   const [removingAll, setRemovingAll] = useState(false)
@@ -366,6 +369,47 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.leadSwingGoldThreshold, videos])
+
+  // Loads timeline-free stats for every linked video, so the tiles can show
+  // achievement chips backed by the real rule engine.
+  //
+  // Deliberately fire-and-forget with no loading state: the tiles render chips
+  // from their own row data first and sharpen once this lands, so the list is
+  // never blocked on it. Videos already covered are skipped, so linking a new
+  // video only fetches that one.
+  useEffect(() => {
+    if (settings.accounts.length === 0) return
+    const uncovered = videos.filter(
+      (v) => v.match_id !== null && !statsByVideo.has(v.id)
+    )
+    if (uncovered.length === 0) return
+
+    let cancelled = false
+    window.api.riot
+      .getMatchStatsBulkLite({
+        matches: uncovered.map((v) => ({ videoId: v.id, matchId: v.match_id as string })),
+        accounts: settings.accounts.map((a) => ({ platform: a.platform, puuid: a.puuid }))
+      })
+      .then((result) => {
+        if (cancelled) return
+        setStatsByVideo((prev) => {
+          const next = new Map(prev)
+          for (const [videoId, data] of Object.entries(result)) {
+            next.set(Number(videoId), data)
+          }
+          return next
+        })
+      })
+      .catch(() => {
+        // Chips are a nice-to-have; a failure here just means the tiles keep
+        // using their own row data.
+      })
+
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videos, settings.accounts.length])
 
   // "Go home": clear anything that could be hiding the list, and leave any
   // drilled-into view. Skipped on first mount (nothing to reset yet).
@@ -660,6 +704,7 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
               <MatchTile
                 key={video.id}
                 video={video}
+                stats={statsByVideo.get(video.id)}
                 suspiciousLink={suspiciousVideoIds.has(video.id)}
                 lastViewed={video.id === lastViewedVideoId}
                 selectMode={selectMode}
