@@ -485,21 +485,159 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
         : `Highest level in the game, reaching ${f.champLevel}.`
   },
 
-  // --- Fallback -------------------------------------------------------------
-  // Shown only when no other positive qualified (see isFallback). Calibration
-  // found won games that produced nothing but criticism, which reads badly for
-  // a game the player actually won.
+  // --- Filler tier ----------------------------------------------------------
+  // Held in reserve and only used to pad a panel up to display.minTotal (see
+  // isFiller). An unremarkable game qualifies for very little, and a one-tile
+  // panel looks broken rather than honest -- but the answer can't be to lower
+  // the real bars, or every game becomes a participation trophy.
+  //
+  // These are worded as descriptions rather than praise, and their bars sit
+  // around the measured median, so they stay true. `gold_summary` is
+  // unconditional and acts as the guaranteed floor.
   {
     id: 'win_secured',
     title: 'Got It Done',
     category: 'positive',
     group: 'outcome',
-    priority: 5,
+    priority: 30,
     icon: 'trophy',
-    isFallback: true,
+    isFiller: true,
     condition: (f) => f.win,
     describe: (f) =>
       `Not your cleanest game, but you closed it out. ${f.kills}/${f.deaths}/${f.assists} in ${Math.round(f.durationMinutes)} minutes.`
+  },
+  {
+    id: 'decent_kda',
+    title: 'Traded Well',
+    category: 'positive',
+    group: 'kda',
+    priority: 28,
+    icon: 'swords',
+    isFiller: true,
+    condition: (f, t) => f.kdaRatio !== null && f.kdaRatio >= t.filler.decentKda,
+    describe: (f) =>
+      `A ${(f.kdaRatio ?? 0).toFixed(1)} KDA at ${f.kills}/${f.deaths}/${f.assists}. You came out ahead on trades.`
+  },
+  {
+    id: 'objective_presence',
+    title: 'Showed Up',
+    category: 'positive',
+    group: 'objectives',
+    priority: 26,
+    icon: 'target',
+    isFiller: true,
+    condition: (f) => f.objectiveParticipations !== null && f.objectiveParticipations >= 1,
+    describe: (f) =>
+      `You were in on ${f.objectiveParticipations} major ${f.objectiveParticipations === 1 ? 'objective' : 'objectives'}.`
+  },
+  {
+    id: 'steady_farm',
+    title: 'Kept Farming',
+    category: 'positive',
+    group: 'farming',
+    priority: 24,
+    icon: 'wheat',
+    isFiller: true,
+    condition: (f, t) => f.csPerMinute >= forRole(t.filler.steadyCsPerMinute, f.role),
+    describe: (f) => `A steady ${one(f.csPerMinute)} CS per minute, ${n(f.cs)} in total.`
+  },
+  {
+    id: 'fair_damage_share',
+    title: 'Pulled Your Weight',
+    category: 'positive',
+    group: 'damage',
+    priority: 22,
+    icon: 'crosshair',
+    isFiller: true,
+    condition: (f, t) =>
+      f.teamDamageShare !== null && f.teamDamageShare >= t.filler.fairDamageShare,
+    describe: (f) =>
+      `${n(f.damageToChampions)} damage to champions, ${pct(f.teamDamageShare ?? 0)} of your team's total.`
+  },
+  {
+    id: 'soaked_pressure',
+    title: 'Took the Hits',
+    category: 'positive',
+    group: 'tanking',
+    priority: 20,
+    icon: 'shield',
+    isFiller: true,
+    condition: (f, t) => f.damageTaken >= t.filler.someDamageTaken,
+    describe: (f) => `You absorbed ${n(f.damageTaken)} damage over the game.`
+  },
+  {
+    id: 'structure_chip',
+    title: 'Chipped In',
+    category: 'positive',
+    group: 'structures',
+    priority: 18,
+    icon: 'hammer',
+    isFiller: true,
+    condition: (f, t) => f.damageToTurrets >= t.filler.someStructureDamage,
+    describe: (f) => `${n(f.damageToTurrets)} damage to enemy structures.`
+  },
+  {
+    id: 'some_vision',
+    title: 'Eyes Out',
+    category: 'positive',
+    group: 'vision_provided',
+    priority: 16,
+    icon: 'eye',
+    isFiller: true,
+    condition: (f, t) => f.wardsPlaced >= forRole(t.filler.someWards, f.role),
+    describe: (f) => `${f.wardsPlaced} wards placed, for a ${n(f.visionScore)} vision score.`
+  },
+  {
+    id: 'held_on',
+    title: 'Held On',
+    category: 'positive',
+    group: 'longevity',
+    priority: 14,
+    icon: 'heart',
+    isFiller: true,
+    condition: (f, t) => f.longestTimeSpentLiving >= t.filler.decentLongestLife,
+    describe: (f) =>
+      `Your longest run without dying was ${Math.round(f.longestTimeSpentLiving / 60)} minutes.`
+  },
+  {
+    id: 'took_fights',
+    title: 'In the Mix',
+    category: 'positive',
+    group: 'participation',
+    priority: 12,
+    icon: 'users',
+    isFiller: true,
+    condition: (f, t) =>
+      f.killParticipation !== null && f.killParticipation >= t.filler.someKillParticipation,
+    describe: (f) => `You had a hand in ${pct(f.killParticipation ?? 0)} of your team's kills.`
+  },
+  {
+    id: 'even_lane',
+    title: 'Even Lane',
+    category: 'positive',
+    group: 'lane_economy',
+    priority: 10,
+    icon: 'wheat',
+    isFiller: true,
+    condition: (f, t) =>
+      f.csDiffVsLaneOpponent !== null &&
+      Math.abs(f.csDiffVsLaneOpponent) <= t.filler.evenLaneCsMargin,
+    describe: (f) =>
+      `You and your lane opponent finished within ${Math.abs(f.csDiffVsLaneOpponent ?? 0)} CS of each other.`
+  },
+  {
+    id: 'gold_summary',
+    title: 'Banked It',
+    category: 'positive',
+    group: 'gold_rate',
+    priority: 8,
+    icon: 'coins',
+    isFiller: true,
+    // Unconditional: the guaranteed floor that keeps minTotal reachable even
+    // in a short, uneventful game where nothing else applies.
+    condition: () => true,
+    describe: (f) =>
+      `${n(f.goldEarned)} gold earned, about ${n(f.goldPerMinute)} per minute.`
   },
 
   // ---------------------------------------------------------------- negative

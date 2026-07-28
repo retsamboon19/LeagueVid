@@ -161,6 +161,8 @@ export type AchievementGroup =
   | 'outcome'
   | 'levels'
   | 'tanking'
+  | 'longevity'
+  | 'kda'
 
 export interface AchievementDefinition {
   /** Stable id. Persisted/filtered against, so never rename in place. */
@@ -181,11 +183,17 @@ export interface AchievementDefinition {
   /** True when the rule leans on LeagueVid's estimates rather than Riot data. */
   isEstimate?: boolean
   /**
-   * Only used when nothing else in its category qualified. Exists so a won
-   * game can never render as a wall of criticism with no positives at all,
-   * which measured at ~2% of games before this existed.
+   * Routine observation rather than an accomplishment, held in reserve and
+   * only pulled in when a panel would otherwise fall below
+   * THRESHOLDS.display.minTotal.
+   *
+   * Fillers exist because an unremarkable game genuinely qualifies for very
+   * little, and a panel with one tile looks broken rather than honest. Their
+   * bars sit around the median instead of the p90, so they stay factually
+   * true -- they just describe the game rather than praise it. A filler can
+   * never displace a real achievement.
    */
-  isFallback?: boolean
+  isFiller?: boolean
   /**
    * Whether the achievement applies. Must return false (not throw) when a
    * needed fact is null.
@@ -204,6 +212,7 @@ export interface EarnedAchievement {
   priority: number
   icon: string
   isEstimate: boolean
+  isFiller: boolean
 }
 
 export interface SelectedAchievements {
@@ -211,6 +220,8 @@ export interface SelectedAchievements {
   negative: EarnedAchievement[]
   /** Everything that qualified, before the display cap trimmed it down. */
   totalEarned: number
+  /** Real (non-filler) achievements that qualified, for diagnostics. */
+  standoutCount: number
 }
 
 /** Per-role values for stats where a flat number would be meaningless. */

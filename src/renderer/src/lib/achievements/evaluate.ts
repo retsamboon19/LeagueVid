@@ -32,7 +32,8 @@ function toEarned(def: AchievementDefinition, facts: MatchFacts): EarnedAchievem
     group: def.group,
     priority: def.priority,
     icon: def.icon,
-    isEstimate: def.isEstimate ?? false
+    isEstimate: def.isEstimate ?? false,
+    isFiller: def.isFiller ?? false
   }
 }
 
@@ -86,28 +87,18 @@ export function selectAchievements(
 ): SelectedAchievements {
   const all = evaluateAchievements(facts, thresholds, definitions)
 
-  const fallbackIds = new Set(
-    definitions.filter((d) => d.isFallback).map((d) => d.id)
-  )
-  const isFallback = (a: EarnedAchievement): boolean => fallbackIds.has(a.id)
+  const byCategory = (category: AchievementCategory, filler: boolean): EarnedAchievement[] =>
+    dedupeByGroup(all.filter((a) => a.category === category && a.isFiller === filler)).sort(
+      byPriorityDesc
+    )
 
-  // Dedupe positives and negatives separately, so a group with both a good
+  // Real achievements are deduped per category, so a group holding both a good
   // and a bad rule (e.g. `farming`) can still contribute to each side. The
   // conditions themselves are mutually exclusive, so this can't double up.
-  //
-  // Fallbacks are held back and only spliced in when their category came up
-  // empty, so they never displace a real achievement.
-  const rank = (category: AchievementCategory): EarnedAchievement[] => {
-    const matching = all.filter((a) => a.category === category)
-    const real = dedupeByGroup(matching.filter((a) => !isFallback(a))).sort(byPriorityDesc)
-    if (real.length > 0) return real
-    return dedupeByGroup(matching.filter(isFallback)).sort(byPriorityDesc)
-  }
+  const positives = byCategory('positive', false)
+  const negatives = byCategory('negative', false)
 
-  const positives = rank('positive')
-  const negatives = rank('negative')
-
-  const { maxTotal, maxNegativeWhenWinning, maxNegativeWhenLosing, minPositive } =
+  const { maxTotal, minTotal, maxNegativeWhenWinning, maxNegativeWhenLosing, minPositive } =
     thresholds.display
 
   const negativeCap = facts.win ? maxNegativeWhenWinning : maxNegativeWhenLosing
@@ -122,12 +113,37 @@ export function selectAchievements(
 
   const leftover = maxTotal - chosenPositives.length - chosenNegatives.length
   if (leftover > 0) {
-    chosenPositives.push(...positives.slice(chosenPositives.length, chosenPositives.length + leftover))
+    chosenPositives.push(
+      ...positives.slice(chosenPositives.length, chosenPositives.length + leftover)
+    )
+  }
+
+  const standoutCount = chosenPositives.length + chosenNegatives.length
+
+  // Top up to minTotal from the filler tier. Fillers are added strictly after
+  // real achievements and never displace one, so a strong game never shows a
+  // routine tile while a quiet game still has enough to read as a summary.
+  //
+  // Groups already represented are skipped: "Farm Machine" and "Kept Farming"
+  // both describe the same farming, and showing both looks like padding.
+  if (standoutCount < minTotal) {
+    const usedGroups = new Set(
+      [...chosenPositives, ...chosenNegatives].map((a) => a.group)
+    )
+    const fillers = byCategory('positive', true).filter((a) => !usedGroups.has(a.group))
+
+    for (const filler of fillers) {
+      if (chosenPositives.length + chosenNegatives.length >= minTotal) break
+      if (usedGroups.has(filler.group)) continue
+      usedGroups.add(filler.group)
+      chosenPositives.push(filler)
+    }
   }
 
   return {
     positive: chosenPositives,
     negative: chosenNegatives,
-    totalEarned: positives.length + negatives.length
+    totalEarned: positives.length + negatives.length,
+    standoutCount
   }
 }

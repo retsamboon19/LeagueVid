@@ -310,6 +310,9 @@ async function main(): Promise<void> {
   let positiveTotal = 0
   let negativeTotal = 0
   let emptyPanels = 0
+  let belowMinTotal = 0
+  let fillerTotal = 0
+  const tileCountHistogram = new Map<number, number>()
 
   for (const { match, path } of matches) {
     const queueId = match.info.queueId
@@ -356,10 +359,14 @@ async function main(): Promise<void> {
     // Tower dives come from stored tags, which this harness has no access to,
     // so that one rule can't be calibrated here. Noted in the output.
     const selection = selectAchievements(facts)
-    tileTotal += selection.positive.length + selection.negative.length
+    const shown = selection.positive.length + selection.negative.length
+    tileTotal += shown
     positiveTotal += selection.positive.length
     negativeTotal += selection.negative.length
-    if (selection.totalEarned === 0) emptyPanels++
+    fillerTotal += [...selection.positive, ...selection.negative].filter((a) => a.isFiller).length
+    if (shown === 0) emptyPanels++
+    if (shown < 4) belowMinTotal++
+    tileCountHistogram.set(shown, (tileCountHistogram.get(shown) ?? 0) + 1)
 
     for (const a of [...selection.positive, ...selection.negative]) {
       // Count what actually got DISPLAYED separately from what qualified.
@@ -405,7 +412,17 @@ async function main(): Promise<void> {
       `(${(positiveTotal / Math.max(1, evaluated)).toFixed(2)} positive, ` +
       `${(negativeTotal / Math.max(1, evaluated)).toFixed(2)} negative)`
   )
-  console.log(`Matches with nothing at all: ${emptyPanels}\n`)
+  console.log(`Average filler tiles used: ${(fillerTotal / Math.max(1, evaluated)).toFixed(2)}`)
+  console.log(`Matches with nothing at all: ${emptyPanels}`)
+  console.log(`Matches below 4 tiles: ${belowMinTotal}`)
+  console.log(
+    'Tile count spread: ' +
+      [...tileCountHistogram.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([count, n]) => `${count}:${n}`)
+        .join('  ') +
+      '\n'
+  )
 
   // --- Firing rates -------------------------------------------------------
   const rows = ACHIEVEMENTS.map((def) => {
@@ -415,6 +432,7 @@ async function main(): Promise<void> {
       id: def.id,
       title: def.title,
       category: def.category,
+      isFiller: def.isFiller ?? false,
       qualifiedPct: (qualified / Math.max(1, evaluated)) * 100,
       shownPct: (shown / Math.max(1, evaluated)) * 100
     }
@@ -430,12 +448,30 @@ async function main(): Promise<void> {
 
   for (const category of ['positive', 'negative'] as const) {
     console.log(`=== ${category.toUpperCase()} rules: qualified % / shown % ===`)
-    const list = rows.filter((r) => r.category === category).sort((a, b) => b.qualifiedPct - a.qualifiedPct)
+    const list = rows
+      .filter((r) => r.category === category && !r.isFiller)
+      .sort((a, b) => b.qualifiedPct - a.qualifiedPct)
     for (const r of list) {
       console.log(
         `${r.id.padEnd(22)} ${r.title.padEnd(26)} ` +
           `${r.qualifiedPct.toFixed(1).padStart(5)}%  ${r.shownPct.toFixed(1).padStart(5)}%` +
           flag(r.qualifiedPct)
+      )
+    }
+    console.log('')
+  }
+
+  // Fillers are reported separately and without the loose/dead flags: a high
+  // qualification rate is the point, since they exist to be available. What
+  // matters for them is the SHOWN column staying low, which proves they aren't
+  // displacing real achievements.
+  const fillers = rows.filter((r) => r.isFiller).sort((a, b) => b.shownPct - a.shownPct)
+  if (fillers.length > 0) {
+    console.log('=== FILLER tier (high qualified % is intended; watch the shown %) ===')
+    for (const r of fillers) {
+      console.log(
+        `${r.id.padEnd(22)} ${r.title.padEnd(26)} ` +
+          `${r.qualifiedPct.toFixed(1).padStart(5)}%  ${r.shownPct.toFixed(1).padStart(5)}%`
       )
     }
     console.log('')

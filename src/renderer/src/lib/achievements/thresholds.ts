@@ -400,10 +400,56 @@ export const THRESHOLDS = {
     throwLead: 5_000
   },
 
+  // --- Filler tier ---
+  // Bars for the routine observations that pad a thin panel out to
+  // display.minTotal. These sit around the measured median rather than the
+  // p90, so they're honest descriptions of an ordinary game rather than
+  // praise. They only ever appear when real achievements ran short.
+  filler: {
+    /** KDA worth mentioning as a positive. Measured median is around 1.6. */
+    decentKda: 1.5,
+    /** CS/min for "kept farming". TOP measured p50. */
+    steadyCsPerMinute: {
+      TOP: 7,
+      JUNGLE: 5.5, // derived
+      MIDDLE: 7, // derived
+      BOTTOM: 7.2, // derived
+      UTILITY: 0.8, // derived
+      DEFAULT: 6.5
+    } as RoleScaled,
+    /** Share of team damage worth mentioning. Measured p25-p50. */
+    fairDamageShare: 0.15,
+    /** Wards placed worth mentioning. TOP measured p25. */
+    someWards: {
+      TOP: 6,
+      JUNGLE: 7, // derived
+      MIDDLE: 6, // derived
+      BOTTOM: 6, // derived
+      UTILITY: 12, // derived
+      DEFAULT: 7
+    } as RoleScaled,
+    /** Structure damage worth mentioning. TOP measured p10-p25. */
+    someStructureDamage: 4_000,
+    /** Seconds alive in one stretch worth mentioning. TOP measured p25. */
+    decentLongestLife: 450,
+    /** Damage taken worth mentioning as soaking up pressure. */
+    someDamageTaken: 20_000,
+    /** Kill participation worth mentioning. Around the measured median. */
+    someKillParticipation: 0.35,
+    /** CS gap within which the lane counts as having gone even. */
+    evenLaneCsMargin: 25
+  },
+
   // --- Display ---
   display: {
     /** Hard cap on tiles shown, matching the panel layout. */
     maxTotal: 6,
+    /**
+     * Floor on tiles shown, topped up from the filler tier when real
+     * achievements ran short. A one-tile panel reads as broken rather than
+     * as an honest "nothing much happened".
+     */
+    minTotal: 4,
     /** Negative tiles allowed when the game went well. */
     maxNegativeWhenWinning: 2,
     /** Negative tiles allowed when the game went badly. */
