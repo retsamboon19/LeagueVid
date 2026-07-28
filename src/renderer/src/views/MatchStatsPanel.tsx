@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { AppSettings, MatchStats, MatchStatsResult, VideoRow } from '../../../shared/types'
+import type { AppSettings, MatchStats, MatchStatsResult, TagRow, VideoRow } from '../../../shared/types'
 import { championDisplayName, championIconUrl, useDDragon } from '../lib/useDDragon'
+import AchievementsTab from './stats/AchievementsTab'
 import ScoreboardTab from './stats/ScoreboardTab'
 import PerformanceTab from './stats/PerformanceTab'
 import BuildTab from './stats/BuildTab'
@@ -26,11 +27,20 @@ interface MatchStatsPanelProps {
   /** Game time of the most recently selected bookmark. */
   markedGameTimeMs: number | null
   onSeekGameTime: (gameTimeMs: number) => void
+  /**
+   * The video's auto-tags. Only the achievements tab uses these, for facts
+   * LeagueVid derives at link time rather than from the match DTO (tower
+   * dives). Optional so the panel still renders without them.
+   */
+  tags?: TagRow[]
 }
 
-type TabKey = 'scoreboard' | 'performance' | 'build' | 'graphs' | 'insights'
+type TabKey = 'achievements' | 'scoreboard' | 'performance' | 'build' | 'graphs' | 'insights'
 
+// Achievements lead: it's the "what happened in this game" summary, so it
+// reads as the landing view when a VOD is opened.
 const TABS: Array<{ key: TabKey; label: string }> = [
+  { key: 'achievements', label: 'Achievements' },
   { key: 'scoreboard', label: 'Scoreboard' },
   { key: 'performance', label: 'Performance' },
   { key: 'build', label: 'Build' },
@@ -47,12 +57,13 @@ function MatchStatsPanel({
   accounts,
   currentGameTimeMs,
   markedGameTimeMs,
-  onSeekGameTime
+  onSeekGameTime,
+  tags
 }: MatchStatsPanelProps): JSX.Element {
   const [result, setResult] = useState<MatchStatsResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<TabKey>('scoreboard')
+  const [activeTab, setActiveTab] = useState<TabKey>('achievements')
   const [focusPuuid, setFocusPuuid] = useState<string | null>(null)
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([])
 
@@ -216,6 +227,9 @@ function MatchStatsPanel({
         id={`stats-panel-${activeTab}`}
         aria-labelledby={`stats-tab-${activeTab}`}
       >
+        {activeTab === 'achievements' && (
+          <AchievementsTab stats={stats} focus={focus} tags={tags} />
+        )}
         {activeTab === 'scoreboard' && (
           <ScoreboardTab
             stats={stats}

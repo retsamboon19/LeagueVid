@@ -2774,6 +2774,89 @@ select:focus {
   color: #6b6f7a;
 }
 
+/* --- Achievements tab --- */
+
+.achievement-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.achievement-heading {
+  margin: 0;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.achievement-heading--good {
+  color: #4ecfa0;
+}
+
+.achievement-heading--bad {
+  color: #e8629b;
+}
+
+.achievement-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.achievement {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.45rem 0.3rem;
+  border-radius: 6px;
+}
+
+.achievement:hover {
+  background: #23262f;
+}
+
+/* Circular icon badge, echoing the reference layout's medallions. */
+.achievement-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #2a2d38;
+}
+
+.achievement--positive .achievement-icon {
+  color: #4ecfa0;
+}
+
+.achievement--negative .achievement-icon {
+  color: #e8629b;
+}
+
+.achievement-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.achievement-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #e8eaf0;
+}
+
+.achievement-desc {
+  font-size: 0.7rem;
+  line-height: 1.35;
+  color: #a0a4ae;
+}
+
 /* --- Lane comparison strip --- */
 
 .lane-strip {

@@ -788,6 +788,7 @@ function VideoPlayer({ video, settings, onBack, onVideoUpdated }: VideoPlayerPro
               currentGameTimeMs={currentGameTimeMs}
               markedGameTimeMs={markedGameTimeMs}
               onSeekGameTime={seekToGameTime}
+              tags={sortedTags}
             />
           )}
         </aside>
