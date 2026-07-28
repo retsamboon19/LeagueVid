@@ -47,26 +47,13 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     condition: (f) => f.largestMultiKill === 4,
     describe: () => 'Four in a single fight. One away from the big one.'
   },
-  {
-    id: 'triple_kill',
-    title: 'Triple Kill',
-    category: 'positive',
-    group: 'multikill',
-    priority: 80,
-    icon: 'swords',
-    condition: (f) => f.largestMultiKill === 3,
-    describe: () => 'Three kills in a single fight. No sweat.'
-  },
-  {
-    id: 'double_kill',
-    title: 'Double Kill',
-    category: 'positive',
-    group: 'multikill',
-    priority: 55,
-    icon: 'swords',
-    condition: (f) => f.largestMultiKill === 2,
-    describe: () => 'Two down in one go.'
-  },
+  // Deliberately no double or triple kill tile. Calibration showed a double
+  // kill in 23% of games and it became the fourth most-shown positive, which
+  // is participation-trophy territory -- it crowded out tiles that actually
+  // said something about the game. Multikills only earn a tile from a quadra
+  // upward, where they're genuinely uncommon (0.5% and 0.2% respectively).
+  // Every multikill is still bookmarked on the video timeline and in the
+  // Highlights strip, which is where finding the moment matters.
 
   // --- Combat ---------------------------------------------------------------
   {
