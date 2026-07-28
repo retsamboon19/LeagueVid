@@ -31,6 +31,7 @@ const TAG_ICONS: Record<string, string> = {
   baron: '\uD83D\uDC79',
   herald: '\uD83D\uDC51',
   other_objective: '\u2B50',
+  towerdive: '\uD83D\uDDFC',
   outplay: '\u2728'
 }
 
@@ -75,6 +76,9 @@ const COLUMN_DEFS: Array<{ key: string; label: string; types: string[] }> = [
   },
   { key: 'death', label: 'Deaths', types: ['death'] },
   { key: 'assist', label: 'Assists', types: ['assist'] },
+  // Also logged as a plain 'kill' event -- this column is the same kill
+  // called out a second time for "landed under an enemy turret, solo".
+  { key: 'towerdive', label: 'Tower dives', types: ['towerdive'] },
   {
     key: 'objective',
     label: 'Objectives',
@@ -388,15 +392,19 @@ function VideoPlayer({ video, settings, onBack, onVideoUpdated }: VideoPlayerPro
 
   // Standout moments, surfaced as one-click jumps so the parts of the VOD
   // actually worth rewatching don't have to be hunted for in the bookmark
-  // columns. Solo multikills rank above assisted ones of the same size.
+  // columns. Solo multikills rank above assisted ones of the same size;
+  // solo tower dives are their own kind of standout and are ranked below
+  // the multikill tiers but still above the (unfiltered) rest.
   const highlights = useMemo(() => {
     const multikillTypes = new Set(MULTIKILL_TIERS.map((t) => t.type))
     return sortedTags
-      .filter((t) => multikillTypes.has(t.type))
+      .filter((t) => multikillTypes.has(t.type) || t.type === 'towerdive')
       .map((tag) => ({ tag, solo: tag.detail === 'solo' }))
       .sort((a, b) => {
-        const rank = (type: string): number =>
-          MULTIKILL_TIERS.length - MULTIKILL_TIERS.findIndex((t) => t.type === type)
+        const rank = (type: string): number => {
+          if (type === 'towerdive') return 0
+          return MULTIKILL_TIERS.length - MULTIKILL_TIERS.findIndex((t) => t.type === type)
+        }
         const byTier = rank(b.tag.type) - rank(a.tag.type)
         if (byTier !== 0) return byTier
         if (a.solo !== b.solo) return a.solo ? -1 : 1
@@ -696,7 +704,9 @@ function VideoPlayer({ video, settings, onBack, onVideoUpdated }: VideoPlayerPro
               >
                 <span aria-hidden="true">{tagIcon(tag.type)}</span>
                 <span className="highlight-chip-name">
-                  {MULTIKILL_TIERS.find((t) => t.type === tag.type)?.label ?? 'Multikill'}
+                  {tag.type === 'towerdive'
+                    ? 'Tower dive'
+                    : MULTIKILL_TIERS.find((t) => t.type === tag.type)?.label ?? 'Multikill'}
                 </span>
                 {solo && <span className="highlight-chip-solo">solo</span>}
                 <span className="highlight-chip-time">{formatTime(tag.timestamp_ms)}</span>

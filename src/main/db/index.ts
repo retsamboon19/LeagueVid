@@ -342,7 +342,7 @@ function migrate(database: SqlJsDatabase): void {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       video_id INTEGER NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
       timestamp_ms INTEGER NOT NULL,  -- position in the video
-      type TEXT NOT NULL,             -- kill, death, assist, multikill, turret, dragon, baron, herald, other_objective, manual, outplay, etc.
+      type TEXT NOT NULL,             -- kill, death, assist, multikill, turret, dragon, baron, herald, other_objective, towerdive, manual, outplay, etc.
       label TEXT NOT NULL,
       detail TEXT,
       source TEXT NOT NULL DEFAULT 'manual', -- 'auto' | 'manual'

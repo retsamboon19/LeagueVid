@@ -115,6 +115,10 @@ export type AutoTagType =
   | 'baron'
   | 'herald'
   | 'other_objective'
+  // A kill landed solo (no ally assist) within an enemy turret's attack
+  // range -- derived from timeline kill position vs. static turret
+  // coordinates, since Riot's API doesn't flag this itself.
+  | 'towerdive'
 
 /** Multikill length (2-5) -> tag type. Anything above 5 is still a penta. */
 export function multiKillTagType(length: number): AutoTagType {

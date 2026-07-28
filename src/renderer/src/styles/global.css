@@ -3096,6 +3096,11 @@ select:focus {
   background: rgba(240, 208, 137, 0.12);
 }
 
+.highlight-chip--towerdive {
+  border-left: 3px solid #e0a13c;
+  background: rgba(224, 161, 60, 0.12);
+}
+
 /* --- Link scope chooser --- */
 
 .link-scope-options {
@@ -3368,6 +3373,10 @@ select:focus {
 
 .clip-tick--outplay {
   background: #7ed6a5;
+}
+
+.clip-tick--towerdive {
+  background: #e0a13c;
 }
 
 .clip-tick--turret,
