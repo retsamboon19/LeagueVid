@@ -805,12 +805,12 @@ select:focus {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
-  /* Caps how wide a single match row can get. Past roughly this width a
-     one-line row stops being scannable -- the eye has to travel too far
-     between the champion and the roster -- and no amount of redistributing
-     slack fixes that. On a 2K display the rows stay dense and centred instead
-     of stretching thin. Below this it has no effect at all. */
-  max-width: 1700px;
+  /* An upper bound on row width, set generously so it effectively only engages
+     on very wide displays with the sidebar collapsed. It used to sit at 1700px,
+     which on a 2K screen left visible margins beside the list -- empty space of
+     a different kind. The artwork, type and scoreboard all scale now, so the
+     row can afford to be wider before it stops being scannable. */
+  max-width: 2000px;
   width: 100%;
   margin-inline: auto;
 }
@@ -887,11 +887,27 @@ select:focus {
   color: #ee8d89;
 }
 
-/* Slot size is defined once here and reused by the items grid's track sizing,
-   so the two can't drift apart. */
+/* Every piece of tile artwork is sized from one place, so the icon, its grid
+   tracks and the loadout column beside it can't drift apart.
+ *
+ * The ceilings are deliberately generous. An earlier pass capped them around
+ * 68px, which meant that on a 2K display the caps bound early, the artwork
+ * stopped growing, and all the leftover width fell into the stat row -- which
+ * spread its cells apart instead. Growing the art is what actually consumes
+ * that space.
+ *
+ * Each is declared twice: a plain clamp, then the same clamp snapped to a whole
+ * pixel with round(). Fractional sizes make icon art look soft; browsers
+ * without round() keep the plain clamp. */
 .match-tile {
-  --item-slot: clamp(22px, 2.2cqi, 32px);
-  --item-slot: round(down, clamp(22px, 2.2cqi, 32px), 1px);
+  --champ-icon: clamp(44px, 6cqi, 104px);
+  --champ-icon: round(down, clamp(44px, 6cqi, 104px), 1px);
+  --item-slot: clamp(22px, 2.6cqi, 44px);
+  --item-slot: round(down, clamp(22px, 2.6cqi, 44px), 1px);
+  --mini-icon: clamp(18px, 2cqi, 32px);
+  --mini-icon: round(down, clamp(18px, 2cqi, 32px), 1px);
+  --roster-icon: clamp(15px, 1.6cqi, 26px);
+  --roster-icon: round(down, clamp(15px, 1.6cqi, 26px), 1px);
 }
 
 .match-tile-item-slot {
@@ -1801,19 +1817,27 @@ select:focus {
   grid-template-columns:
     /* result */ auto
     /* champion + loadout */ auto
-    /* stats: the flexible track, absorbing whatever the others don't use. */
-    minmax(8rem, 1fr)
+    /* stats: sized to its content, not stretched. Giving this track any slack
+       just pushed the five stat cells apart -- the gaps that read as emptiness
+       on a 2K display. The cells now sit at a fixed fluid spacing and any
+       leftover goes to the scoreboard and the column gaps instead. */
+    auto
     /* items */ auto
-    /* scoreboard: content-driven. Its own width is a fluid clamp (below), so
-       it has a definite preferred size and can't be crushed. An earlier
-       version made the stats track a capped range instead, which grid
-       maximised to its cap before this flexible track got anything -- the
-       scoreboard collapsed to 9px and overflowed. */
-    auto;
+    /* scoreboard: takes what's left, and the 15rem is a genuine floor rather
+       than decoration. Grid runs "maximise tracks" before "expand flexible
+       tracks", so a capped range like the stats track above grows to its cap
+       first and would starve this one -- which is exactly how the scoreboard
+       ended up 14px wide and overflowing. A track whose *base* is 15rem is
+       reserved before any of that distribution happens. */
+    minmax(15rem, 1fr);
   align-items: center;
   /* Gap scales with the tile so a narrow tile stays tight and a wide one
      breathes, without needing a breakpoint for every step. */
   gap: clamp(0.6rem, 1.6cqi, 1.8rem);
+  /* Once every track has hit its cap, whatever is left over is shared out
+     evenly between the columns instead of pooling in one place. Self-balancing,
+     so no width needs a bespoke rule. */
+  justify-content: space-between;
   min-width: 0;
 }
 
@@ -1864,31 +1888,31 @@ select:focus {
    breakpoints; round() gets both the fluid fill and the crisp edges. Browsers
    without round() keep the plain clamp above it. */
 .match-tile-champ-icon {
-  width: clamp(44px, 4.4cqi, 68px);
-  height: clamp(44px, 4.4cqi, 68px);
-  width: round(down, clamp(44px, 4.4cqi, 68px), 1px);
-  height: round(down, clamp(44px, 4.4cqi, 68px), 1px);
+  width: var(--champ-icon);
+  height: var(--champ-icon);
   border-radius: 8px;
   display: block;
 }
 
+/* Matched to the portrait's height and spread, so the spells and keystone read
+   as one block beside it rather than a small cluster floating at the top. */
 .match-tile-loadout {
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   gap: 0.2rem;
+  height: var(--champ-icon);
 }
 
 .match-tile-loadout-row {
   display: flex;
   gap: 0.2rem;
-  min-height: 18px;
+  min-height: var(--mini-icon);
 }
 
 .match-tile-mini-icon {
-  width: clamp(18px, 1.8cqi, 26px);
-  height: clamp(18px, 1.8cqi, 26px);
-  width: round(down, clamp(18px, 1.8cqi, 26px), 1px);
-  height: round(down, clamp(18px, 1.8cqi, 26px), 1px);
+  width: var(--mini-icon);
+  height: var(--mini-icon);
   border-radius: 4px;
   border: 1px solid #2f333f;
   display: block;
@@ -1902,11 +1926,14 @@ select:focus {
 /* The flexible region. space-between spreads the stat cells to the full width
    of whatever the grid hands over, which is what keeps a maximised window from
    showing a gulf of nothing between the items and the rosters. */
+/* Cells sit at a deliberate spacing rather than being spread to the edges of
+   whatever width they're handed. space-between here was what put 60-70px of
+   nothing between "KP" and "damage" on a wide row. */
 .match-tile-stats {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: clamp(0.5rem, 1.2cqi, 1.6rem);
+  justify-content: flex-start;
+  gap: clamp(0.9rem, 1.9cqi, 2.6rem);
   min-width: 0;
 }
 
@@ -1919,14 +1946,14 @@ select:focus {
 }
 
 .match-tile-stat-value {
-  font-size: 0.88rem;
+  font-size: clamp(0.88rem, 0.95cqi, 1.2rem);
   font-weight: 700;
   color: #e8eaf0;
   font-variant-numeric: tabular-nums;
 }
 
 .match-tile-stat-sub {
-  font-size: 0.72rem;
+  font-size: clamp(0.72rem, 0.76cqi, 0.95rem);
   color: #a0a4ae;
   font-variant-numeric: tabular-nums;
 }
@@ -1944,7 +1971,7 @@ select:focus {
 }
 
 .match-tile-stats .match-tile-kda {
-  font-size: 1rem;
+  font-size: clamp(1rem, 1.1cqi, 1.4rem);
 }
 
 .match-tile-kp {
@@ -1966,10 +1993,12 @@ select:focus {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 clamp(0.5rem, 1cqi, 1.4rem);
-  justify-self: end;
-  /* Definite and fluid: grows with the tile so names and KDA get room on a
-     wide row, with a floor that stops it being squeezed to nothing. */
-  width: clamp(10rem, 21cqi, 30rem);
+  justify-self: stretch;
+  /* Fills its track, up to a point: past ~46rem the two columns get so wide
+     that each name sits marooned from its KDA. Anything beyond that is handed
+     back to the row to share out as even gaps. */
+  width: 100%;
+  max-width: 46rem;
 }
 
 .match-tile-roster-list {
@@ -1993,10 +2022,8 @@ select:focus {
 }
 
 .match-tile-roster-row .match-tile-roster-icon {
-  width: clamp(15px, 1.5cqi, 22px);
-  height: clamp(15px, 1.5cqi, 22px);
-  width: round(down, clamp(15px, 1.5cqi, 22px), 1px);
-  height: round(down, clamp(15px, 1.5cqi, 22px), 1px);
+  width: var(--roster-icon);
+  height: var(--roster-icon);
   border-radius: 3px;
   flex-shrink: 0;
   display: block;
@@ -2070,30 +2097,16 @@ select:focus {
   color: #9aa0ad;
 }
 
-/* Wide: the artwork and text now scale fluidly via cqi, so this only needs to
-   handle the things that can't be interpolated -- padding and the chip size. */
+/* Wide: the artwork and type scale fluidly via cqi, so this only handles what
+   can't be interpolated -- padding and the chip size. */
 @container match-tile (min-width: 1100px) {
-  .match-tile-stat-value {
-    font-size: 0.94rem;
-  }
-
-  .match-tile-stats .match-tile-kda {
-    font-size: 1.08rem;
-  }
-
   .match-tile-body {
-    padding: 0.85rem 1.1rem;
+    padding: 0.9rem 1.2rem;
   }
 
   .match-chip {
-    font-size: 0.75rem;
-    padding: 0.22rem 0.6rem;
-  }
-}
-
-@container match-tile (min-width: 1500px) {
-  .match-tile-stat-value {
-    font-size: 1rem;
+    font-size: 0.78rem;
+    padding: 0.25rem 0.65rem;
   }
 }
 
@@ -2115,7 +2128,7 @@ select:focus {
   }
 }
 
-@container match-tile (max-width: 819px) {
+@container match-tile (max-width: 779px) {
   .match-tile-roster-name {
     display: none;
   }
@@ -2123,8 +2136,17 @@ select:focus {
   .match-tile-rosters {
     grid-template-columns: repeat(2, auto);
     gap: 0 0.5rem;
-    /* Icons only now, so let it shrink to its content. */
+    /* Icons only now, so shrink to content. */
     width: auto;
+    max-width: none;
+    justify-self: end;
+  }
+
+  /* Releases the 15rem track floor along with it -- at this width reserving
+     that much for four columns of icons would force an overflow. The stats
+     track takes the slack here instead, since there's little of it to give. */
+  .match-tile-main {
+    grid-template-columns: auto auto minmax(8rem, 1fr) auto auto;
   }
 
   .match-tile-roster-list {
