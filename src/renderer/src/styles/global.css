@@ -1812,25 +1812,33 @@ select:focus {
    across whatever width exists, while the roster is sized to its content and
    sits flush right. Widening the window spreads real information instead of
    opening a gap. */
+/* Two rows: the stat line, with the item row tucked directly beneath it. The
+   portrait and scoreboard span both, which is what lets the portrait grow tall
+   enough to fill the row.
+
+   Named areas rather than per-child line numbers, because the narrow
+   breakpoints below re-flow the whole arrangement and this way each one reads
+   as a picture of the result. */
 .match-tile-main {
   display: grid;
+  grid-template-areas:
+    'summary champ stats board'
+    'summary champ items board';
   grid-template-columns:
     /* result */ auto
     /* champion + loadout */ auto
-    /* stats: sized to its content, not stretched. Giving this track any slack
-       just pushed the five stat cells apart -- the gaps that read as emptiness
-       on a 2K display. The cells now sit at a fixed fluid spacing and any
-       leftover goes to the scoreboard and the column gaps instead. */
+    /* stats and items: sized to content, not stretched. Giving this track slack
+       just pushed the stat cells apart -- the gaps that read as emptiness on a
+       2K display. Leftover goes to the scoreboard and the column gaps. */
     auto
-    /* items */ auto
     /* scoreboard: takes what's left, and the 15rem is a genuine floor rather
        than decoration. Grid runs "maximise tracks" before "expand flexible
-       tracks", so a capped range like the stats track above grows to its cap
-       first and would starve this one -- which is exactly how the scoreboard
-       ended up 14px wide and overflowing. A track whose *base* is 15rem is
-       reserved before any of that distribution happens. */
+       tracks", so a capped range grows to its cap first and would starve this
+       one -- which is how the scoreboard ended up 14px wide and overflowing. A
+       track whose *base* is 15rem is reserved before that distribution. */
     minmax(15rem, 1fr);
   align-items: center;
+  row-gap: 0.35rem;
   /* Gap scales with the tile so a narrow tile stays tight and a wide one
      breathes, without needing a breakpoint for every step. */
   gap: clamp(0.6rem, 1.6cqi, 1.8rem);
@@ -1847,6 +1855,26 @@ select:focus {
    instead of compressing. */
 .match-tile-region {
   min-width: 0;
+}
+
+.match-tile-summary {
+  grid-area: summary;
+}
+
+.match-tile-champ-block {
+  grid-area: champ;
+}
+
+.match-tile-stats {
+  grid-area: stats;
+}
+
+.match-tile-items {
+  grid-area: items;
+}
+
+.match-tile-rosters {
+  grid-area: board;
 }
 
 .match-tile-summary {
@@ -1978,11 +2006,14 @@ select:focus {
   color: #e8629b;
 }
 
+/* One row of seven, sitting under the stat line rather than beside it as a
+   4x2 block. Aligned left so the first item lines up with the KDA above it. */
 .match-tile-items {
   display: grid;
-  grid-template-columns: repeat(4, var(--item-slot));
-  grid-template-rows: repeat(2, var(--item-slot));
-  gap: 0.2rem;
+  grid-template-columns: repeat(7, var(--item-slot));
+  grid-template-rows: var(--item-slot);
+  gap: 0.25rem;
+  justify-content: start;
 }
 
 /* The scoreboard: two columns of five, allies then enemies.
@@ -2004,14 +2035,16 @@ select:focus {
 .match-tile-roster-list {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.2rem;
 }
 
 .match-tile-roster-row {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
-  font-size: clamp(0.68rem, 0.72cqi, 0.82rem);
+  gap: 0.4rem;
+  /* Floor raised deliberately: at the old 0.68rem these ten names were the
+     smallest text on the tile and hard to read. */
+  font-size: clamp(0.85rem, 1cqi, 1.1rem);
   color: #c4c8d1;
   min-width: 0;
 }
@@ -2041,8 +2074,8 @@ select:focus {
 
 .match-tile-roster-kda {
   flex-shrink: 0;
-  font-size: 0.92em;
-  color: #8b8f9a;
+  font-size: 0.95em;
+  color: #9298a4;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2146,7 +2179,7 @@ select:focus {
      that much for four columns of icons would force an overflow. The stats
      track takes the slack here instead, since there's little of it to give. */
   .match-tile-main {
-    grid-template-columns: auto auto minmax(8rem, 1fr) auto auto;
+    grid-template-columns: auto auto minmax(8rem, 1fr) auto;
   }
 
   .match-tile-roster-list {
@@ -2156,23 +2189,18 @@ select:focus {
   }
 }
 
-/* Narrow: drop the rosters and let the items take one row. Result, stats and
-   chips are kept -- they're what's worth scanning at any width. */
+/* Narrow: drop the scoreboard. Result, stats, items and chips are kept --
+   they're what's worth scanning at any width. */
 @container match-tile (max-width: 639px) {
   .match-tile-main {
+    grid-template-areas:
+      'summary champ stats'
+      'summary champ items';
     grid-template-columns: auto auto minmax(0, 1fr);
-    row-gap: 0.5rem;
   }
 
   .match-tile-rosters {
     display: none;
-  }
-
-  .match-tile-items {
-    grid-template-columns: repeat(7, 22px);
-    grid-template-rows: 22px;
-    grid-column: 1 / -1;
-    justify-content: start;
   }
 }
 
@@ -2180,19 +2208,23 @@ select:focus {
    spreading and pack left, since space-between across a tiny width pushes them
    into the tile's edges. */
 @container match-tile (max-width: 460px) {
+  /* Portrait and result share the top line; stats and items each get a full
+     row of their own. */
   .match-tile-main {
+    grid-template-areas:
+      'summary champ'
+      'stats   stats'
+      'items   items';
     grid-template-columns: auto minmax(0, 1fr);
+    row-gap: 0.5rem;
   }
 
-  /* Full-width own row, and allowed to wrap. The stat cells are nowrap, so
-     squeezed into a half-width column they overflowed the tile instead of
-     compressing. */
+  /* Allowed to wrap here. The stat cells are nowrap, so squeezed into a
+     half-width column they overflowed the tile instead of compressing. */
   .match-tile-stats {
-    grid-column: 1 / -1;
     flex-wrap: wrap;
     justify-content: flex-start;
     gap: 0.4rem 0.9rem;
-    max-width: none;
   }
 
   /* Two chips is about all that fits legibly at this width. */
