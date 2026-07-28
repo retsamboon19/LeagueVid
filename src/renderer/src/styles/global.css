@@ -859,6 +859,12 @@ select:focus {
   flex: 1;
   display: flex;
   flex-direction: column;
+  /* Explicit, because this is a <button>: the UA stylesheet centres a button's
+     flex children, which left every row shrink-to-fit and pushed a band of
+     empty space to the right of the content -- the gap that used to sit before
+     the Re-link button. Stretching lets the rows fill the tile so the flexible
+     stat track actually receives the slack. */
+  align-items: stretch;
   gap: 0.5rem;
   background: none;
   border: none;
@@ -881,9 +887,16 @@ select:focus {
   color: #ee8d89;
 }
 
+/* Slot size is defined once here and reused by the items grid's track sizing,
+   so the two can't drift apart. */
+.match-tile {
+  --item-slot: clamp(22px, 2.2cqi, 32px);
+  --item-slot: round(down, clamp(22px, 2.2cqi, 32px), 1px);
+}
+
 .match-tile-item-slot {
-  width: 22px;
-  height: 22px;
+  width: var(--item-slot);
+  height: var(--item-slot);
   border-radius: 4px;
   background: #0f1117;
   border: 1px solid #2f333f;
@@ -893,6 +906,7 @@ select:focus {
 .match-tile-item-slot img {
   width: 100%;
   height: 100%;
+  display: block;
 }
 
 .match-tile-meta {
@@ -1787,16 +1801,15 @@ select:focus {
   grid-template-columns:
     /* result */ auto
     /* champion + loadout */ auto
-    /* stats: absorbs slack, but the track is capped rather than the item.
-       Capping the item would leave it short inside a stretched track, which
-       is just the same hole one column over. Past the cap, space-between
-       would fling three small cells to opposite ends, so the residual goes
-       to the roster track instead. */ minmax(8rem, 32rem)
+    /* stats: the flexible track, absorbing whatever the others don't use. */
+    minmax(8rem, 1fr)
     /* items */ auto
-    /* rosters: takes whatever is left, content pinned right. min-content as
-       the floor, not 0 -- with a 0 floor this track got crushed at middling
-       widths and the right-aligned roster spilled back over the items. */
-    minmax(min-content, 1fr);
+    /* scoreboard: content-driven. Its own width is a fluid clamp (below), so
+       it has a definite preferred size and can't be crushed. An earlier
+       version made the stats track a capped range instead, which grid
+       maximised to its cap before this flexible track got anything -- the
+       scoreboard collapsed to 9px and overflowed. */
+    auto;
   align-items: center;
   /* Gap scales with the tile so a narrow tile stays tight and a wide one
      breathes, without needing a breakpoint for every step. */
@@ -1842,10 +1855,21 @@ select:focus {
   position: relative;
 }
 
+/* Artwork scales with the tile rather than sitting at a fixed size, so a wide
+   window fills the row instead of leaving a band of empty space above and
+   below the icon.
+
+   The second declaration snaps the result to a whole pixel. Fractional sizes
+   make icon art look soft, which is why these used to be stepped at
+   breakpoints; round() gets both the fluid fill and the crisp edges. Browsers
+   without round() keep the plain clamp above it. */
 .match-tile-champ-icon {
-  width: 44px;
-  height: 44px;
+  width: clamp(44px, 4.4cqi, 68px);
+  height: clamp(44px, 4.4cqi, 68px);
+  width: round(down, clamp(44px, 4.4cqi, 68px), 1px);
+  height: round(down, clamp(44px, 4.4cqi, 68px), 1px);
   border-radius: 8px;
+  display: block;
 }
 
 .match-tile-loadout {
@@ -1861,10 +1885,13 @@ select:focus {
 }
 
 .match-tile-mini-icon {
-  width: 18px;
-  height: 18px;
+  width: clamp(18px, 1.8cqi, 26px);
+  height: clamp(18px, 1.8cqi, 26px);
+  width: round(down, clamp(18px, 1.8cqi, 26px), 1px);
+  height: round(down, clamp(18px, 1.8cqi, 26px), 1px);
   border-radius: 4px;
   border: 1px solid #2f333f;
+  display: block;
 }
 
 .match-tile-mini-icon--rune {
@@ -1926,19 +1953,23 @@ select:focus {
 
 .match-tile-items {
   display: grid;
-  grid-template-columns: repeat(4, 22px);
-  grid-template-rows: repeat(2, 22px);
+  grid-template-columns: repeat(4, var(--item-slot));
+  grid-template-rows: repeat(2, var(--item-slot));
   gap: 0.2rem;
 }
 
-/* Fixed-width columns rather than 1fr: the roster no longer absorbs slack, so
-   its columns are sized to hold a champion name and stop. Two equal columns
-   keep the ally/enemy split aligned across every tile. */
+/* The scoreboard: two columns of five, allies then enemies.
+   Stretches to fill its track up to a cap, so extra width goes into readable
+   names and per-player KDA rather than an empty gap, while the cap stops the
+   columns spreading into whitespace on a very wide row. */
 .match-tile-rosters {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 6.5rem));
-  gap: 0 0.8rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 clamp(0.5rem, 1cqi, 1.4rem);
   justify-self: end;
+  /* Definite and fluid: grows with the tile so names and KDA get room on a
+     wide row, with a floor that stops it being squeezed to nothing. */
+  width: clamp(10rem, 21cqi, 30rem);
 }
 
 .match-tile-roster-list {
@@ -1951,8 +1982,9 @@ select:focus {
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  font-size: 0.72rem;
+  font-size: clamp(0.68rem, 0.72cqi, 0.82rem);
   color: #c4c8d1;
+  min-width: 0;
 }
 
 .match-tile-roster-row--me {
@@ -1961,17 +1993,34 @@ select:focus {
 }
 
 .match-tile-roster-row .match-tile-roster-icon {
-  width: 16px;
-  height: 16px;
+  width: clamp(15px, 1.5cqi, 22px);
+  height: clamp(15px, 1.5cqi, 22px);
+  width: round(down, clamp(15px, 1.5cqi, 22px), 1px);
+  height: round(down, clamp(15px, 1.5cqi, 22px), 1px);
   border-radius: 3px;
   flex-shrink: 0;
+  display: block;
 }
 
+/* Takes the slack inside a column so the KDA stays pinned right and the
+   columns line up down the list. */
 .match-tile-roster-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  flex: 1;
+}
+
+.match-tile-roster-kda {
+  flex-shrink: 0;
+  font-size: 0.92em;
+  color: #8b8f9a;
+  font-variant-numeric: tabular-nums;
+}
+
+.match-tile-roster-row--me .match-tile-roster-kda {
+  color: #c99a52;
 }
 
 /* --- Achievement chips ---
@@ -2021,44 +2070,9 @@ select:focus {
   color: #9aa0ad;
 }
 
-/* Extra-wide (maximised on a 1440p/2K display). Sizes step up rather than
-   scaling fluidly, so icons land on whole pixels and stay crisp. The stat
-   region is already fluid, so this only grows the fixed-size pieces. */
+/* Wide: the artwork and text now scale fluidly via cqi, so this only needs to
+   handle the things that can't be interpolated -- padding and the chip size. */
 @container match-tile (min-width: 1100px) {
-  .match-tile-champ-icon {
-    width: 52px;
-    height: 52px;
-  }
-
-  .match-tile-mini-icon {
-    width: 21px;
-    height: 21px;
-  }
-
-  .match-tile-items {
-    grid-template-columns: repeat(4, 26px);
-    grid-template-rows: repeat(2, 26px);
-  }
-
-  .match-tile-item-slot {
-    width: 26px;
-    height: 26px;
-  }
-
-  .match-tile-rosters {
-    grid-template-columns: repeat(2, minmax(0, 7.5rem));
-    gap: 0 1.2rem;
-  }
-
-  .match-tile-roster-row {
-    font-size: 0.76rem;
-  }
-
-  .match-tile-roster-row .match-tile-roster-icon {
-    width: 18px;
-    height: 18px;
-  }
-
   .match-tile-stat-value {
     font-size: 0.94rem;
   }
@@ -2077,40 +2091,31 @@ select:focus {
   }
 }
 
-/* Very wide (2K and beyond, or a collapsed sidebar). One more step up, plus a
-   third roster-name width, so the extra pixels go into legibility. */
 @container match-tile (min-width: 1500px) {
-  .match-tile-champ-icon {
-    width: 58px;
-    height: 58px;
-  }
-
-  .match-tile-items {
-    grid-template-columns: repeat(4, 30px);
-    grid-template-rows: repeat(2, 30px);
-  }
-
-  .match-tile-item-slot {
-    width: 30px;
-    height: 30px;
-  }
-
-  .match-tile-rosters {
-    grid-template-columns: repeat(2, minmax(0, 9rem));
-  }
-
-  .match-tile-roster-row {
-    font-size: 0.8rem;
-  }
-
   .match-tile-stat-value {
     font-size: 1rem;
   }
 }
 
-/* Medium: not enough room for names beside ten champion icons, so the
-   rosters collapse to two compact icon columns. */
-@container match-tile (max-width: 899px) {
+/* Scoreboard degradation, in order of what's least missed:
+   1. below 1000px  drop each player's KDA, keep the names
+   2. below 820px   drop the names, keep two icon columns
+   3. below 640px   drop the scoreboard entirely (rule further down)
+   Names beat KDA here because identifying who was in the game is the point of
+   a scoreboard on a tile; the exact per-player line is a click away. */
+@container match-tile (max-width: 1099px) {
+  .match-tile-roster-kda {
+    display: none;
+  }
+
+  /* Damage and vision are the first stat cells to go: KDA, CS and KP are the
+     three worth scanning at any width. */
+  .match-tile-stat--wide {
+    display: none;
+  }
+}
+
+@container match-tile (max-width: 819px) {
   .match-tile-roster-name {
     display: none;
   }
@@ -2118,6 +2123,8 @@ select:focus {
   .match-tile-rosters {
     grid-template-columns: repeat(2, auto);
     gap: 0 0.5rem;
+    /* Icons only now, so let it shrink to its content. */
+    width: auto;
   }
 
   .match-tile-roster-list {

@@ -52,6 +52,10 @@ const ITEM_SLOT_COUNT = 7
 // highest-priority few and lets CSS hide any that don't fit the width.
 const TILE_CHIP_LIMIT = 5
 
+function formatCompact(value: number): string {
+  return value >= 1000 ? `${(value / 1000).toFixed(1)}k` : String(value)
+}
+
 function formatDuration(ms: number | null): string {
   if (!ms) return '--:--'
   const totalSeconds = Math.round(ms / 1000)
@@ -91,35 +95,89 @@ function parseRoster(matchData: string | null): MatchRosterData | null {
   }
 }
 
-function RosterColumn({
+/** One player line in the tile's scoreboard. */
+interface ScoreboardEntry {
+  key: string
+  championName: string
+  /** Summoner name when known, otherwise the champion's display name. */
+  label: string
+  /** "9/3/2", or null when per-player KDA isn't available. */
+  kda: string | null
+  isMe: boolean
+}
+
+/**
+ * Builds both scoreboard columns.
+ *
+ * Prefers the bulk stats, which carry summoner names and every player's KDA --
+ * the roster snapshot stored on the row only has champion names, so before the
+ * stats land (or if the match isn't cached) the columns fall back to those.
+ * That way the scoreboard is never empty, it just gains detail.
+ */
+function buildScoreboard(
+  stats: MatchStats | undefined,
+  roster: MatchRosterData | null,
+  ddragon: ReturnType<typeof useDDragon>
+): { allies: ScoreboardEntry[]; enemies: ScoreboardEntry[] } | null {
+  const named = (championName: string): string =>
+    ddragon ? championDisplayName(ddragon, championName) : championName
+
+  if (stats) {
+    const me = stats.participants.find((p) => p.puuid === stats.ownerPuuid)
+    if (me) {
+      const toEntry = (p: (typeof stats.participants)[number]): ScoreboardEntry => ({
+        key: p.puuid || String(p.participantId),
+        championName: p.championName,
+        label: p.displayName ?? named(p.championName),
+        kda: `${p.kills}/${p.deaths}/${p.assists}`,
+        isMe: p.puuid === stats.ownerPuuid
+      })
+      return {
+        allies: stats.participants.filter((p) => p.teamId === me.teamId).map(toEntry),
+        enemies: stats.participants.filter((p) => p.teamId !== me.teamId).map(toEntry)
+      }
+    }
+  }
+
+  if (!roster) return null
+
+  const toEntry = (p: RosterParticipant): ScoreboardEntry => ({
+    key: p.puuid,
+    championName: p.championName,
+    label: named(p.championName),
+    kda: `${p.kills}/${p.deaths}/${p.assists}`,
+    isMe: p.isMe
+  })
+  return { allies: roster.allies.map(toEntry), enemies: roster.enemies.map(toEntry) }
+}
+
+function ScoreboardColumn({
   players,
   ddragon
 }: {
-  players: RosterParticipant[]
+  players: ScoreboardEntry[]
   ddragon: ReturnType<typeof useDDragon>
 }): JSX.Element {
   return (
     <div className="match-tile-roster-list">
-      {players.map((p) => {
-        const name = ddragon ? championDisplayName(ddragon, p.championName) : p.championName
-        return (
-          <div
-            key={p.puuid}
-            className={`match-tile-roster-row ${p.isMe ? 'match-tile-roster-row--me' : ''}`}
-          >
-            <img
-              className="match-tile-roster-icon"
-              src={(ddragon && championIconUrl(ddragon, p.championName)) || undefined}
-              alt={name}
-            />
-            {/* title carries the untruncated name, since the label is
-                ellipsised at medium widths and hidden entirely at narrow. */}
-            <span className="match-tile-roster-name" title={name}>
-              {name}
-            </span>
-          </div>
-        )
-      })}
+      {players.map((p) => (
+        <div
+          key={p.key}
+          className={`match-tile-roster-row ${p.isMe ? 'match-tile-roster-row--me' : ''}`}
+        >
+          <img
+            className="match-tile-roster-icon"
+            src={(ddragon && championIconUrl(ddragon, p.championName)) || undefined}
+            alt={p.championName}
+          />
+          {/* title carries the untruncated label, since it's ellipsised at
+              medium widths and hidden entirely at narrow. */}
+          <span className="match-tile-roster-name" title={p.label}>
+            {p.label}
+          </span>
+          {p.kda && <span className="match-tile-roster-kda">{p.kda}</span>}
+        </div>
+      ))}
     </div>
   )
 }
@@ -173,6 +231,15 @@ function MatchTile({
   // mean something. With them on, over half of all tiles led with "Kept Farming"
   // or "Banked It", which is exactly the noise the panel's real rules avoid. A
   // tile with nothing notable shows no chips at all.
+  const scoreboard = useMemo(
+    () => buildScoreboard(stats, roster, ddragon),
+    [stats, roster, ddragon]
+  )
+
+  // The focus player's full stat line, once the bulk stats have loaded. Backs
+  // the damage/vision cells, which the row snapshot alone can't provide.
+  const me = stats?.participants.find((p) => p.puuid === stats.ownerPuuid)
+
   const chips = useMemo(() => {
     const focus = stats?.participants.find((p) => p.puuid === stats.ownerPuuid)
     const facts =
@@ -348,6 +415,28 @@ function MatchTile({
                     </span>
                   </span>
                 )}
+
+                {/* Only rendered once the bulk stats arrive, and hidden by CSS
+                    below ~1100px. These exist so a wide row fills with real
+                    numbers instead of spreading three cells over whitespace. */}
+                {me && (
+                  <>
+                    <span className="match-tile-stat match-tile-stat--wide">
+                      <span className="match-tile-stat-value">
+                        {formatCompact(me.damageToChampions)}
+                      </span>
+                      <span className="match-tile-stat-sub">
+                        <span className="match-tile-stat-label">damage</span>
+                      </span>
+                    </span>
+                    <span className="match-tile-stat match-tile-stat--wide">
+                      <span className="match-tile-stat-value">{me.visionScore}</span>
+                      <span className="match-tile-stat-sub">
+                        <span className="match-tile-stat-label">vision</span>
+                      </span>
+                    </span>
+                  </>
+                )}
               </div>
 
               {ddragon && (
@@ -364,10 +453,10 @@ function MatchTile({
                 </div>
               )}
 
-              {roster && (
+              {scoreboard && (
                 <div className="match-tile-region match-tile-rosters">
-                  <RosterColumn players={roster.allies} ddragon={ddragon} />
-                  <RosterColumn players={roster.enemies} ddragon={ddragon} />
+                  <ScoreboardColumn players={scoreboard.allies} ddragon={ddragon} />
+                  <ScoreboardColumn players={scoreboard.enemies} ddragon={ddragon} />
                 </div>
               )}
             </div>
