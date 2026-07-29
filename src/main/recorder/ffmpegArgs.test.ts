@@ -9,6 +9,7 @@ import {
   formatCommand,
   mediaFoundationQuality,
   rateControlArgs,
+  volumeFilter,
   type AudioInputSpec,
   type CaptureTarget
 } from './ffmpegArgs'
@@ -248,7 +249,65 @@ describe('buildVideoFilterChain', () => {
   })
 })
 
+describe('volumeFilter', () => {
+  // Omitted rather than emitted as volume=1.0: a filter that does nothing still
+  // costs a graph node, and its absence keeps the command line readable.
+  it('emits nothing at full volume', () => {
+    expect(volumeFilter(100)).toBeNull()
+  })
+
+  it('emits nothing when no volume was set', () => {
+    expect(volumeFilter(undefined)).toBeNull()
+  })
+
+  it('scales a percentage to ffmpeg linear gain', () => {
+    expect(volumeFilter(50)).toBe('volume=0.50')
+    expect(volumeFilter(25)).toBe('volume=0.25')
+    expect(volumeFilter(80)).toBe('volume=0.80')
+  })
+
+  // Someone who drags a slider to zero means silence, not "very quiet".
+  it('honours zero exactly', () => {
+    expect(volumeFilter(0)).toBe('volume=0')
+  })
+
+  it('clamps out-of-range values', () => {
+    expect(volumeFilter(150)).toBeNull()
+    expect(volumeFilter(-20)).toBe('volume=0')
+  })
+})
+
 describe('buildAudioFilterChain', () => {
+  it('applies each input volume in the graph, not on the device', () => {
+    const result = buildAudioFilterChain(
+      [
+        { ...MIC, volume: 60 },
+        { ...LOOPBACK, volume: 100 }
+      ],
+      'separate'
+    )
+
+    // Changing the device level would alter the user's Windows volume for every
+    // other program too.
+    expect(result.chains[0]).toBe('[0:a]aresample=async=1:first_pts=0,volume=0.60[a0]')
+    // Full volume adds nothing.
+    expect(result.chains[1]).toBe('[1:a]aresample=async=1:first_pts=0[a1]')
+  })
+
+  it('can silence one input while keeping the other', () => {
+    const result = buildAudioFilterChain(
+      [
+        { ...MIC, volume: 0 },
+        { ...LOOPBACK, volume: 100 }
+      ],
+      'mixed'
+    )
+    expect(result.chains[0]).toContain('volume=0')
+    expect(result.chains[1]).not.toContain('volume=')
+  })
+})
+
+describe('buildAudioFilterChain basics', () => {
   it('produces nothing for no inputs', () => {
     expect(buildAudioFilterChain([], 'mixed')).toEqual({ chains: [], mapLabels: [] })
   })

@@ -81,28 +81,43 @@ export async function resolveAudioInputs(): Promise<AudioInputSpec[]> {
   const settings = getRecordingSettings()
   const inputs: AudioInputSpec[] = []
 
-  if (settings.micDeviceName) {
-    inputs.push({ kind: 'dshow', source: settings.micDeviceName, role: 'mic' })
+  if (settings.captureMicrophone && settings.micDeviceName) {
+    inputs.push({
+      kind: 'dshow',
+      source: settings.micDeviceName,
+      role: 'mic',
+      volume: settings.micVolume
+    })
   }
 
-  // A real loopback device the user has installed takes precedence: it's fewer
-  // moving parts than the bridge.
+  if (!settings.captureSystemAudio) return inputs
+
+  // A virtual loopback device the user has installed takes precedence over the
+  // bridge: fewer moving parts, and they chose it deliberately.
   if (settings.desktopAudioDeviceName) {
-    inputs.push({ kind: 'dshow', source: settings.desktopAudioDeviceName, role: 'desktop' })
+    inputs.push({
+      kind: 'dshow',
+      source: settings.desktopAudioDeviceName,
+      role: 'desktop',
+      volume: settings.systemAudioVolume
+    })
     return inputs
   }
 
-  if (settings.useLoopbackBridge) {
-    try {
-      const bridge = await startLoopbackBridge()
-      inputs.push({ kind: 'loopback-socket', source: bridge.url, role: 'desktop' })
-    } catch (err) {
-      reportRecorderProblem(
-        `System audio couldn't be captured, so this recording has no game sound: ${
-          (err as Error).message
-        }`
-      )
-    }
+  try {
+    const bridge = await startLoopbackBridge()
+    inputs.push({
+      kind: 'loopback-socket',
+      source: bridge.url,
+      role: 'desktop',
+      volume: settings.systemAudioVolume
+    })
+  } catch (err) {
+    reportRecorderProblem(
+      `System audio couldn't be captured, so this recording has no game sound: ${
+        (err as Error).message
+      }`
+    )
   }
 
   return inputs
@@ -111,8 +126,8 @@ export async function resolveAudioInputs(): Promise<AudioInputSpec[]> {
 /** Synchronous count, for the disk estimate before a session starts. */
 function audioInputCount(): number {
   const settings = getRecordingSettings()
-  let count = settings.micDeviceName ? 1 : 0
-  if (settings.desktopAudioDeviceName || settings.useLoopbackBridge) count += 1
+  let count = settings.captureMicrophone && settings.micDeviceName ? 1 : 0
+  if (settings.captureSystemAudio) count += 1
   return count
 }
 

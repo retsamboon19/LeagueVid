@@ -21,6 +21,7 @@ import { applyLaunchAtLogin } from '../tray'
 import { resolveAudioInputs } from './autoRecorderHost'
 import { probeEncoders } from './encoderCapabilities'
 import { estimateTotalBitrateKbps, formatStorageEstimate, gigabytesPerHour } from './estimates'
+import { readGraphicsScheduling } from './graphicsScheduling'
 import type { CaptureTarget } from './ffmpegArgs'
 import { runPreflightTest } from './preflight'
 import {
@@ -177,6 +178,11 @@ export function registerRecorderHandlers(): void {
     active: detectPreset(getRecordingSettings())
   }))
 
+  // Whether Hardware-accelerated GPU scheduling is costing capture performance.
+  // Read live rather than cached: the user may go and change it, and a stale
+  // warning telling them to fix something they already fixed is worse than none.
+  ipcMain.handle('recorder:getGraphicsScheduling', () => readGraphicsScheduling())
+
   // What the current configuration is expected to cost. Modelled, not measured
   // -- which is why the preflight test exists alongside it.
   ipcMain.handle('recorder:estimateBitrate', () => {
@@ -236,8 +242,8 @@ function captureTargetForSettings(settings: RecordingSettings): CaptureTarget | 
 }
 
 function audioTrackCount(settings: RecordingSettings): number {
-  let count = settings.micDeviceName ? 1 : 0
-  if (settings.desktopAudioDeviceName || settings.useLoopbackBridge) count += 1
+  let count = settings.captureMicrophone && settings.micDeviceName ? 1 : 0
+  if (settings.captureSystemAudio) count += 1
   return count
 }
 

@@ -459,15 +459,23 @@ the development machine and not on someone else's.
    comes back (R6.11). Recording nothing is a worse outcome than recording
    something that needs tonemapping.
 
-8. **`ddagrab` can open a display and still deliver zero frames.** Observed on
-   the development machine: ddagrab reports `Opened dxgi output 0 with dimensions
-   2560x1440` and then produces no frames at all, while `gdigrab` on the same
-   machine records normally (1.3 MB in 3 s). Desktop Duplication only delivers
-   on desktop *updates*, so an idle, blanked or non-composited display yields
-   nothing even though every ffmpeg flag was accepted. This is the concrete
-   justification for the render-readiness gate (R15.2) requiring observed frames
-   rather than a delay, and for the preflight test (R20.4) reporting measured
-   framerate — "the command was accepted" is not evidence that capture works.
+8. **`ddagrab` can open a display and still deliver zero frames — transiently.**
+   First observed on the development machine as an apparently hard failure:
+   ddagrab reported `Opened dxgi output 0 with dimensions 2560x1440` and then
+   produced nothing for 45 s, while `gdigrab` recorded normally on the same
+   machine. A later re-test on the same machine captured 4 s of 1440p cleanly
+   (2.4 MB, exit 0), so the correct reading is that Desktop Duplication delivers
+   only on desktop *updates*: an idle, blanked or non-composited display yields
+   nothing even though every flag was accepted, and the same setup works once the
+   screen is live again.
+
+   The mitigation was right and the first diagnosis was incomplete. This is still
+   the concrete justification for the render-readiness gate (R15.2) requiring
+   observed frames rather than a delay, for the frames timeout that abandons a
+   stalled capture with a message about the monitor being asleep, and for the
+   preflight test (R20.4) reporting measured framerate — "the command was
+   accepted" is not evidence that capture works. But it is a transient state to
+   report and recover from, not a machine that cannot record.
 4. **Vanguard.** Display duplication should be untouched by it, and the game process
    is never hooked (R24). Still worth validating on a Vanguard-enabled account
    before claiming compatibility.

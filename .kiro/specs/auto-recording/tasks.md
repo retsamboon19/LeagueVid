@@ -197,12 +197,21 @@
   - Tests: segment selection across a wrap boundary, concat list generation
   - _Requirements: 22.1, 22.2, 22.3, 22.4, 22.5, 22.6, 22.7_
 
-- [ ] 18. Packaging and documentation
-  - Packaging config with `ffmpeg.exe` asar-unpacked; verify `ffmpegBinaryPath()` in a
-    real packaged build for both clipping and recording
-  - Update the README, which currently says LeagueVid "doesn't record anything itself",
-    plus the Requirements section
-  - _Requirements: 23.1, 23.2, 23.3, 23.4_
+- [x] 18. Packaging and documentation
+  - `electron-builder.yml` with `node_modules/ffmpeg-static/**` in `asarUnpack`, plus
+    `sql-wasm.wasm` as an extra resource; `npm run pack` / `npm run dist`
+  - README updated: the recording feature, the anti-cheat position, and Requirements
+    (Windows-only capture, disk space, hardware encoder)
+  - **Not verified: a real packaged build.** `electron-builder` fails on this machine
+    while extracting its `winCodeSign` toolchain -- 7za cannot create the macOS
+    signing symlinks without elevated privileges ("A required privilege is not held
+    by the client"). Instead, `ffmpegBinary.test.ts` covers the packaged path
+    resolution directly with `app.isPackaged` and `fs` mocked: the `app.asar` ->
+    `app.asar.unpacked` rewrite, the extra-resource fallback, and the error naming
+    every path searched. The remaining unverified claim is that electron-builder
+    places the binary where that logic expects, which needs one run on a machine with
+    symlink privileges or Developer Mode enabled
+  - _Requirements: 23.1, 23.3, 23.4 (23.2 partially -- see above)_
 
 - [ ] 19. Verify anti-cheat and process safety constraints hold
   - Confirm no injection, no process memory access, no game file modification anywhere in

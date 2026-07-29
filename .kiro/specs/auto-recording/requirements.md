@@ -705,3 +705,41 @@ sure LeagueVid cannot get me banned or crash my game.
    monitor's output.
 4. THE application SHALL interact with League only over its local HTTP endpoints.
 5. THE application SHALL NOT modify any game file or configuration.
+
+### Requirement 25: Familiar recording controls
+
+**User Story:** As someone coming from Outplayed, I want LeagueVid's recording
+settings laid out the way I already understand, so that I can configure it without
+learning a new vocabulary.
+
+The reference layout is Outplayed's capture settings: a video section with preset
+cards and resolution / bitrate / frame rate rows, then an audio section with
+identical blocks for system sound and microphone, each a toggle plus a device
+picker plus a volume slider, with an Advanced options disclosure under each.
+
+#### Acceptance Criteria
+
+1. THE Settings view SHALL present recording configuration as a video section and
+   an audio section.
+2. THE video section SHALL offer low, medium, high and custom quality choices,
+   each labelled with its resolution and framerate.
+3. WHEN the user's configuration matches no preset, THE video section SHALL
+   indicate a custom configuration.
+4. THE video section SHALL let the user choose a resolution from a fixed list
+   including 480p, 720p, 1080p, 1440p and the display's native resolution.
+5. THE video section SHALL let the user choose a bitrate from a fixed list.
+6. THE video section SHALL let the user choose a framerate from a fixed list
+   including 10, 20, 30, 60, 90 and 120.
+7. THE audio section SHALL provide an independent enable switch, device picker and
+   volume control for system sound and for the microphone.
+8. THE volume controls SHALL adjust the recorded level without altering the
+   operating system's own volume for other applications.
+9. THE Settings view SHALL place encoder selection, rate-control mode, keyframe
+   interval, monitor selection and audio track layout behind a disclosure rather
+   than removing them.
+10. WHILE Hardware-accelerated GPU scheduling is enabled, THE video section SHALL
+    warn that it can reduce capture performance and state where to change it.
+11. THE application SHALL NOT modify the Hardware-accelerated GPU scheduling
+    setting itself.
+12. WHERE a recorded level is set to zero, THE recording SHALL contain silence on
+    that input rather than a quiet signal.

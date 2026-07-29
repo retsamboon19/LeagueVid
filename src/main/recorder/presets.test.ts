@@ -32,22 +32,59 @@ describe('presets', () => {
     expect(QUALITY_PRESETS.map((p) => p.name)).toEqual(['low', 'medium', 'high'])
   })
 
-  it('gets heavier from low to high', () => {
+  // The tiers people already know from Outplayed: 480p20, 720p30, 1080p60.
+  it('matches the familiar low/medium/high tiers', () => {
     const [low, medium, high] = QUALITY_PRESETS
-    expect(low.values.framerate).toBeLessThanOrEqual(medium.values.framerate)
-    // Lower quality numbers mean better quality.
-    expect(high.values.quality).toBeLessThan(low.values.quality)
-    expect(high.values.resolutionScale).toBe('native')
+
+    expect(low.values.resolutionScale).toBe('480p')
+    expect(low.values.framerate).toBe(20)
+    expect(medium.values.resolutionScale).toBe('720p')
+    expect(medium.values.framerate).toBe(30)
+    expect(high.values.resolutionScale).toBe('1080p')
+    expect(high.values.framerate).toBe(60)
+  })
+
+  it('gets heavier from low to high on every axis', () => {
+    const [low, medium, high] = QUALITY_PRESETS
+
+    expect(low.values.framerate).toBeLessThan(medium.values.framerate)
+    expect(medium.values.framerate).toBeLessThan(high.values.framerate)
+
+    expect(low.values.bitrateKbps).toBeLessThan(medium.values.bitrateKbps)
+    expect(medium.values.bitrateKbps).toBeLessThan(high.values.bitrateKbps)
+
+    // Lower quality numbers mean better quality, so this ordering is inverted.
+    expect(high.values.quality).toBeLessThan(medium.values.quality)
+    expect(medium.values.quality).toBeLessThan(low.values.quality)
+  })
+
+  // The presets show a bitrate in the UI, so they have to actually use it --
+  // otherwise the number on screen describes nothing.
+  it('uses the bitrate the picker displays', () => {
+    for (const preset of QUALITY_PRESETS) {
+      expect(preset.values.rateControl, preset.name).toBe('bitrate')
+    }
+  })
+
+  it('gives every preset a one-line spec for the card', () => {
+    for (const preset of QUALITY_PRESETS) {
+      expect(preset.summary, preset.name).toMatch(/\d+p \d+fps/)
+    }
   })
 
   it('applies a preset over existing settings without touching unrelated fields', () => {
-    const before = settings({ micDeviceName: 'HyperX', outputDir: 'H:\\vods' })
+    const before = settings({
+      micDeviceName: 'HyperX',
+      micVolume: 60,
+      outputDir: 'H:\\vods'
+    })
     const after = applyPreset(before, 'low')
 
-    expect(after.framerate).toBe(30)
-    expect(after.resolutionScale).toBe('1080p')
-    // Untouched.
+    expect(after.framerate).toBe(20)
+    expect(after.resolutionScale).toBe('480p')
+    // A quality preset must not quietly reset someone's audio or output folder.
     expect(after.micDeviceName).toBe('HyperX')
+    expect(after.micVolume).toBe(60)
     expect(after.outputDir).toBe('H:\\vods')
   })
 

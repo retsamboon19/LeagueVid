@@ -17,11 +17,18 @@ export type QualityPresetName = 'low' | 'medium' | 'high' | 'custom'
 export interface QualityPreset {
   name: QualityPresetName
   label: string
+  /** One-line spec, e.g. 'Efficient - 720p 30fps'. */
+  summary: string
   description: string
   /** Applied over the current settings. */
   values: Pick<
     RecordingSettings,
-    'resolutionScale' | 'framerate' | 'rateControl' | 'quality' | 'keyframeIntervalSeconds'
+    | 'resolutionScale'
+    | 'framerate'
+    | 'rateControl'
+    | 'bitrateKbps'
+    | 'quality'
+    | 'keyframeIntervalSeconds'
   >
 }
 
@@ -29,36 +36,45 @@ export const QUALITY_PRESETS: QualityPreset[] = [
   {
     name: 'low',
     label: 'Low',
-    description: '1080p at 30fps. Smallest files, least load -- a safe choice on older hardware.',
+    summary: 'Modest - 480p 20fps',
+    description:
+      'Small files and almost no load. Fine for checking positioning and cooldowns; too soft to read item icons.',
     values: {
-      resolutionScale: '1080p',
-      framerate: 30,
-      rateControl: 'quality',
-      quality: 26,
+      resolutionScale: '480p',
+      framerate: 20,
+      rateControl: 'bitrate',
+      bitrateKbps: 1000,
+      quality: 28,
       keyframeIntervalSeconds: 1
     }
   },
   {
     name: 'medium',
     label: 'Medium',
-    description: '1080p at 60fps. Smooth enough to review mechanics, still modest on disk.',
+    summary: 'Efficient - 720p 30fps',
+    description:
+      'Readable at a glance without much disk. A good default if you mostly review decisions rather than mechanics.',
     values: {
-      resolutionScale: '1080p',
-      framerate: 60,
-      rateControl: 'quality',
-      quality: 23,
+      resolutionScale: '720p',
+      framerate: 30,
+      rateControl: 'bitrate',
+      bitrateKbps: 4000,
+      quality: 25,
       keyframeIntervalSeconds: 1
     }
   },
   {
     name: 'high',
     label: 'High',
-    description: 'Native resolution at 60fps. Sharpest, and the heaviest on disk.',
+    summary: 'High End - 1080p 60fps',
+    description:
+      'Smooth enough to review mechanics frame by frame, and the heaviest on disk of the three.',
     values: {
-      resolutionScale: 'native',
+      resolutionScale: '1080p',
       framerate: 60,
-      rateControl: 'quality',
-      quality: 21,
+      rateControl: 'bitrate',
+      bitrateKbps: 8000,
+      quality: 22,
       keyframeIntervalSeconds: 1
     }
   }

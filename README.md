@@ -1,11 +1,13 @@
 # LeagueVid
 
-A desktop app for reviewing your own League of Legends VODs. LeagueVid links your local recordings to your match history (via the Riot API), auto-tags key moments (kills, deaths, objectives, multikills) on the video timeline, and shows a full match stats panel (scoreboard, performance, build, graphs, insights) alongside the player.
+A desktop app for reviewing your own League of Legends VODs. LeagueVid records your games, links them to your match history (via the Riot API), auto-tags key moments (kills, deaths, objectives, multikills) on the video timeline, and shows a full match stats panel (scoreboard, performance, build, graphs, insights) alongside the player. Recordings you already have can be imported the same way.
 
 Built with Electron + React + TypeScript.
 
 ## Features
 
+- **Records your games on its own.** LeagueVid notices when a game starts, records it at a quality you choose, stops when the game ends, and drops the file into your library already linked to the right match. It runs in the tray, so you can close the window and still come back to finished recordings. Capture is screen duplication through ffmpeg -- nothing is injected into the game and the game process is never touched.
+- **Bookmarks on recordings it made are exact, not estimated.** Because the recorder knows the wall-clock moment its own first frame landed and can read the in-game clock, the offset between video time and game time is measured rather than inferred from a filename. Imported files still use the older filename-and-search approach, which is what makes this difference visible.
 - **Auto-links your recordings to your real match history.** Point LeagueVid at the folder(s) where your recordings live and it matches each file to the right game by timestamp, no manual searching. If a filename date is off, or auto-match picks the wrong game, a manual re-link lets you filter your downloaded match history by champion, kills, deaths, or lane opponent to find the right one instead.
 - **Auto-tags kills, deaths, assists, objectives, and multikills directly on the video timeline**, so you can jump straight to the action instead of scrubbing through a 40-minute VOD. Add your own manual bookmarks on top for anything the auto-tagger doesn't catch.
 - **A deep filtering system for your library, not just "champion + date".** Stack filters like champion(s) played (OR'd, so "Yorick or Sion games"), enemy laner, role, queue type, win/loss, and favorites, plus statistical thresholds like kills, deaths, CS/min, and gold diff vs. your lane opponent. Search for specific moments too: pick a multikill tier (double/triple/quadra/penta) and even require it be a solo multikill with no assists, or hunt down comeback/throw games by setting a gold-lead swing between a chosen minute and the final result (e.g. "down 2000+ gold at 15 but won"). Save any combination as a named preset to reuse later.
@@ -21,8 +23,14 @@ Built with Electron + React + TypeScript.
 ## Requirements
 
 - A Riot Games API key -- free, takes about a minute to grab from the [Riot Developer Portal](https://developer.riotgames.com/) (just log in with your Riot account)
-- Your own League of Legends game recordings (LeagueVid links to recordings you already have; it doesn't record anything itself)
-- Windows (the one-click setup below is for Windows; see [Getting started (manual / other OS)](#getting-started-manual--other-os) for Mac/Linux)
+- Windows 10 or later for recording. Capture uses the Desktop Duplication API, which is Windows-only; the rest of the app (importing, linking, stats, clipping) works anywhere Electron does.
+- Disk space for the footage. LeagueVid shows an estimate for your chosen quality and refuses to start a recording without room for an hour plus conversion headroom. Roughly 5-8 GB per hour at 1440p60, less at 1080p.
+- A GPU with a hardware video encoder is strongly preferred (NVENC, Quick Sync, or AMF). LeagueVid tests what your machine actually supports and falls back to software encoding, which works but spends CPU the game is also using -- the built-in ten-second test will tell you whether your settings are sustainable.
+- Recordings you already have work too: point LeagueVid at the folder(s) they live in and it will import and link them.
+
+### About recording and anti-cheat
+
+LeagueVid captures your screen, not the game. It never injects code into League of Legends, never reads the game's memory, and never modifies a game file -- it only talks to League over the local HTTP endpoints Riot provides for this purpose. Screen duplication is a deliberate choice over the graphics-hook approach some capture tools use, precisely because hooking is what anti-cheat objects to.
 
 You do **not** need to know how to code to use LeagueVid. The steps below are copy-paste and click-through -- no terminal commands required beyond what the setup script runs for you.
 

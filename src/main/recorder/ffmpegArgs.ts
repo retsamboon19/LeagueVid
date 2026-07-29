@@ -31,6 +31,13 @@ export interface AudioInputSpec {
   source: string
   /** Track title, and what the settings called it. */
   role: 'mic' | 'desktop'
+  /**
+   * 0-100, where 100 leaves the level alone.
+   *
+   * Applied in the filter graph rather than by asking the device to change,
+   * which would alter the user's Windows volume for every other program too.
+   */
+  volume?: number
 }
 
 export interface ReplayRingSpec {
@@ -61,7 +68,8 @@ export interface BuildCaptureArgsInput {
 const SCALE_HEIGHTS: Record<Exclude<RecordingSettings['resolutionScale'], 'native'>, number> = {
   '1440p': 1440,
   '1080p': 1080,
-  '720p': 720
+  '720p': 720,
+  '480p': 480
 }
 
 /**
@@ -227,8 +235,14 @@ export function buildAudioFilterChain(
   if (inputs.length === 0) return { chains: [], mapLabels: [] }
 
   const chains: string[] = []
-  inputs.forEach((_input, index) => {
-    chains.push(`[${index}:a]aresample=async=1:first_pts=0[a${index}]`)
+  inputs.forEach((input, index) => {
+    const steps = ['aresample=async=1:first_pts=0']
+    // Omitted entirely at 100 rather than emitted as volume=1.0: a filter that
+    // does nothing still costs a graph node, and its absence makes the command
+    // line readable when something needs debugging.
+    const gain = volumeFilter(input.volume)
+    if (gain) steps.push(gain)
+    chains.push(`[${index}:a]${steps.join(',')}[a${index}]`)
   })
 
   if (inputs.length === 1) {
@@ -246,6 +260,25 @@ export function buildAudioFilterChain(
     `${mixInputs}amix=inputs=${inputs.length}:duration=longest:dropout_transition=0[amix]`
   )
   return { chains, mapLabels: ['[amix]'] }
+}
+
+/**
+ * The volume filter for a 0-100 level, or null when there's nothing to do.
+ *
+ * Linear rather than logarithmic, which is what ffmpeg's volume filter expects
+ * by default and what a slider labelled 0-100 implies to whoever moves it.
+ */
+export function volumeFilter(volume: number | undefined): string | null {
+  if (volume == null) return null
+
+  const clamped = Math.min(100, Math.max(0, volume))
+  if (clamped === 100) return null
+
+  // Zero is worth honouring exactly: someone who drags a slider to 0 means
+  // silence, not "very quiet".
+  if (clamped === 0) return 'volume=0'
+
+  return `volume=${(clamped / 100).toFixed(2)}`
 }
 
 /** Input arguments for one audio source, in front of its -i. */

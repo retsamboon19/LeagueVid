@@ -435,6 +435,15 @@ const api = {
     // --- Quality ---
     getPresets: (): Promise<{ presets: QualityPresetInfo[]; active: string }> =>
       ipcRenderer.invoke('recorder:getPresets'),
+
+    // Whether Windows' Hardware-accelerated GPU scheduling is likely to be
+    // costing capture performance. Detected only -- LeagueVid does not change
+    // machine-wide graphics settings.
+    getGraphicsScheduling: (): Promise<{
+      state: string
+      shouldWarn: boolean
+      message: string | null
+    }> => ipcRenderer.invoke('recorder:getGraphicsScheduling'),
     applyPreset: (preset: string): Promise<RecordingSettings> =>
       ipcRenderer.invoke('recorder:applyPreset', preset),
 

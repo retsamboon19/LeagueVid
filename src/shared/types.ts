@@ -472,10 +472,40 @@ export interface MatchActionTimelineResult {
 // these defaults merged over whatever is stored so adding a field later
 // doesn't invalidate an existing row.
 
-export type ResolutionScale = 'native' | '1440p' | '1080p' | '720p'
-export type RecordingFramerate = 30 | 48 | 60
+export type ResolutionScale = 'native' | '1440p' | '1080p' | '720p' | '480p'
+export type RecordingFramerate = 10 | 20 | 30 | 60 | 90 | 120
 export type RateControlMode = 'quality' | 'bitrate'
 export type AudioTrackMode = 'mixed' | 'separate'
+
+/** Resolution choices, in the order the picker lists them. */
+export const RESOLUTION_OPTIONS: Array<{ value: ResolutionScale; label: string }> = [
+  { value: 'native', label: 'Native (your display)' },
+  { value: '1440p', label: '1440p (2K)' },
+  { value: '1080p', label: '1080p (Full HD)' },
+  { value: '720p', label: '720p (HD)' },
+  { value: '480p', label: '480p (SD)' }
+]
+
+/**
+ * Framerate choices.
+ *
+ * 90 and 120 are offered because the capture pipeline supports them, but they
+ * only make sense on a display that actually refreshes that fast -- above the
+ * monitor's refresh rate, Desktop Duplication has no new frames to hand over and
+ * the extra ones are duplicates.
+ */
+export const FRAMERATE_OPTIONS: RecordingFramerate[] = [10, 20, 30, 60, 90, 120]
+
+/**
+ * Bitrate choices in kbps, for bitrate mode.
+ *
+ * A list rather than a free number field: the useful range spans two orders of
+ * magnitude, and a typo in a text box is the difference between a watchable VOD
+ * and a 500 GB one.
+ */
+export const BITRATE_OPTIONS = [
+  1000, 2000, 3000, 4000, 6000, 8000, 12000, 16000, 20000, 30000, 40000, 60000
+]
 
 export interface RecordingSettings {
   /** Master switch for automatic recording. Off until the user opts in. */
@@ -511,14 +541,28 @@ export interface RecordingSettings {
    */
   keyframeIntervalSeconds: number
 
-  micDeviceName: string | null
-  desktopAudioDeviceName: string | null
+  /** Master switch for game/desktop sound. */
+  captureSystemAudio: boolean
   /**
-   * Chromium loopback bridge for system audio. The bundled ffmpeg has no
-   * WASAPI loopback input, so without either this or a virtual audio device
-   * there is no way to capture game sound.
+   * Which device carries system sound, or null to capture it from Windows
+   * directly through the loopback bridge.
+   *
+   * Null is the normal case: the bundled ffmpeg has no WASAPI loopback input, so
+   * unless the user has installed a virtual cable there is no device to pick and
+   * the bridge is the only route. A single field rather than a separate
+   * "use the bridge" flag, because two overlapping switches for one decision is
+   * how settings rot.
    */
-  useLoopbackBridge: boolean
+  desktopAudioDeviceName: string | null
+  /** 0-100. Applied with ffmpeg's volume filter, so 100 is unchanged. */
+  systemAudioVolume: number
+
+  /** Master switch for the microphone. */
+  captureMicrophone: boolean
+  micDeviceName: string | null
+  /** 0-100. */
+  micVolume: number
+
   audioTrackMode: AudioTrackMode
 
   /** Manual override only -- the real start trigger is render readiness. */
@@ -563,9 +607,18 @@ export const DEFAULT_RECORDING_SETTINGS: RecordingSettings = {
   bitrateKbps: 40000,
   keyframeIntervalSeconds: 1,
 
-  micDeviceName: null,
+  // Game sound on by default -- a silent VOD of a teamfight is close to
+  // useless for review. The microphone is off, because recording someone's
+  // voice without them having asked for it is not a default anyone should have
+  // to discover.
+  captureSystemAudio: true,
   desktopAudioDeviceName: null,
-  useLoopbackBridge: false,
+  systemAudioVolume: 100,
+
+  captureMicrophone: false,
+  micDeviceName: null,
+  micVolume: 100,
+
   audioTrackMode: 'mixed',
 
   startDelayMs: 0,
@@ -812,6 +865,8 @@ export interface RecorderStateSnapshot {
 export interface QualityPresetInfo {
   name: string
   label: string
+  /** One-line spec, e.g. 'Efficient - 720p 30fps'. */
+  summary: string
   description: string
 }
 

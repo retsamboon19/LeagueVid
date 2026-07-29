@@ -1,0 +1,44 @@
+appId: com.leaguevid.app
+productName: LeagueVid
+
+directories:
+  buildResources: resources
+  output: dist
+
+files:
+  - out/**/*
+  - package.json
+
+# ffmpeg has to live outside the archive.
+#
+# app.asar is an archive, not a directory, so the operating system cannot
+# execute anything inside it -- and ffmpeg-static computes its path from its own
+# location in node_modules, which is exactly where the archive swallows it. Both
+# clipping and recording spawn this binary, so an asar-packed build would ship a
+# feature set that works in development and fails on a user's machine.
+#
+# ffmpegBinaryPath() rewrites app.asar to app.asar.unpacked to match this.
+asarUnpack:
+  - node_modules/ffmpeg-static/**
+
+# sql.js ships a WASM binary that is loaded from disk at runtime rather than
+# bundled, so it has to be reachable as a real file too.
+extraResources:
+  - from: node_modules/sql.js/dist/sql-wasm.wasm
+    to: sql-wasm.wasm
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  # The app registers a login item and lives in the tray, so it should not be
+  # installed per-machine behind a UAC prompt.
+  requestedExecutionLevel: asInvoker
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  # Recordings are written next to the app by default, so the user needs to know
+  # where it landed.
+  createDesktopShortcut: true

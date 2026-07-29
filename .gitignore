@@ -29,3 +29,7 @@ mintest/
 # Exported clips live inside the app folder by default (see clipService.ts),
 # so keep the user's own video output out of version control.
 clips/
+
+# Recordings the app makes itself land here by default (see outputPaths.ts),
+# including the replay buffer's segment ring. Same reasoning as clips/.
+recordings/

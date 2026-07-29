@@ -11,7 +11,9 @@
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest --run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "pack": "electron-vite build && electron-builder --dir",
+    "dist": "electron-vite build && electron-builder"
   },
   "dependencies": {
     "@electron-toolkit/preload": "3.0.1",
@@ -30,6 +32,7 @@
     "@types/sql.js": "1.4.9",
     "@vitejs/plugin-react": "4.3.4",
     "electron": "33.4.5",
+    "electron-builder": "25.1.8",
     "electron-vite": "3.0.0",
     "tsx": "4.23.1",
     "typescript": "5.7.3",
