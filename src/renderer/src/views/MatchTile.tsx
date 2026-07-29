@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Check, Clock, Star, X } from 'lucide-react'
+import { Check, Clock, FolderOpen, Star, X } from 'lucide-react'
 import type { MatchRosterData, MatchStats, RosterParticipant, VideoRow } from '../../../shared/types'
 import { buildLiteMatchFacts, buildMatchFacts, selectAchievements } from '../lib/achievements'
 import {
@@ -497,6 +497,20 @@ function MatchTile({
             }}
           >
             {isLinked ? 'Re-link' : 'Link match'}
+          </button>
+          <button
+            className="player-icon-btn"
+            onClick={async (e) => {
+              e.stopPropagation()
+              const result = await window.api.video.revealInFolder(video.file_path)
+              // Only surfaced when something is actually wrong: on success
+              // Explorer comes to the front, which is its own confirmation.
+              if (result.reason) window.alert(result.reason)
+            }}
+            title={`Show in folder: ${video.file_path}`}
+            aria-label="Show this recording in its folder"
+          >
+            <FolderOpen size={14} />
           </button>
           <button
             className="player-icon-btn match-tile-remove-btn"

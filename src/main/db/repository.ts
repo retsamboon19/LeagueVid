@@ -14,6 +14,12 @@ import type {
   VideoSource
 } from '../../shared/types'
 import { DEFAULT_PLAYER_PREFERENCES, parseRecordingSettings } from '../../shared/types'
+import {
+  clampBitrateKbps,
+  clampMinKeepMinutes,
+  minutesToMs,
+  msToMinutes
+} from '../../shared/recordingBounds'
 
 export type { AppSettings, RecordingRow, RecordingSettings, TagRow, VideoRow }
 
@@ -128,10 +134,20 @@ export function getRecordingSettings(): RecordingSettings {
 }
 
 export function saveRecordingSettings(settings: RecordingSettings): void {
+  // Clamped here as well as in the field the user types into. The renderer's
+  // validation is for feedback; this is the guarantee, and it matters because
+  // these two values reach ffmpeg and the discard rule directly -- a bitrate of
+  // 0 or a minimum length of nine hours would be accepted silently otherwise.
+  const safe: RecordingSettings = {
+    ...settings,
+    bitrateKbps: clampBitrateKbps(settings.bitrateKbps).value,
+    minKeepDurationMs: minutesToMs(clampMinKeepMinutes(msToMinutes(settings.minKeepDurationMs)).value)
+  }
+
   run(
     `INSERT INTO settings (key, value) VALUES (?, ?)
      ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-    [RECORDING_SETTINGS_KEY, JSON.stringify(settings)]
+    [RECORDING_SETTINGS_KEY, JSON.stringify(safe)]
   )
 }
 

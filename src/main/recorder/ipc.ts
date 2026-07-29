@@ -1,4 +1,6 @@
-import { ipcMain, screen } from 'electron'
+import { dialog, ipcMain, screen, shell } from 'electron'
+import { mkdirSync, unlinkSync, writeFileSync } from 'fs'
+import { join } from 'path'
 import type {
   CaptureDisplay,
   EncoderCapabilities,
@@ -23,6 +25,7 @@ import { probeEncoders } from './encoderCapabilities'
 import { estimateTotalBitrateKbps, formatStorageEstimate, gigabytesPerHour } from './estimates'
 import { readGraphicsScheduling } from './graphicsScheduling'
 import type { CaptureTarget } from './ffmpegArgs'
+import { defaultRecordingsDir, recordingsDir } from './outputPaths'
 import { runPreflightTest } from './preflight'
 import {
   QUALITY_PRESETS,
@@ -99,6 +102,49 @@ export function registerRecorderHandlers(): void {
   ipcMain.handle('recorder:listDisplays', () => currentDisplays())
 
   ipcMain.handle('recorder:listAudioDevices', () => listAudioDevices(ffmpegBinaryPath()))
+
+  // --- Where recordings are written ---
+  // Mirrors the clips-folder handlers: a folder inside the app's own directory by
+  // default, so everything LeagueVid produces stays in one place the user
+  // already knows about rather than being scattered into the OS Videos library.
+
+  ipcMain.handle('recorder:getOutputDirInfo', () => ({
+    current: recordingsDir(),
+    default: defaultRecordingsDir(),
+    isCustom: getRecordingSettings().outputDir !== null
+  }))
+
+  ipcMain.handle('recorder:chooseOutputDir', async () => {
+    const result = await dialog.showOpenDialog({
+      title: 'Choose where to save recordings',
+      defaultPath: recordingsDir(),
+      properties: ['openDirectory', 'createDirectory']
+    })
+    if (result.canceled || result.filePaths.length === 0) return null
+
+    const chosen = result.filePaths[0]
+    // Proven writable before the choice is saved. A recording that fails at
+    // spawn time because the folder is read-only would cost a whole game; this
+    // way a bad pick fails here, while nothing is at stake.
+    try {
+      mkdirSync(chosen, { recursive: true })
+      const probe = join(chosen, '.leaguevid-write-test')
+      writeFileSync(probe, '')
+      unlinkSync(probe)
+    } catch {
+      throw new Error('That folder cannot be written to. Pick a different one.')
+    }
+
+    saveRecordingSettings({ ...getRecordingSettings(), outputDir: chosen })
+    return recordingsDir()
+  })
+
+  ipcMain.handle('recorder:resetOutputDir', () => {
+    saveRecordingSettings({ ...getRecordingSettings(), outputDir: null })
+    return recordingsDir()
+  })
+
+  ipcMain.handle('recorder:revealOutputFolder', () => shell.openPath(recordingsDir()))
 
   // Pull equivalent of the recorder:state push. A renderer that mounts
   // mid-recording has missed every push so far; without this it would show an

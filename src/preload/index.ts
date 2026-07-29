@@ -363,7 +363,12 @@ const api = {
     resetClipsDir: (): Promise<string> => ipcRenderer.invoke('video:resetClipsDir'),
     revealClipsFolder: (): Promise<void> => ipcRenderer.invoke('video:revealClipsFolder'),
     revealClip: (filePath: string): Promise<void> =>
-      ipcRenderer.invoke('video:revealClip', filePath)
+      ipcRenderer.invoke('video:revealClip', filePath),
+
+    // Shows any library file in Explorer, selected in its folder. Falls back to
+    // opening the parent folder if the file has moved, and says so.
+    revealInFolder: (filePath: string): Promise<{ revealed: boolean; reason: string | null }> =>
+      ipcRenderer.invoke('video:revealInFolder', filePath)
   },
   recorder: {
     // Recorder configuration. Saving returns the stored result rather than
@@ -391,6 +396,13 @@ const api = {
     // depends on either a virtual device listed here or the loopback bridge.
     listAudioDevices: (): Promise<AudioCaptureDevice[]> =>
       ipcRenderer.invoke('recorder:listAudioDevices'),
+
+    // --- Where recordings are written ---
+    getOutputDirInfo: (): Promise<{ current: string; default: string; isCustom: boolean }> =>
+      ipcRenderer.invoke('recorder:getOutputDirInfo'),
+    chooseOutputDir: (): Promise<string | null> => ipcRenderer.invoke('recorder:chooseOutputDir'),
+    resetOutputDir: (): Promise<string> => ipcRenderer.invoke('recorder:resetOutputDir'),
+    revealOutputFolder: (): Promise<void> => ipcRenderer.invoke('recorder:revealOutputFolder'),
 
     // --- Recorder state ---
     // Each of these pull methods mirrors a push channel below. That pairing

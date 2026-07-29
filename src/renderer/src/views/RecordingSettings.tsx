@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, ChevronRight, Gauge, Mic, RefreshCw, Trash2, Volume2 } from 'lucide-react'
+import {
+  AlertTriangle,
+  ChevronRight,
+  FolderOpen,
+  Gauge,
+  Mic,
+  RefreshCw,
+  Trash2,
+  Volume2
+} from 'lucide-react'
 import type {
   AudioCaptureDevice,
   CaptureDisplay,
@@ -15,6 +24,16 @@ import type {
 } from '../../../shared/types'
 import { BITRATE_OPTIONS, FRAMERATE_OPTIONS, RESOLUTION_OPTIONS } from '../../../shared/types'
 import { describeEncoder } from '../../../shared/encoders'
+import {
+  MAX_BITRATE_KBPS,
+  MAX_MIN_KEEP_MINUTES,
+  MIN_BITRATE_KBPS,
+  clampBitrateKbps,
+  clampMinKeepMinutes,
+  describeMinKeep,
+  minutesToMs,
+  msToMinutes
+} from '../../../shared/recordingBounds'
 
 // The recording settings screen.
 //
@@ -54,6 +73,20 @@ function RecordingSettingsSection(): JSX.Element {
   const [gpuWarning, setGpuWarning] = useState<string | null>(null)
   const [showVideoAdvanced, setShowVideoAdvanced] = useState(false)
   const [showAudioAdvanced, setShowAudioAdvanced] = useState(false)
+  const [outputDir, setOutputDir] = useState<{
+    current: string
+    default: string
+    isCustom: boolean
+  } | null>(null)
+  const [outputDirError, setOutputDirError] = useState<string | null>(null)
+  const [choosingDir, setChoosingDir] = useState(false)
+
+  // Typed fields hold a draft while being edited and commit on blur, so a
+  // half-typed number is never saved.
+  const [bitrateDraft, setBitrateDraft] = useState('')
+  const [bitrateNote, setBitrateNote] = useState<string | null>(null)
+  const [minKeepDraft, setMinKeepDraft] = useState('')
+  const [minKeepNote, setMinKeepNote] = useState<string | null>(null)
 
   const loopbackDevices = audioDevices.filter((d) => d.likelyLoopback)
 
@@ -75,6 +108,7 @@ function RecordingSettingsSection(): JSX.Element {
     window.api.recorder.listDisplays().then(setDisplays).catch(() => setDisplays([]))
     window.api.recorder.listAudioDevices().then(setAudioDevices).catch(() => setAudioDevices([]))
     window.api.recorder.getDiskUsage().then(setUsage).catch(() => setUsage(null))
+    window.api.recorder.getOutputDirInfo().then(setOutputDir).catch(() => setOutputDir(null))
 
     window.api.recorder
       .getGraphicsScheduling()
@@ -85,6 +119,52 @@ function RecordingSettingsSection(): JSX.Element {
       // Presets and the estimate are additive; everything else still renders.
     })
   }, [])
+
+  // Drafts follow the saved settings, including when a preset changes them.
+  useEffect(() => {
+    if (!settings) return
+    setBitrateDraft(String(settings.bitrateKbps))
+    setMinKeepDraft(String(msToMinutes(settings.minKeepDurationMs)))
+  }, [settings?.bitrateKbps, settings?.minKeepDurationMs])
+
+  async function commitBitrate(): Promise<void> {
+    if (!settings) return
+    const result = clampBitrateKbps(Number(bitrateDraft))
+    setBitrateNote(result.note)
+    setBitrateDraft(String(result.value))
+    if (result.value !== settings.bitrateKbps) await update({ bitrateKbps: result.value })
+  }
+
+  async function commitMinKeep(): Promise<void> {
+    if (!settings) return
+    const result = clampMinKeepMinutes(Number(minKeepDraft))
+    setMinKeepNote(result.note)
+    setMinKeepDraft(String(result.value))
+    const ms = minutesToMs(result.value)
+    if (ms !== settings.minKeepDurationMs) await update({ minKeepDurationMs: ms })
+  }
+
+  async function handleChooseOutputDir(): Promise<void> {
+    setChoosingDir(true)
+    setOutputDirError(null)
+    try {
+      const chosen = await window.api.recorder.chooseOutputDir()
+      if (chosen) {
+        setOutputDir(await window.api.recorder.getOutputDirInfo())
+        setSettings(await window.api.recorder.getSettings())
+      }
+    } catch (err) {
+      setOutputDirError((err as Error).message)
+    } finally {
+      setChoosingDir(false)
+    }
+  }
+
+  async function handleResetOutputDir(): Promise<void> {
+    await window.api.recorder.resetOutputDir()
+    setOutputDir(await window.api.recorder.getOutputDirInfo())
+    setSettings(await window.api.recorder.getSettings())
+  }
 
   async function refreshQuality(): Promise<void> {
     const [presetInfo, estimateInfo] = await Promise.all([
@@ -250,19 +330,37 @@ function RecordingSettingsSection(): JSX.Element {
 
       <div className="recorder-field">
         <label htmlFor="rec-bitrate">Bitrate (kbps)</label>
-        <select
-          id="rec-bitrate"
-          value={settings.bitrateKbps}
-          onChange={(e) => update({ bitrateKbps: Number(e.target.value) })}
-          disabled={settings.rateControl !== 'bitrate'}
-        >
-          {BITRATE_OPTIONS.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
+        <div className="recorder-bitrate">
+          {/* A number field with suggestions rather than a fixed dropdown: the
+              common values are one click away, and anyone who knows they want
+              7350 can just type it. */}
+          <input
+            id="rec-bitrate"
+            type="number"
+            list="rec-bitrate-options"
+            min={MIN_BITRATE_KBPS}
+            max={MAX_BITRATE_KBPS}
+            step={500}
+            value={bitrateDraft}
+            disabled={settings.rateControl !== 'bitrate'}
+            onChange={(e) => setBitrateDraft(e.target.value)}
+            // Committed on blur rather than per keystroke, so typing "12000"
+            // doesn't briefly save 1, then 12, then 120.
+            onBlur={() => commitBitrate()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitBitrate()
+            }}
+          />
+          <datalist id="rec-bitrate-options">
+            {BITRATE_OPTIONS.map((option) => (
+              <option key={option} value={option} />
+            ))}
+          </datalist>
+          <span className="recorder-inline-hint">kbps</span>
+        </div>
       </div>
+
+      {bitrateNote && <p className="settings-row-hint status-error">{bitrateNote}</p>}
 
       {settings.rateControl !== 'bitrate' && (
         <p className="settings-row-hint">
@@ -645,30 +743,91 @@ function RecordingSettingsSection(): JSX.Element {
         </div>
       </div>
 
-      <dl className="recording-summary">
-        <div className="recording-summary-row">
-          <dt>Keep recording after the game ends</dt>
-          <dd>{formatSeconds(settings.stopDelayMs)}</dd>
+      <h3 className="recorder-subheading">Where recordings go</h3>
+
+      {outputDir && (
+        <div className="clips-dir-row">
+          <div className="clips-dir-path">
+            <span className="clip-field-label">
+              {outputDir.isCustom ? 'Custom folder' : 'Default folder'}
+            </span>
+            <code>{outputDir.current}</code>
+            {!outputDir.isCustom && (
+              <span className="settings-row-hint">
+                Inside LeagueVid&apos;s own folder, so everything the app produces stays in one
+                place you already know about.
+              </span>
+            )}
+            {outputDirError && <span className="status status-error">{outputDirError}</span>}
+          </div>
+          <div className="clips-dir-actions">
+            <button onClick={handleChooseOutputDir} disabled={choosingDir}>
+              <FolderOpen size={15} /> {choosingDir ? 'Choosing...' : 'Change folder'}
+            </button>
+            <button
+              className="secondary"
+              onClick={() => window.api.recorder.revealOutputFolder()}
+              title="Open this folder"
+            >
+              Open
+            </button>
+            {outputDir.isCustom && (
+              <button className="secondary" onClick={handleResetOutputDir}>
+                Reset to default
+              </button>
+            )}
+          </div>
         </div>
-        <div className="recording-summary-row">
-          <dt>Discard recordings shorter than</dt>
-          <dd>{formatSeconds(settings.minKeepDurationMs)} — drops remakes</dd>
+      )}
+
+      <div className="recorder-field">
+        <label htmlFor="rec-minkeep">Delete recordings under</label>
+        <div className="recorder-bitrate">
+          <input
+            id="rec-minkeep"
+            type="number"
+            min={0}
+            max={MAX_MIN_KEEP_MINUTES}
+            step={0.25}
+            value={minKeepDraft}
+            onChange={(e) => setMinKeepDraft(e.target.value)}
+            onBlur={() => commitMinKeep()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitMinKeep()
+            }}
+          />
+          <span className="recorder-inline-hint">minutes (0 keeps everything)</span>
         </div>
-        <div className="recording-summary-row">
-          <dt>Save recordings to</dt>
-          <dd>{settings.outputDir ?? 'Default folder, alongside the app'}</dd>
-        </div>
-        <div className="recording-summary-row">
-          <dt>Start with Windows</dt>
-          <dd>
-            <Toggle
-              label=""
-              checked={settings.launchAtLogin}
-              onChange={(checked) => update({ launchAtLogin: checked })}
-            />
-          </dd>
-        </div>
-      </dl>
+      </div>
+      <p className="settings-row-hint">{describeMinKeep(settings.minKeepDurationMs)}</p>
+      {minKeepNote && <p className="settings-row-hint status-error">{minKeepNote}</p>}
+
+      <div className="recorder-field">
+        <label htmlFor="rec-stopdelay">Keep recording after the game</label>
+        <select
+          id="rec-stopdelay"
+          value={settings.stopDelayMs}
+          onChange={(e) => update({ stopDelayMs: Number(e.target.value) })}
+        >
+          <option value={0}>Stop immediately</option>
+          <option value={10000}>10 seconds</option>
+          <option value={20000}>20 seconds</option>
+          <option value={45000}>45 seconds</option>
+          <option value={90000}>90 seconds</option>
+        </select>
+      </div>
+      <p className="settings-row-hint">
+        Captures the post-game screen — final scoreboard and damage graphs — instead of cutting the
+        moment the game stops responding. Currently {formatSeconds(settings.stopDelayMs)}.
+      </p>
+
+      <div className="recorder-audio-block">
+        <Toggle
+          label="Start LeagueVid with Windows, hidden in the tray"
+          checked={settings.launchAtLogin}
+          onChange={(checked) => update({ launchAtLogin: checked })}
+        />
+      </div>
     </>
   )
 }

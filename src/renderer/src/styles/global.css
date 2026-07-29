@@ -4323,3 +4323,23 @@ select:focus {
   border-left: 1px solid #2f333f;
   margin-top: 0.3rem;
 }
+
+/* Typed numeric fields with a trailing unit label. */
+.recorder-bitrate {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.recorder-bitrate input[type='number'] {
+  /* Wide enough for six digits without stretching across the row. */
+  width: 9ch;
+  flex-shrink: 0;
+}
+
+.recorder-inline-hint {
+  font-size: 0.76rem;
+  color: #9aa0ad;
+  min-width: 0;
+}
