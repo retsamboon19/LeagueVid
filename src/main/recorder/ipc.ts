@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { ipcMain, screen } from 'electron'
 import type { EncoderCapabilities, RecordingSettings } from '../../shared/types'
 import {
   getEncoderCapabilitiesCache,
@@ -6,6 +6,8 @@ import {
   saveEncoderCapabilitiesCache,
   saveRecordingSettings
 } from '../db/repository'
+import { listAudioDevices } from './audioDevices'
+import { mapDisplaysToOutputs } from './displays'
 import { probeEncoders } from './encoderCapabilities'
 import { ffmpegBinaryPath } from './ffmpegBinary'
 
@@ -57,4 +59,24 @@ export function registerRecorderHandlers(): void {
 
   // Explicit re-detect, for a new GPU or a driver update.
   ipcMain.handle('recorder:refreshCapabilities', () => runProbe())
+
+  // Monitors, mapped onto the ddagrab output index that (probably) captures
+  // each one. Read live rather than cached: a display can be plugged in
+  // between opening Settings and starting a game.
+  ipcMain.handle('recorder:listDisplays', () => {
+    return mapDisplaysToOutputs(
+      screen.getAllDisplays().map((d) => ({
+        id: d.id,
+        bounds: d.bounds,
+        size: d.size,
+        scaleFactor: d.scaleFactor,
+        internal: d.internal,
+        label: d.label,
+        rotation: d.rotation
+      })),
+      screen.getPrimaryDisplay().id
+    )
+  })
+
+  ipcMain.handle('recorder:listAudioDevices', () => listAudioDevices(ffmpegBinaryPath()))
 }

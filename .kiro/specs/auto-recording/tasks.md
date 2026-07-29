@@ -63,7 +63,7 @@
   - Tests: progress blocks split across chunk boundaries; stop-timeout path
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 7.9_
 
-- [ ] 5. Display and audio device enumeration
+- [x] 5. Display and audio device enumeration
   - `displays.ts` maps `screen.getAllDisplays()` to `ddagrab output_idx` with labels,
     resolutions, scale factor, primary flag; fall back to primary when the configured
     display is gone

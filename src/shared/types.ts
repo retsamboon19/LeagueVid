@@ -659,3 +659,37 @@ export interface RecorderProgress {
   /** True on the final sample, when ffmpeg reports progress=end. */
   ended: boolean
 }
+
+// --- Capture targets ---
+
+export interface CaptureDisplay {
+  /** Electron display id, which is what gets persisted in settings. */
+  id: number
+  /**
+   * ddagrab output index guess. DXGI enumerates the outputs of one adapter in
+   * its own order, which no API reliably joins to Electron's display list --
+   * so this is a guess from physical arrangement, presented as a picker rather
+   * than applied silently.
+   */
+  outputIdx: number
+  /** Physical pixel size: what actually gets captured. */
+  width: number
+  height: number
+  scaleFactor: number
+  isPrimary: boolean
+  /** e.g. 'Display 1 (2560x1440, primary)'. */
+  label: string
+}
+
+export interface AudioCaptureDevice {
+  /** The name to pass as `-i audio=<name>`. */
+  name: string
+  /** DirectShow's unique id, which is what tells two identical headsets apart. */
+  alternativeName: string | null
+  /**
+   * Whether the name suggests desktop audio rather than a microphone. A guess
+   * from the name, which is all DirectShow offers, so it is surfaced as a hint
+   * and never selected automatically.
+   */
+  likelyLoopback: boolean
+}

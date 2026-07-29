@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
-import type { EncoderCapabilities, RecordingSettings } from '../../../shared/types'
+import type {
+  AudioCaptureDevice,
+  CaptureDisplay,
+  EncoderCapabilities,
+  RecordingSettings
+} from '../../../shared/types'
 import { describeEncoder } from '../../../shared/encoders'
 
 // Read-only view of the recorder's stored configuration.
@@ -32,6 +37,28 @@ function describeResolution(settings: RecordingSettings): string {
     : `Scaled to ${settings.resolutionScale}`
 }
 
+function describeDisplay(displayId: number | null, displays: CaptureDisplay[]): string {
+  if (displayId == null) {
+    const primary = displays.find((d) => d.isPrimary)
+    return primary ? `${primary.label}, chosen as the primary` : 'Primary monitor'
+  }
+  const match = displays.find((d) => d.id === displayId)
+  // A display can be unplugged between saving the setting and reading it, in
+  // which case recording falls back to primary rather than refusing to start.
+  return match ? match.label : `Display ${displayId} (not currently connected)`
+}
+
+function describeAudio(
+  deviceName: string | null,
+  devices: AudioCaptureDevice[],
+  fallback: string
+): string {
+  if (!deviceName) return fallback
+  return devices.some((d) => d.name === deviceName)
+    ? deviceName
+    : `${deviceName} (not currently connected)`
+}
+
 function describeRetention(settings: RecordingSettings): string {
   if (!settings.retentionEnabled) return 'Off -- nothing is deleted automatically'
   const limits: string[] = []
@@ -47,12 +74,21 @@ function RecordingSettingsSection(): JSX.Element {
   const [capabilities, setCapabilities] = useState<EncoderCapabilities | null>(null)
   const [detecting, setDetecting] = useState(false)
   const [capabilityError, setCapabilityError] = useState<string | null>(null)
+  const [displays, setDisplays] = useState<CaptureDisplay[]>([])
+  const [audioDevices, setAudioDevices] = useState<AudioCaptureDevice[]>([])
+
+  const loopbackDevices = audioDevices.filter((d) => d.likelyLoopback)
 
   useEffect(() => {
     window.api.recorder
       .getSettings()
       .then(setSettings)
       .catch((err: Error) => setError(err.message))
+
+    // Both lists are advisory: they label what's currently attached so the
+    // summary can say "not connected" instead of showing a stale id.
+    window.api.recorder.listDisplays().then(setDisplays).catch(() => setDisplays([]))
+    window.api.recorder.listAudioDevices().then(setAudioDevices).catch(() => setAudioDevices([]))
 
     // The first call after install probes the machine (one child process per
     // candidate), so this can take a few seconds. Every later launch reads
@@ -96,7 +132,7 @@ function RecordingSettingsSection(): JSX.Element {
     },
     {
       label: 'Monitor',
-      value: settings.displayId == null ? 'Primary monitor' : `Display ${settings.displayId}`
+      value: describeDisplay(settings.displayId, displays)
     },
     { label: 'Resolution', value: describeResolution(settings) },
     { label: 'Frame rate', value: `${settings.framerate} fps` },
@@ -113,10 +149,17 @@ function RecordingSettingsSection(): JSX.Element {
       label: 'Keyframe interval',
       value: `${settings.keyframeIntervalSeconds}s -- also the precision of lossless clip cuts`
     },
-    { label: 'Microphone', value: settings.micDeviceName ?? 'Not recorded' },
+    {
+      label: 'Microphone',
+      value: describeAudio(settings.micDeviceName, audioDevices, 'Not recorded')
+    },
     {
       label: 'System audio',
-      value: settings.desktopAudioDeviceName ?? 'Not recorded'
+      value: settings.desktopAudioDeviceName
+        ? describeAudio(settings.desktopAudioDeviceName, audioDevices, 'Not recorded')
+        : loopbackDevices.length > 0
+          ? `Not recorded (${loopbackDevices[0].name} is available)`
+          : 'Not available on this machine'
     },
     {
       label: 'Keep recording after the game ends',
@@ -195,6 +238,24 @@ function RecordingSettingsSection(): JSX.Element {
             ))}
           </ul>
         </details>
+      )}
+
+      {displays.length > 1 && (
+        <p className="settings-row-hint">
+          {displays.length} monitors detected. Which one a capture index points at is a guess:
+          Windows and the graphics driver enumerate displays separately, and on a laptop with two
+          GPUs an index can address the wrong adapter entirely. That&apos;s why the monitor is a
+          setting rather than something LeagueVid decides for you.
+        </p>
+      )}
+
+      {audioDevices.length > 0 && loopbackDevices.length === 0 && (
+        <p className="settings-row-hint">
+          System audio can&apos;t be captured on this machine yet. The bundled encoder can only
+          read microphone-style inputs on Windows, and none of your {audioDevices.length} audio
+          devices carries desktop sound. Rather than record silence and let you find out
+          afterwards, LeagueVid will record no system audio until the loopback capture path lands.
+        </p>
       )}
 
       <dl className="recording-summary">

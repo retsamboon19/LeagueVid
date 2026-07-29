@@ -2,7 +2,9 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type {
   AppSettings,
+  AudioCaptureDevice,
   AutoTagEvent,
+  CaptureDisplay,
   DDragonBundle,
   EncoderCapabilities,
   LeadSwingResult,
@@ -346,7 +348,18 @@ const api = {
     getCapabilities: (): Promise<EncoderCapabilities> =>
       ipcRenderer.invoke('recorder:getCapabilities'),
     refreshCapabilities: (): Promise<EncoderCapabilities> =>
-      ipcRenderer.invoke('recorder:refreshCapabilities')
+      ipcRenderer.invoke('recorder:refreshCapabilities'),
+
+    // Monitors, each mapped to the ddagrab output index that should capture
+    // it. Read live, since a display can be attached between opening Settings
+    // and starting a game.
+    listDisplays: (): Promise<CaptureDisplay[]> => ipcRenderer.invoke('recorder:listDisplays'),
+
+    // DirectShow capture devices. On Windows this is the only audio input the
+    // bundled ffmpeg has -- there is no WASAPI loopback -- so desktop audio
+    // depends on either a virtual device listed here or the loopback bridge.
+    listAudioDevices: (): Promise<AudioCaptureDevice[]> =>
+      ipcRenderer.invoke('recorder:listAudioDevices')
   }
 }
 
