@@ -1,18 +1,20 @@
 # Implementation Plan
 
 - [ ] 1. Test harness, recording settings, and the filename timestamp fix
-- [ ] 1.1 Fix the single-digit hour in `parseFileNameDate.ts` (own commit, first)
+- [ ] 1.1 Add the vitest harness
+  - `vitest` devDependency, node-environment `vitest.config.ts`, `npm run test` and
+    `test:watch`
+  - Tests sit beside their modules and import from `vitest` explicitly, so they
+    typecheck under the existing projects and are never bundled
+  - Lands before 1.2 only because the fix's fixtures need somewhere to run
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
+- [ ] 1.2 Fix the single-digit hour in `parseFileNameDate.ts` (its own commit)
   - Pattern 1 requires `(\d{2})` for the hour, so `Desktop 07-27-2026_0-25-37-967.mp4`
     and `League of Legends 07-27-2026_1-02-21-702.mp4` match no pattern and fall back
     to `birthtimeMs || mtimeMs` — every recording made before 10am is mis-dated
   - Accept `(\d{1,2})` for the hour; keep the plausible-date rejection
   - Fixtures for both real file names above, plus the existing padded forms
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
-- [ ] 1.2 Add the vitest harness
-  - `vitest` devDependency, node-environment `vitest.config.ts`, `npm run test` and
-    `test:watch`
-  - Keep test files out of the `tsc` project includes so typecheck/build are unaffected
-  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 - [ ] 1.3 Add `RecordingSettings` and `DEFAULT_RECORDING_SETTINGS` to `src/shared/types.ts`
   - Own interface, not folded into `AppSettings`; follow the `PlayerPreferences` precedent
   - _Requirements: 3.1, 3.2_

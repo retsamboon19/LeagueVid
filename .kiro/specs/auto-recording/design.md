@@ -411,8 +411,11 @@ discard (R15.6), and the explicitly opt-in retention sweep (R21.6).
 
 `vitest` in a Node environment, run by `npm run test`, with no Electron, display,
 GPU, League client or network dependency (R2). Test files live beside the modules
-they cover and are excluded from the `tsc` project includes so `npm run typecheck`
-and `npm run build` are unaffected (R2.5).
+they cover and import `describe`/`it`/`expect` explicitly rather than relying on
+globals, which means they typecheck under the existing `tsconfig.node.json` /
+`tsconfig.web.json` projects instead of having to be excluded from them. Nothing
+imports them from an entry point, so they are never bundled and `npm run build` is
+unaffected (R2.5).
 
 What gets tested, and why it is worth testing:
 
