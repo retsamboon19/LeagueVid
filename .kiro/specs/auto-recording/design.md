@@ -450,8 +450,24 @@ the development machine and not on someone else's.
 2. **`ddagrab` + `dshow` desync.** Documented ffmpeg behavior. Mitigated in the
    argument builder (R6.9), measured by the preflight test (R20.5). Mitigation is
    not proof.
-3. **HDR.** With Windows HDR enabled, `ddagrab`'s 8-bit output looks washed out.
-   Detect and offer a `zscale`/`tonemap` chain (R6.11).
+3. **HDR.** Worse than first assumed, and now measured rather than guessed.
+   `ffmpeg -h filter=ddagrab` on the bundled 6.1.1 build shows `output_fmt`
+   defaulting to `8bit` and `allow_fallback` defaulting to **false** — so on a
+   display that cannot supply 8-bit BGRA, ddagrab *errors out* rather than
+   producing washed-out output. The capture filter therefore always passes
+   `allow_fallback=1`, and the `zscale`/`tonemap` chain handles whatever format
+   comes back (R6.11). Recording nothing is a worse outcome than recording
+   something that needs tonemapping.
+
+8. **`ddagrab` can open a display and still deliver zero frames.** Observed on
+   the development machine: ddagrab reports `Opened dxgi output 0 with dimensions
+   2560x1440` and then produces no frames at all, while `gdigrab` on the same
+   machine records normally (1.3 MB in 3 s). Desktop Duplication only delivers
+   on desktop *updates*, so an idle, blanked or non-composited display yields
+   nothing even though every ffmpeg flag was accepted. This is the concrete
+   justification for the render-readiness gate (R15.2) requiring observed frames
+   rather than a delay, and for the preflight test (R20.4) reporting measured
+   framerate — "the command was accepted" is not evidence that capture works.
 4. **Vanguard.** Display duplication should be untouched by it, and the game process
    is never hooked (R24). Still worth validating on a Vanguard-enabled account
    before claiming compatibility.

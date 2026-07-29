@@ -44,7 +44,7 @@
     assume hardware NVENC rather than being re-centred on libx264
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 5.10_
 
-- [ ] 3. Pure argument builder
+- [x] 3. Pure argument builder
   - `ffmpegArgs.ts` maps settings + capture target to argv with no spawning and no
     filesystem access
   - Native capture by default; scaled path via `hwdownload,format=bgra,scale=,format=nv12`
