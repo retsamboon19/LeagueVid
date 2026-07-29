@@ -1,5 +1,6 @@
-import type { RecordingSettings } from '../../shared/types'
-import type { RecorderProgress } from '../../shared/types'
+import type { RecorderProgress, RecordingFramerate, RecordingSettings } from '../../shared/types'
+import { FRAMERATE_OPTIONS } from '../../shared/types'
+import { outputHeightFor, recommendedBitrateKbps } from '../../shared/bitrateAdvice'
 import { assessCaptureHealth } from './progressParser'
 
 // Quality presets, and the logic that reads a preflight result.
@@ -32,63 +33,140 @@ export interface QualityPreset {
   >
 }
 
-export const QUALITY_PRESETS: QualityPreset[] = [
-  {
-    name: 'low',
-    label: 'Low',
-    summary: 'Modest - 480p 20fps',
-    description:
-      'Small files and almost no load. Fine for checking positioning and cooldowns; too soft to read item icons.',
+export interface PresetContext {
+  /** Physical height of the display being captured. */
+  displayHeight: number
+  displayWidth: number
+  /** Refresh rate, when known. */
+  refreshHz: number | null
+  /** Whether a hardware encoder passed probing. */
+  hasHardwareEncoder: boolean
+}
+
+/**
+ * Presets built for the machine they'll run on.
+ *
+ * Fixed tiers were the wrong idea. "High = 1080p60 at 8 Mbps" is generous on a
+ * laptop and insulting on a 1440p 240Hz desktop with an RTX card, and the first
+ * version of this file shipped the second case -- which is exactly the complaint
+ * it earned. Resolution, framerate and bitrate are now derived from the display
+ * and from whether a hardware encoder actually works here.
+ *
+ * The other correction: on capable hardware the presets prefer *native*
+ * resolution. Scaling is not free in this pipeline -- the bundled ffmpeg has no
+ * working CUDA device, so scaling means a hwdownload round trip through system
+ * memory. Measured on a 1440p display, native capture dropped 0 frames while the
+ * scaled path dropped 1 and duplicated 35. Native is both faster and sharper;
+ * bitrate is the right lever for file size.
+ */
+export function buildQualityPresets(context: PresetContext): QualityPreset[] {
+  const { displayHeight, refreshHz, hasHardwareEncoder } = context
+
+  // Software encoding is the one case that genuinely needs modest settings: it
+  // spends CPU the game also wants.
+  const topScale: RecordingSettings['resolutionScale'] = hasHardwareEncoder ? 'native' : '1080p'
+  const cap = hasHardwareEncoder ? 240 : 60
+  const refreshCap = refreshHz && refreshHz > 0 ? Math.min(refreshHz, cap) : cap
+
+  const highFps = pickFramerate(Math.min(120, refreshCap))
+  const mediumFps = pickFramerate(Math.min(60, refreshCap))
+  const lowFps = pickFramerate(Math.min(30, refreshCap))
+
+  return [
+    buildPreset({
+      name: 'low',
+      label: 'Low',
+      scale: displayHeight <= 1080 ? '720p' : '1080p',
+      fps: lowFps,
+      quality: 26,
+      context,
+      note: 'Smallest files and the least load. Enough to review positioning and decisions.'
+    }),
+    buildPreset({
+      name: 'medium',
+      label: 'Medium',
+      scale: hasHardwareEncoder && displayHeight <= 1440 ? 'native' : '1080p',
+      fps: mediumFps,
+      quality: 23,
+      context,
+      note: 'Sharp and smooth enough for mechanics, at a sensible size.'
+    }),
+    buildPreset({
+      name: 'high',
+      label: 'High',
+      scale: topScale,
+      fps: highFps,
+      quality: 21,
+      context,
+      note: hasHardwareEncoder
+        ? 'Native resolution at high framerate. No scaling, so no capture overhead at all.'
+        : 'As much as software encoding can sustain without stealing frames from the game.'
+    })
+  ]
+}
+
+function buildPreset(input: {
+  name: QualityPresetName
+  label: string
+  scale: RecordingSettings['resolutionScale']
+  fps: RecordingFramerate
+  quality: number
+  context: PresetContext
+  note: string
+}): QualityPreset {
+  const height = outputHeightFor(input.scale, input.context.displayHeight)
+  const aspect = input.context.displayWidth / input.context.displayHeight
+  const width = Math.round((height * aspect) / 2) * 2
+  const bitrate = recommendedBitrateKbps(width, height, input.fps)
+
+  return {
+    name: input.name,
+    label: input.label,
+    summary: `${height}p ${input.fps}fps · ${Math.round(bitrate / 1000)} Mbps`,
+    description: input.note,
     values: {
-      resolutionScale: '480p',
-      framerate: 20,
+      resolutionScale: input.scale,
+      framerate: input.fps,
       rateControl: 'bitrate',
-      bitrateKbps: 1000,
-      quality: 28,
-      keyframeIntervalSeconds: 1
-    }
-  },
-  {
-    name: 'medium',
-    label: 'Medium',
-    summary: 'Efficient - 720p 30fps',
-    description:
-      'Readable at a glance without much disk. A good default if you mostly review decisions rather than mechanics.',
-    values: {
-      resolutionScale: '720p',
-      framerate: 30,
-      rateControl: 'bitrate',
-      bitrateKbps: 4000,
-      quality: 25,
-      keyframeIntervalSeconds: 1
-    }
-  },
-  {
-    name: 'high',
-    label: 'High',
-    summary: 'High End - 1080p 60fps',
-    description:
-      'Smooth enough to review mechanics frame by frame, and the heaviest on disk of the three.',
-    values: {
-      resolutionScale: '1080p',
-      framerate: 60,
-      rateControl: 'bitrate',
-      bitrateKbps: 8000,
-      quality: 22,
+      bitrateKbps: bitrate,
+      quality: input.quality,
       keyframeIntervalSeconds: 1
     }
   }
-]
+}
 
-export function findPreset(name: QualityPresetName): QualityPreset | undefined {
-  return QUALITY_PRESETS.find((preset) => preset.name === name)
+/** Nearest offered framerate at or below a ceiling. */
+function pickFramerate(ceiling: number): RecordingFramerate {
+  const usable = FRAMERATE_OPTIONS.filter((fps) => fps <= ceiling)
+  return usable.length > 0 ? (usable[usable.length - 1] as RecordingFramerate) : 30
+}
+
+/**
+ * Fallback presets for when no display information is available.
+ *
+ * Only reached if the display list can't be read, which in practice means
+ * something is already badly wrong. 1080p60 is the safe middle.
+ */
+export const QUALITY_PRESETS: QualityPreset[] = buildQualityPresets({
+  displayWidth: 1920,
+  displayHeight: 1080,
+  refreshHz: 60,
+  hasHardwareEncoder: true
+})
+
+export function findPreset(
+  name: QualityPresetName,
+  presets: QualityPreset[] = QUALITY_PRESETS
+): QualityPreset | undefined {
+  return presets.find((preset) => preset.name === name)
 }
 
 export function applyPreset(
   settings: RecordingSettings,
-  name: QualityPresetName
+  name: QualityPresetName,
+  presets: QualityPreset[] = QUALITY_PRESETS
 ): RecordingSettings {
-  const preset = findPreset(name)
+  const preset = findPreset(name, presets)
   if (!preset) return settings
   return { ...settings, ...preset.values }
 }
@@ -100,8 +178,11 @@ export function applyPreset(
  * custom instead of leaving a preset button highlighted that no longer
  * describes what will be recorded.
  */
-export function detectPreset(settings: RecordingSettings): QualityPresetName {
-  for (const preset of QUALITY_PRESETS) {
+export function detectPreset(
+  settings: RecordingSettings,
+  presets: QualityPreset[] = QUALITY_PRESETS
+): QualityPresetName {
+  for (const preset of presets) {
     const matches = Object.entries(preset.values).every(
       ([key, value]) => settings[key as keyof typeof preset.values] === value
     )

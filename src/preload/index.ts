@@ -445,7 +445,11 @@ const api = {
     listRecordings: (): Promise<RecordingRow[]> => ipcRenderer.invoke('recorder:listRecordings'),
 
     // --- Quality ---
-    getPresets: (): Promise<{ presets: QualityPresetInfo[]; active: string }> =>
+    getPresets: (): Promise<{
+      presets: QualityPresetInfo[]
+      active: string
+      refreshHz: number | null
+    }> =>
       ipcRenderer.invoke('recorder:getPresets'),
 
     // Whether Windows' Hardware-accelerated GPU scheduling is likely to be

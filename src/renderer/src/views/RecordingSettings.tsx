@@ -25,6 +25,11 @@ import type {
 import { BITRATE_OPTIONS, FRAMERATE_OPTIONS, RESOLUTION_OPTIONS } from '../../../shared/types'
 import { describeEncoder } from '../../../shared/encoders'
 import {
+  exceedsRefreshRate,
+  outputHeightFor,
+  recommendedBitrateKbps
+} from '../../../shared/bitrateAdvice'
+import {
   MAX_BITRATE_KBPS,
   MAX_MIN_KEEP_MINUTES,
   MIN_BITRATE_KBPS,
@@ -62,6 +67,7 @@ function RecordingSettingsSection(): JSX.Element {
   const [audioDevices, setAudioDevices] = useState<AudioCaptureDevice[]>([])
   const [presets, setPresets] = useState<QualityPresetInfo[]>([])
   const [activePreset, setActivePreset] = useState<string>('custom')
+  const [refreshHz, setRefreshHz] = useState<number | null>(null)
   const [estimate, setEstimate] = useState<{ summary: string } | null>(null)
   const [preflight, setPreflight] = useState<PreflightResultInfo | null>(null)
   const [preflightError, setPreflightError] = useState<string | null>(null)
@@ -127,12 +133,29 @@ function RecordingSettingsSection(): JSX.Element {
     setMinKeepDraft(String(msToMinutes(settings.minKeepDurationMs)))
   }, [settings?.bitrateKbps, settings?.minKeepDurationMs])
 
+  /**
+   * Saves a typed bitrate.
+   *
+   * Setting a bitrate also switches rate control to bitrate mode. The field used
+   * to be disabled outside that mode, which meant the default configuration
+   * shipped with a greyed-out bitrate box and no obvious way to reach it --
+   * asking someone to find a dropdown in Advanced options before the number they
+   * came here to change becomes editable. Typing a bitrate is an unambiguous
+   * request to use it.
+   */
   async function commitBitrate(): Promise<void> {
     if (!settings) return
     const result = clampBitrateKbps(Number(bitrateDraft))
     setBitrateNote(result.note)
     setBitrateDraft(String(result.value))
-    if (result.value !== settings.bitrateKbps) await update({ bitrateKbps: result.value })
+
+    const needsMode = settings.rateControl !== 'bitrate'
+    if (result.value !== settings.bitrateKbps || needsMode) {
+      await update({
+        bitrateKbps: result.value,
+        ...(needsMode ? { rateControl: 'bitrate' as const } : {})
+      })
+    }
   }
 
   async function commitMinKeep(): Promise<void> {
@@ -173,6 +196,7 @@ function RecordingSettingsSection(): JSX.Element {
     ])
     setPresets(presetInfo.presets)
     setActivePreset(presetInfo.active)
+    setRefreshHz(presetInfo.refreshHz ?? null)
     setEstimate(estimateInfo)
   }
 
@@ -255,6 +279,20 @@ function RecordingSettingsSection(): JSX.Element {
   }
 
   const microphones = audioDevices.filter((d) => !d.likelyLoopback)
+
+  // What the current resolution choice actually produces, for the bitrate
+  // suggestion. Falls back to 1080p when no display has been read yet.
+  const captureDisplay = displays.find((d) => d.id === settings.displayId) ??
+    displays.find((d) => d.isPrimary) ?? { width: 1920, height: 1080 }
+  const activeOutputHeight = outputHeightFor(settings.resolutionScale, captureDisplay.height)
+  const activeOutputWidth = Math.round(
+    (activeOutputHeight * (captureDisplay.width / captureDisplay.height)) / 2
+  ) * 2
+  const suggestedBitrate = recommendedBitrateKbps(
+    activeOutputWidth,
+    activeOutputHeight,
+    settings.framerate
+  )
 
   return (
     <>
@@ -342,7 +380,6 @@ function RecordingSettingsSection(): JSX.Element {
             max={MAX_BITRATE_KBPS}
             step={500}
             value={bitrateDraft}
-            disabled={settings.rateControl !== 'bitrate'}
             onChange={(e) => setBitrateDraft(e.target.value)}
             // Committed on blur rather than per keystroke, so typing "12000"
             // doesn't briefly save 1, then 12, then 120.
@@ -364,25 +401,53 @@ function RecordingSettingsSection(): JSX.Element {
 
       {settings.rateControl !== 'bitrate' && (
         <p className="settings-row-hint">
-          Bitrate is ignored while constant quality is in use — the encoder spends whatever each
-          scene needs. Switch back under Advanced options to set a fixed rate.
+          Constant quality is in use, so the encoder spends whatever each scene needs and this
+          number isn&apos;t applied yet. Changing it switches to fixed bitrate.
+        </p>
+      )}
+
+      {suggestedBitrate !== null && suggestedBitrate !== settings.bitrateKbps && (
+        <p className="settings-row-hint">
+          For {activeOutputHeight}p at {settings.framerate} fps, around{' '}
+          {Math.round(suggestedBitrate / 1000)} Mbps suits game footage.{' '}
+          <button
+            type="button"
+            className="link-button"
+            style={{ padding: 0 }}
+            onClick={() => update({ bitrateKbps: suggestedBitrate, rateControl: 'bitrate' })}
+          >
+            use {suggestedBitrate} kbps
+          </button>
         </p>
       )}
 
       <div className="recorder-field">
         <label>Frame rate (FPS)</label>
         <div className="recorder-segmented" role="group" aria-label="Frame rate">
-          {FRAMERATE_OPTIONS.map((fps) => (
-            <button
-              key={fps}
-              type="button"
-              className={settings.framerate === fps ? 'recorder-segment--active' : ''}
-              onClick={() => update({ framerate: fps as RecordingFramerate })}
-              aria-pressed={settings.framerate === fps}
-            >
-              {fps}
-            </button>
-          ))}
+          {FRAMERATE_OPTIONS.map((fps) => {
+            const beyondRefresh = exceedsRefreshRate(fps, refreshHz)
+            return (
+              <button
+                key={fps}
+                type="button"
+                className={[
+                  settings.framerate === fps ? 'recorder-segment--active' : '',
+                  beyondRefresh ? 'recorder-segment--beyond' : ''
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                onClick={() => update({ framerate: fps as RecordingFramerate })}
+                aria-pressed={settings.framerate === fps}
+                title={
+                  beyondRefresh
+                    ? `Above your display's ${refreshHz} Hz — the extra frames would be duplicates`
+                    : undefined
+                }
+              >
+                {fps}
+              </button>
+            )
+          })}
         </div>
       </div>
 

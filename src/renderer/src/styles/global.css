@@ -4343,3 +4343,14 @@ select:focus {
   color: #9aa0ad;
   min-width: 0;
 }
+
+/* A framerate the display can't actually feed: still selectable, since the user
+   may know something we don't, but visibly marked. */
+.recorder-segment--beyond {
+  opacity: 0.55;
+}
+
+.recorder-segment--beyond::after {
+  content: '·';
+  margin-left: 0.15rem;
+}

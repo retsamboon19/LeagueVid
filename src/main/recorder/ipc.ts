@@ -28,9 +28,10 @@ import type { CaptureTarget } from './ffmpegArgs'
 import { defaultRecordingsDir, recordingsDir } from './outputPaths'
 import { runPreflightTest } from './preflight'
 import {
-  QUALITY_PRESETS,
   applyPreset,
+  buildQualityPresets,
   detectPreset,
+  type QualityPreset,
   type QualityPresetName
 } from './presets'
 import { getDiskUsage, previewRetentionSweep, runRetentionSweep } from './retentionService'
@@ -214,15 +215,20 @@ export function registerRecorderHandlers(): void {
   // --- Quality presets and preflight ---
 
   ipcMain.handle('recorder:applyPreset', (_e, preset: QualityPresetName) => {
-    const next = applyPreset(getRecordingSettings(), preset)
+    const next = applyPreset(getRecordingSettings(), preset, presetsForThisMachine())
     saveRecordingSettings(next)
-    return next
+    return getRecordingSettings()
   })
 
-  ipcMain.handle('recorder:getPresets', () => ({
-    presets: QUALITY_PRESETS,
-    active: detectPreset(getRecordingSettings())
-  }))
+  ipcMain.handle('recorder:getPresets', () => {
+    const presets = presetsForThisMachine()
+    return {
+      presets,
+      active: detectPreset(getRecordingSettings(), presets),
+      // The UI marks framerates the display can't actually feed.
+      refreshHz: primaryRefreshHz()
+    }
+  })
 
   // Whether Hardware-accelerated GPU scheduling is costing capture performance.
   // Read live rather than cached: the user may go and change it, and a stale
@@ -272,6 +278,33 @@ export function registerRecorderHandlers(): void {
       audioInputs: [],
       fallbackEncoder: getEncoderCapabilitiesCache()?.chosen ?? 'libx264'
     })
+  })
+}
+
+function primaryRefreshHz(): number | null {
+  const frequency = screen.getPrimaryDisplay().displayFrequency
+  return typeof frequency === 'number' && frequency > 0 ? Math.round(frequency) : null
+}
+
+/**
+ * Presets sized for this machine's display and encoder.
+ *
+ * Rebuilt on each request rather than cached: a monitor can be swapped, and a
+ * preset describing a display the user no longer has is worse than none.
+ */
+function presetsForThisMachine(): QualityPreset[] {
+  const settings = getRecordingSettings()
+  const resolved = resolveCaptureDisplay(currentDisplays(), settings.displayId)
+  const capabilities = getEncoderCapabilitiesCache()
+
+  // A passing non-libx264 encoder means capture costs the GPU, not the CPU.
+  const hasHardwareEncoder = !!capabilities?.chosen && capabilities.chosen !== 'libx264'
+
+  return buildQualityPresets({
+    displayWidth: resolved?.display.width ?? 1920,
+    displayHeight: resolved?.display.height ?? 1080,
+    refreshHz: primaryRefreshHz(),
+    hasHardwareEncoder
   })
 }
 

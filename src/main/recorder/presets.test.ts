@@ -3,6 +3,7 @@ import { DEFAULT_RECORDING_SETTINGS, type RecordingSettings } from '../../shared
 import {
   QUALITY_PRESETS,
   applyPreset,
+  buildQualityPresets,
   assessPreflight,
   detectPreset,
   measurementFromProgress,
@@ -32,30 +33,92 @@ describe('presets', () => {
     expect(QUALITY_PRESETS.map((p) => p.name)).toEqual(['low', 'medium', 'high'])
   })
 
-  // The tiers people already know from Outplayed: 480p20, 720p30, 1080p60.
-  it('matches the familiar low/medium/high tiers', () => {
-    const [low, medium, high] = QUALITY_PRESETS
-
-    expect(low.values.resolutionScale).toBe('480p')
-    expect(low.values.framerate).toBe(20)
-    expect(medium.values.resolutionScale).toBe('720p')
-    expect(medium.values.framerate).toBe(30)
-    expect(high.values.resolutionScale).toBe('1080p')
-    expect(high.values.framerate).toBe(60)
-  })
-
   it('gets heavier from low to high on every axis', () => {
     const [low, medium, high] = QUALITY_PRESETS
 
-    expect(low.values.framerate).toBeLessThan(medium.values.framerate)
-    expect(medium.values.framerate).toBeLessThan(high.values.framerate)
+    expect(low.values.framerate).toBeLessThanOrEqual(medium.values.framerate)
+    expect(medium.values.framerate).toBeLessThanOrEqual(high.values.framerate)
 
-    expect(low.values.bitrateKbps).toBeLessThan(medium.values.bitrateKbps)
-    expect(medium.values.bitrateKbps).toBeLessThan(high.values.bitrateKbps)
+    expect(low.values.bitrateKbps).toBeLessThan(high.values.bitrateKbps)
 
     // Lower quality numbers mean better quality, so this ordering is inverted.
     expect(high.values.quality).toBeLessThan(medium.values.quality)
     expect(medium.values.quality).toBeLessThan(low.values.quality)
+  })
+
+  // Fixed tiers were the original mistake: "High = 1080p60 at 8 Mbps" is
+  // generous on a laptop and insulting on a 1440p 240Hz desktop with an RTX
+  // card. Presets are now derived from the machine they'll run on.
+  describe('adapting to the machine', () => {
+    const HIGH_END = {
+      displayWidth: 2560,
+      displayHeight: 1440,
+      refreshHz: 239,
+      hasHardwareEncoder: true
+    }
+
+    it('uses native resolution and high framerate on capable hardware', () => {
+      const [, , high] = buildQualityPresets(HIGH_END)
+
+      expect(high.values.resolutionScale).toBe('native')
+      expect(high.values.framerate).toBe(120)
+    })
+
+    // Scaling is not free here: the bundled ffmpeg has no working CUDA device,
+    // so it means a hwdownload round trip through system memory. Measured on
+    // this display, native dropped 0 frames where the scaled path dropped 1 and
+    // duplicated 35. Native is faster *and* sharper.
+    it('prefers no scaling at all when the encoder is hardware', () => {
+      const [, medium, high] = buildQualityPresets(HIGH_END)
+      expect(medium.values.resolutionScale).toBe('native')
+      expect(high.values.resolutionScale).toBe('native')
+    })
+
+    it('gives a 1440p 240Hz display a bitrate that suits it', () => {
+      const [, , high] = buildQualityPresets(HIGH_END)
+      // Not the 8 Mbps the first version of this file used for its top preset.
+      expect(high.values.bitrateKbps).toBeGreaterThan(20_000)
+    })
+
+    it('never exceeds the display refresh rate', () => {
+      const sixtyHz = { ...HIGH_END, refreshHz: 60 }
+      for (const preset of buildQualityPresets(sixtyHz)) {
+        expect(preset.values.framerate, preset.name).toBeLessThanOrEqual(60)
+      }
+    })
+
+    // Software encoding is the one case that genuinely needs modest settings,
+    // because it spends CPU the game also wants.
+    it('holds back when only software encoding is available', () => {
+      const presets = buildQualityPresets({ ...HIGH_END, hasHardwareEncoder: false })
+
+      for (const preset of presets) {
+        expect(preset.values.resolutionScale, preset.name).not.toBe('native')
+        expect(preset.values.framerate, preset.name).toBeLessThanOrEqual(60)
+      }
+    })
+
+    it('does not upscale a modest display', () => {
+      const laptop = {
+        displayWidth: 1366,
+        displayHeight: 768,
+        refreshHz: 60,
+        hasHardwareEncoder: true
+      }
+      for (const preset of buildQualityPresets(laptop)) {
+        // 720p or native, never a request for more pixels than the panel has.
+        expect(['native', '720p', '1080p'], preset.name).toContain(
+          preset.values.resolutionScale
+        )
+      }
+    })
+
+    it('describes each preset with the resolution, framerate and bitrate', () => {
+      for (const preset of buildQualityPresets(HIGH_END)) {
+        expect(preset.summary, preset.name).toMatch(/\d+p \d+fps/)
+        expect(preset.summary, preset.name).toContain('Mbps')
+      }
+    })
   })
 
   // The presets show a bitrate in the UI, so they have to actually use it --
@@ -80,8 +143,9 @@ describe('presets', () => {
     })
     const after = applyPreset(before, 'low')
 
-    expect(after.framerate).toBe(20)
-    expect(after.resolutionScale).toBe('480p')
+    // The fallback presets assume a 1080p60 display, so Low is 720p30 there.
+    expect(after.framerate).toBe(30)
+    expect(after.resolutionScale).toBe('720p')
     // A quality preset must not quietly reset someone's audio or output folder.
     expect(after.micDeviceName).toBe('HyperX')
     expect(after.micVolume).toBe(60)

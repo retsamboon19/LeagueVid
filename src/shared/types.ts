@@ -473,7 +473,7 @@ export interface MatchActionTimelineResult {
 // doesn't invalidate an existing row.
 
 export type ResolutionScale = 'native' | '1440p' | '1080p' | '720p' | '480p'
-export type RecordingFramerate = 10 | 20 | 30 | 60 | 90 | 120
+export type RecordingFramerate = 10 | 20 | 30 | 60 | 90 | 120 | 144 | 240
 export type RateControlMode = 'quality' | 'bitrate'
 export type AudioTrackMode = 'mixed' | 'separate'
 
@@ -494,7 +494,7 @@ export const RESOLUTION_OPTIONS: Array<{ value: ResolutionScale; label: string }
  * monitor's refresh rate, Desktop Duplication has no new frames to hand over and
  * the extra ones are duplicates.
  */
-export const FRAMERATE_OPTIONS: RecordingFramerate[] = [10, 20, 30, 60, 90, 120]
+export const FRAMERATE_OPTIONS: RecordingFramerate[] = [10, 20, 30, 60, 90, 120, 144, 240]
 
 /**
  * Bitrate choices in kbps, for bitrate mode.
