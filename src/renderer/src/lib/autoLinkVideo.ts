@@ -1,4 +1,9 @@
-import type { AppSettings, MatchPickerSummary, VideoRow } from '../../../shared/types'
+import type {
+  AppSettings,
+  MatchPickerSummary,
+  RecordingRow,
+  VideoRow
+} from '../../../shared/types'
 
 // Fallback slack when a video's duration isn't known (older imports from
 // before duration probing existed, or a single-file add that skipped it),
@@ -391,4 +396,245 @@ export async function rebuildBookmarks(video: VideoRow, settings: AppSettings): 
   }
 
   return false
+}
+
+// --- Linking LeagueVid's own recordings ---
+//
+// A recording LeagueVid made knows two things an imported file never can: the
+// exact match id, read from the League client, and the wall-clock time its
+// first frame landed. That makes linking a lookup rather than a search, and the
+// sync offset a measurement rather than an inference.
+//
+// Everything above this line exists because an imported file offers neither. It
+// stays as the fallback: a custom game has no match id, the League client may
+// not have been running, and Riot occasionally never publishes a match at all.
+
+/**
+ * Retry schedule for the hinted lookup.
+ *
+ * Riot's match-v5 endpoint does not publish a match the instant it ends -- the
+ * lag is seconds to minutes, and longer when their platform is busy. So the
+ * first attempt failing is the normal case rather than an error, and these
+ * delays are spaced to cover the usual window without hammering the API.
+ */
+export const RECORDED_LINK_BACKOFF_MS = [10_000, 30_000, 60_000, 120_000, 300_000]
+
+/** Delay before attempt N (0-based), or null once the schedule is exhausted. */
+export function nextRetryDelayMs(attempt: number): number | null {
+  return RECORDED_LINK_BACKOFF_MS[attempt] ?? null
+}
+
+export function hasExhaustedRetries(attempts: number): boolean {
+  return attempts >= RECORDED_LINK_BACKOFF_MS.length
+}
+
+/**
+ * The recording's true start: the moment the first frame landed.
+ *
+ * Falls back to the spawn time for rows written before first_frame_ms existed,
+ * or for a session that never reached the frames-flowing state.
+ */
+export function recordingStartMs(
+  recording: Pick<RecordingRow, 'first_frame_ms' | 'started_at'>
+): number {
+  return recording.first_frame_ms ?? recording.started_at
+}
+
+/**
+ * The measured sync offset.
+ *
+ * Same relationship the rest of the app uses -- video_time = game_time +
+ * offset -- but both terms are now known rather than guessed at. No filename
+ * parsing, no overlap search, no choosing between "the timestamp means the
+ * start" and "the timestamp means the end".
+ */
+export function measuredSyncOffsetMs(
+  gameStartTimestamp: number,
+  recording: Pick<RecordingRow, 'first_frame_ms' | 'started_at'>
+): number {
+  return gameStartTimestamp - recordingStartMs(recording)
+}
+
+export interface RecordedLinkResult {
+  linked: boolean
+  /** Which path produced the link, for logging and for the pending queue. */
+  via: 'hint' | 'search' | 'none'
+  /** Set when nothing could be linked, phrased for a person. */
+  reason: string | null
+  /** True when it's worth trying again later. */
+  retryable: boolean
+}
+
+/**
+ * Links a recorded video using its match-id hint, falling back to the search.
+ *
+ * The hint path is a single fetch of a known match id -- no windowed search, no
+ * candidate scoring, no exclusion set, because there is nothing to disambiguate.
+ */
+export async function linkRecordedVideo(
+  video: VideoRow,
+  recording: RecordingRow,
+  settings: AppSettings
+): Promise<RecordedLinkResult> {
+  const hint = recording.match_id_hint
+
+  if (hint) {
+    // The account that played it is recorded on the session, but fall back to
+    // trying each linked account: a puuid is minted per API key, so a key
+    // change between recording and linking would otherwise strand the video.
+    const candidates = recording.puuid
+      ? [
+          {
+            platform: (recording.platform ?? settings.accounts[0]?.platform) as
+              | AppSettings['accounts'][number]['platform']
+              | undefined,
+            puuid: recording.puuid
+          },
+          ...settings.accounts.map((a) => ({ platform: a.platform, puuid: a.puuid }))
+        ]
+      : settings.accounts.map((a) => ({ platform: a.platform, puuid: a.puuid }))
+
+    for (const candidate of candidates) {
+      if (!candidate.platform || !candidate.puuid) continue
+      try {
+        const bundle = await window.api.riot.fetchMatchBundle({
+          platform: candidate.platform,
+          matchId: hint,
+          puuid: candidate.puuid
+        })
+
+        await applyRecordedLink(video, recording, hint, bundle)
+        return { linked: true, via: 'hint', reason: null, retryable: false }
+      } catch {
+        // Almost always "not published yet". Try the next account, then retry
+        // later on the backoff schedule.
+        continue
+      }
+    }
+  }
+
+  // No hint, or the hint never resolved. The search path is less precise but it
+  // is the only option for a custom game or a match Riot never published.
+  const matches = await searchMatchesForVideo(video, settings)
+  const claimed = await getClaimedMatchIds(video.id)
+  const best = findBestMatch(matches, video, claimed)
+
+  if (best) {
+    await linkVideoToMatch(video, best)
+    return { linked: true, via: 'search', reason: null, retryable: false }
+  }
+
+  return {
+    linked: false,
+    via: 'none',
+    reason: hint
+      ? `Riot hasn't published match ${hint} yet.`
+      : 'No matching game was found for this recording.',
+    retryable: true
+  }
+}
+
+/**
+ * Writes the link and bookmarks for a recorded video.
+ *
+ * Split out from linkVideoToMatch rather than reusing it because that function
+ * derives the recording start from the filename, which is precisely the step
+ * this whole path exists to skip.
+ */
+async function applyRecordedLink(
+  video: VideoRow,
+  recording: RecordingRow,
+  matchId: string,
+  bundle: Awaited<ReturnType<typeof window.api.riot.fetchMatchBundle>>
+): Promise<void> {
+  const syncOffsetMs = measuredSyncOffsetMs(bundle.match.info.gameStartTimestamp, recording)
+
+  await window.api.db.linkVideoToMatch({
+    videoId: video.id,
+    matchId,
+    syncOffsetMs,
+    championName: bundle.participant.championName,
+    kda: `${bundle.participant.kills}/${bundle.participant.deaths}/${bundle.participant.assists}`,
+    win: bundle.participant.win,
+    kills: bundle.participant.kills,
+    deaths: bundle.participant.deaths,
+    assists: bundle.participant.assists,
+    cs: bundle.derived.cs,
+    goldDiff: bundle.derived.goldDiff,
+    enemyChampionName: bundle.derived.enemyChampionName,
+    summoner1Id: bundle.participant.summoner1Id,
+    summoner2Id: bundle.participant.summoner2Id,
+    keystoneId: bundle.derived.keystoneId,
+    gameMode: bundle.match.info.gameMode,
+    matchData: bundle.derived.rosterData,
+    teamPosition: bundle.derived.teamPosition,
+    queueId: bundle.derived.queueId
+  })
+
+  await window.api.db.clearAutoTags(video.id)
+  await window.api.db.insertTags({
+    videoId: video.id,
+    tags: bundle.events.map((ev) => ({
+      timestampMs: ev.gameTimestampMs + syncOffsetMs,
+      type: ev.type,
+      label: ev.label,
+      detail: ev.detail ?? null,
+      source: 'auto' as const
+    }))
+  })
+}
+
+/**
+ * Attempts every recording still waiting to be linked.
+ *
+ * Called when the library mounts, which covers the case the push channels
+ * cannot: recordings made while the window was closed, or while the app was
+ * running in the tray with no renderer alive to react to them.
+ */
+export async function drainPendingRecordingLinks(
+  settings: AppSettings,
+  onProgress?: (message: string) => void
+): Promise<number> {
+  if (settings.accounts.length === 0) return 0
+
+  const pending = await window.api.recorder.getPendingLinks()
+  if (pending.length === 0) return 0
+
+  let linked = 0
+  for (const recording of pending) {
+    if (recording.video_id == null) continue
+
+    const video = await window.api.db.getVideo(recording.video_id)
+    if (!video) {
+      // The library row was deleted; there is nothing left to link.
+      await window.api.recorder.setLinkState({ recordingId: recording.id, state: 'skipped' })
+      continue
+    }
+    if (video.match_id) {
+      await window.api.recorder.setLinkState({ recordingId: recording.id, state: 'linked' })
+      continue
+    }
+
+    onProgress?.(`Linking ${video.file_name}...`)
+    await window.api.recorder.bumpLinkAttempt(recording.id)
+
+    try {
+      const result = await linkRecordedVideo(video, recording, settings)
+      if (result.linked) {
+        await window.api.recorder.setLinkState({ recordingId: recording.id, state: 'linked' })
+        linked++
+        continue
+      }
+
+      // Give up only once the schedule is exhausted, so a match Riot publishes
+      // late still gets picked up on a later visit to the library.
+      if (hasExhaustedRetries(recording.link_attempts + 1)) {
+        await window.api.recorder.setLinkState({ recordingId: recording.id, state: 'failed' })
+      }
+    } catch {
+      // Network or API trouble. Left pending for the next attempt.
+    }
+  }
+
+  return linked
 }

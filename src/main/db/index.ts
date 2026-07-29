@@ -36,6 +36,7 @@ export async function initDb(dbPathOverride?: string): Promise<SqlJsDatabase> {
 
   migrate(db)
   migrateAddColumns(db)
+  migrateAddRecordingColumns(db)
   migrateBackfillProgressColumns(db)
   dropRetiredTables(db)
   wipeCacheOnce(db)
@@ -149,6 +150,20 @@ function migrateBackfillProgressColumns(database: SqlJsDatabase): void {
   )
   if (!existingColumns.has('total_matches')) {
     database.run(`ALTER TABLE backfill_progress ADD COLUMN total_matches INTEGER`)
+  }
+}
+
+// Same retrofit reasoning as migrateAddColumns, for the recordings table.
+function migrateAddRecordingColumns(database: SqlJsDatabase): void {
+  const existing = new Set(
+    database.exec(`PRAGMA table_info(recordings)`)[0]?.values.map((row) => row[1]) ?? []
+  )
+  // Empty means the table doesn't exist yet; migrate() creates it with every
+  // column already present.
+  if (existing.size === 0) return
+
+  if (!existing.has('first_frame_ms')) {
+    database.run(`ALTER TABLE recordings ADD COLUMN first_frame_ms INTEGER`)
   }
 }
 
@@ -420,7 +435,13 @@ function migrate(database: SqlJsDatabase): void {
       temp_path TEXT NOT NULL,          -- the .mkv being written
       final_path TEXT,                  -- the .mp4 after remux
       state TEXT NOT NULL,              -- recording|stopping|remuxing|complete|failed|discarded
-      started_at INTEGER NOT NULL,
+      started_at INTEGER NOT NULL,      -- when the capture child was spawned
+      -- When the first frame actually landed. This, not started_at, is what the
+      -- sync offset is measured against: ffmpeg spends a few hundred
+      -- milliseconds opening the display and the encoder, and anchoring
+      -- bookmarks to the spawn instead of the first frame would shift every one
+      -- of them by that much.
+      first_frame_ms INTEGER,
       ended_at INTEGER,
       game_start_ms INTEGER,
       match_id_hint TEXT,               -- platform_gameId, from the League client

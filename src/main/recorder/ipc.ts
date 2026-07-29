@@ -1,10 +1,19 @@
 import { ipcMain, screen } from 'electron'
-import type { CaptureDisplay, EncoderCapabilities, RecordingSettings } from '../../shared/types'
+import type {
+  CaptureDisplay,
+  EncoderCapabilities,
+  RecordingLinkState,
+  RecordingSettings
+} from '../../shared/types'
 import {
+  bumpRecordingLinkAttempt,
   getEncoderCapabilitiesCache,
   getRecordingSettings,
+  listPendingLinkRecordings,
+  listRecordings,
   saveEncoderCapabilitiesCache,
-  saveRecordingSettings
+  saveRecordingSettings,
+  updateRecording
 } from '../db/repository'
 import { listAudioDevices } from './audioDevices'
 import { mapDisplaysToOutputs, resolveCaptureDisplay } from './displays'
@@ -116,6 +125,23 @@ export function registerRecorderHandlers(): void {
   })
 
   ipcMain.handle('recorder:stopManual', () => stopRecording('Stopped by hand'))
+
+  // --- Linking queue ---
+  // Recordings finish whether or not a window is open, so the queue is drained
+  // from the renderer on mount rather than only in response to a push.
+  ipcMain.handle('recorder:getPendingLinks', () => listPendingLinkRecordings())
+
+  ipcMain.handle(
+    'recorder:setLinkState',
+    (_e, input: { recordingId: number; state: RecordingLinkState }) =>
+      updateRecording(input.recordingId, { linkState: input.state })
+  )
+
+  ipcMain.handle('recorder:bumpLinkAttempt', (_e, recordingId: number) =>
+    bumpRecordingLinkAttempt(recordingId)
+  )
+
+  ipcMain.handle('recorder:listRecordings', () => listRecordings())
 }
 
 /** Audio inputs the current settings can actually deliver. */

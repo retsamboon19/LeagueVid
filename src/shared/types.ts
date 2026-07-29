@@ -727,7 +727,15 @@ export interface RecordingRow {
   /** The .mp4 after remux, once there is one. */
   final_path: string | null
   state: RecordingState
+  /** When the capture child was spawned. */
   started_at: number
+  /**
+   * When the first frame actually landed. This, not started_at, is what the
+   * sync offset is measured against -- ffmpeg spends a few hundred milliseconds
+   * opening the display and encoder, and anchoring bookmarks to the spawn would
+   * shift every one of them by that much.
+   */
+  first_frame_ms: number | null
   ended_at: number | null
   /**
    * Measured wall-clock time at which the in-game clock read zero. This is

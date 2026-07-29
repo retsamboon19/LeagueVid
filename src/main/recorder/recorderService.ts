@@ -166,7 +166,11 @@ export async function startRecording(
         reportHealth(sample)
       },
       onFirstFrames: () => {
-        dispatch({ type: 'frames-flowing', at: Date.now() })
+        const at = Date.now()
+        dispatch({ type: 'frames-flowing', at })
+        // Persisted because this is the timestamp the sync offset is computed
+        // from when the recording is linked to its match.
+        updateRecording(row.id, { firstFrameMs: at })
         // Cancels the readiness timeout: frames are arriving, so this capture
         // is real rather than a pipeline that opened a display and stalled.
         framesFlowingListener?.()

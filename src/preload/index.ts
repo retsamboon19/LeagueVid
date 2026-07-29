@@ -17,6 +17,8 @@ import type {
   PlayerPreferences,
   RecorderProgress,
   RecorderStateSnapshot,
+  RecordingLinkState,
+  RecordingRow,
   RecordingSettings,
   RiotAccountDto,
   TagRow,
@@ -411,7 +413,19 @@ const api = {
     onRecordingSaved: (callback: (payload: RecordingSavedPayload) => void): (() => void) =>
       subscribe('recorder:recordingSaved', callback),
     onError: (callback: (message: string) => void): (() => void) =>
-      subscribe('recorder:error', callback)
+      subscribe('recorder:error', callback),
+
+    // --- Linking queue ---
+    // Recordings complete whether or not a window is open, so the library
+    // drains this on mount rather than relying on having been listening.
+    getPendingLinks: (): Promise<RecordingRow[]> => ipcRenderer.invoke('recorder:getPendingLinks'),
+    setLinkState: (input: {
+      recordingId: number
+      state: RecordingLinkState
+    }): Promise<void> => ipcRenderer.invoke('recorder:setLinkState', input),
+    bumpLinkAttempt: (recordingId: number): Promise<void> =>
+      ipcRenderer.invoke('recorder:bumpLinkAttempt', recordingId),
+    listRecordings: (): Promise<RecordingRow[]> => ipcRenderer.invoke('recorder:listRecordings')
   }
 }
 

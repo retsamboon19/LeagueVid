@@ -782,6 +782,7 @@ export function updateRecording(
   patch: {
     state?: RecordingState
     finalPath?: string | null
+    firstFrameMs?: number | null
     endedAt?: number | null
     gameStartMs?: number | null
     matchIdHint?: string | null
@@ -801,6 +802,7 @@ export function updateRecording(
   const columns: Record<string, unknown> = {
     state: patch.state,
     final_path: patch.finalPath,
+    first_frame_ms: patch.firstFrameMs,
     ended_at: patch.endedAt,
     game_start_ms: patch.gameStartMs,
     match_id_hint: patch.matchIdHint,

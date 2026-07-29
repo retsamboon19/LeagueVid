@@ -128,7 +128,7 @@
     mid-recording
   - _Requirements: 15.1, 15.2, 15.3, 15.4, 15.5, 15.6, 15.7, 15.8, 15.9_
 
-- [ ] 11. Exact auto-link for recorded footage
+- [x] 11. Exact auto-link for recorded footage
   - `linkRecordedVideo()` in `autoLinkVideo.ts`: fetch `match_id_hint` directly, compute
     `syncOffsetMs` from the measured `game_start_ms`, bypassing `searchMatchesForVideo`
     and `bestRecordingFit`

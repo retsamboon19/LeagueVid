@@ -13,6 +13,7 @@ import FilterPanel, {
   type ThresholdFilter
 } from './FilterPanel'
 import {
+  drainPendingRecordingLinks,
   findBestMatch,
   linkVideoToMatch as performLink,
   rebuildBookmarks,
@@ -330,6 +331,40 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
   useEffect(() => {
     refresh()
   }, [])
+
+  // Links any recording that finished while no window was open.
+  //
+  // Recordings complete whether or not the app is on screen -- that's the
+  // point of the tray -- so the push channel is not enough on its own: there
+  // may have been no renderer alive to hear it. Draining on mount is what
+  // makes "play a game with the window closed, come back to a linked VOD"
+  // actually work. Riot also publishes a match minutes after it ends, so a
+  // recording that failed to link earlier gets another attempt here.
+  useEffect(() => {
+    let cancelled = false
+
+    drainPendingRecordingLinks(settings)
+      .then((linked) => {
+        if (!cancelled && linked > 0) refresh()
+      })
+      .catch(() => {
+        // Linking is retried on the next mount; nothing to surface here.
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [settings])
+
+  // A recording that lands while the library is open is linked immediately
+  // rather than waiting for the next mount.
+  useEffect(() => {
+    return window.api.recorder.onRecordingSaved(() => {
+      drainPendingRecordingLinks(settings)
+        .then(() => refresh())
+        .catch(() => refresh())
+    })
+  }, [settings])
 
   // Fetches lead-swing series for every linked video the first time the
   // filter is actually given a gold threshold, and again whenever new
