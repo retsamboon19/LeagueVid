@@ -105,7 +105,7 @@
   - Tests: median anchoring against jittered samples, failure debouncing, payload fixtures
   - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5, 13.6, 13.7, 13.8, 13.9_
 
-- [ ] 9. LCU client for the match-id hint
+- [x] 9. LCU client for the match-id hint
   - Credentials from the lockfile (`LeagueClient:PID:PORT:PASSWORD:https`, basic auth
     `riot:PASSWORD`), then known install paths, `RiotClientInstalls.json`, the registry,
     and finally a `Get-CimInstance Win32_Process` read of `LeagueClientUx.exe`'s
