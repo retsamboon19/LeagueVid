@@ -599,3 +599,35 @@ export function parseRecordingSettings(stored: string | null | undefined): Recor
     return { ...DEFAULT_RECORDING_SETTINGS }
   }
 }
+
+// --- Encoder capability detection ---
+// Shared because the Settings screen reports what was found, and the argument
+// builder in the main process decides what to emit from the same values.
+
+export interface EncoderProbeOutcome {
+  /** ffmpeg encoder name, e.g. 'h264_nvenc'. */
+  name: string
+  /** Reported as compiled into this ffmpeg build. */
+  available: boolean
+  /**
+   * Actually initialized and encoded frames on this machine. A different
+   * claim from `available`: a build advertising NVENC still advertises it on a
+   * machine with no NVIDIA card.
+   */
+  passed: boolean
+  /** Why it failed: ffmpeg's own message, or a timeout note. */
+  error: string | null
+  durationMs: number
+}
+
+export interface EncoderCapabilities {
+  probedAt: number
+  /** Every candidate, whether or not it was available to probe. */
+  outcomes: EncoderProbeOutcome[]
+  /** Highest-ranked passing encoder eligible for automatic selection. */
+  chosen: string | null
+  /** Without this there is no screen capture at all. */
+  hasDdagrab: boolean
+  hasScalingFilters: boolean
+  hasTonemapFilters: boolean
+}

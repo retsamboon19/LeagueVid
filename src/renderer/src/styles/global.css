@@ -3891,3 +3891,31 @@ select:focus {
   text-align: right;
   min-width: 0;
 }
+
+.recording-probe-details {
+  font-size: 0.8rem;
+  color: #9aa0ad;
+}
+
+.recording-probe-details summary {
+  cursor: pointer;
+  padding: 0.3rem 0;
+}
+
+.recording-probe-details ul {
+  list-style: none;
+  margin: 0.2rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.recording-probe-details li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  /* Encoder failure messages come straight from ffmpeg and can be long. */
+  min-width: 0;
+  word-break: break-word;
+}

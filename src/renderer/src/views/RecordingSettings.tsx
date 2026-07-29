@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
-import type { RecordingSettings } from '../../../shared/types'
+import { RefreshCw } from 'lucide-react'
+import type { EncoderCapabilities, RecordingSettings } from '../../../shared/types'
+import { describeEncoder } from '../../../shared/encoders'
 
 // Read-only view of the recorder's stored configuration.
 //
@@ -42,13 +44,38 @@ function describeRetention(settings: RecordingSettings): string {
 function RecordingSettingsSection(): JSX.Element {
   const [settings, setSettings] = useState<RecordingSettings | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [capabilities, setCapabilities] = useState<EncoderCapabilities | null>(null)
+  const [detecting, setDetecting] = useState(false)
+  const [capabilityError, setCapabilityError] = useState<string | null>(null)
 
   useEffect(() => {
     window.api.recorder
       .getSettings()
       .then(setSettings)
       .catch((err: Error) => setError(err.message))
+
+    // The first call after install probes the machine (one child process per
+    // candidate), so this can take a few seconds. Every later launch reads
+    // the cached result.
+    setDetecting(true)
+    window.api.recorder
+      .getCapabilities()
+      .then(setCapabilities)
+      .catch((err: Error) => setCapabilityError(err.message))
+      .finally(() => setDetecting(false))
   }, [])
+
+  async function handleRedetect(): Promise<void> {
+    setDetecting(true)
+    setCapabilityError(null)
+    try {
+      setCapabilities(await window.api.recorder.refreshCapabilities())
+    } catch (err) {
+      setCapabilityError((err as Error).message)
+    } finally {
+      setDetecting(false)
+    }
+  }
 
   if (error) {
     return <p className="status status-error">Could not read the recording settings: {error}</p>
@@ -75,7 +102,11 @@ function RecordingSettingsSection(): JSX.Element {
     { label: 'Frame rate', value: `${settings.framerate} fps` },
     {
       label: 'Encoder',
-      value: settings.encoder ?? 'Chosen automatically (not detected yet)'
+      value: settings.encoder
+        ? describeEncoder(settings.encoder)
+        : capabilities
+          ? `${describeEncoder(capabilities.chosen)}, chosen automatically`
+          : 'Chosen automatically'
     },
     { label: 'Quality', value: describeQuality(settings) },
     {
@@ -106,6 +137,66 @@ function RecordingSettingsSection(): JSX.Element {
 
   return (
     <>
+      <div className="clips-dir-row">
+        <div className="clips-dir-path">
+          <span className="clip-field-label">Video encoder</span>
+          {detecting && !capabilities ? (
+            <code>Checking what this machine can do...</code>
+          ) : capabilityError ? (
+            <code className="status-error">{capabilityError}</code>
+          ) : capabilities ? (
+            <>
+              <code>Detected: {describeEncoder(capabilities.chosen)}</code>
+              {!capabilities.chosen && (
+                <span className="settings-row-hint status-error">
+                  No usable encoder was found, so recording won&apos;t be possible on this machine.
+                </span>
+              )}
+              {capabilities.chosen === 'libx264' && (
+                <span className="settings-row-hint">
+                  Software encoding only -- no hardware encoder on this machine passed its test.
+                  Recording will use CPU the game is also using, so lower settings are advisable.
+                </span>
+              )}
+              {!capabilities.hasDdagrab && (
+                <span className="settings-row-hint status-error">
+                  This ffmpeg build has no <code>ddagrab</code> filter, which is how screens are
+                  captured. Recording won&apos;t work without it.
+                </span>
+              )}
+            </>
+          ) : (
+            <code>Not detected yet</code>
+          )}
+        </div>
+        <div className="clips-dir-actions">
+          <button onClick={handleRedetect} disabled={detecting}>
+            <RefreshCw size={15} className={detecting ? 'spin' : ''} />{' '}
+            {detecting ? 'Testing...' : 'Re-detect'}
+          </button>
+        </div>
+      </div>
+
+      {capabilities && (
+        <details className="recording-probe-details">
+          <summary>
+            Encoder test results ({capabilities.outcomes.filter((o) => o.passed).length} of{' '}
+            {capabilities.outcomes.length} working)
+          </summary>
+          <ul>
+            {capabilities.outcomes.map((outcome) => (
+              <li key={outcome.name}>
+                <code>{outcome.name}</code>{' '}
+                <span className={outcome.passed ? 'status-success' : 'status-error'}>
+                  {!outcome.available ? 'not in this build' : outcome.passed ? 'works' : 'failed'}
+                </span>
+                {outcome.error && <span className="settings-row-hint">{outcome.error}</span>}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
       <dl className="recording-summary">
         {rows.map((row) => (
           <div key={row.label} className="recording-summary-row">

@@ -2,6 +2,7 @@ import { queryAll, queryOne, run, runBatch, execRaw, lastInsertRowId, persist } 
 import * as fileCache from './fileCache'
 import type {
   AppSettings,
+  EncoderCapabilities,
   MatchRosterData,
   PlayerPreferences,
   RecordingSettings,
@@ -127,6 +128,37 @@ export function saveRecordingSettings(settings: RecordingSettings): void {
     `INSERT INTO settings (key, value) VALUES (?, ?)
      ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
     [RECORDING_SETTINGS_KEY, JSON.stringify(settings)]
+  )
+}
+
+const ENCODER_CAPABILITIES_KEY = 'encoderCapabilities'
+
+// Result of probing this machine's video encoders. Cached because probing
+// spawns a child process per candidate and costs seconds, while the answer
+// only changes when the GPU or its driver does -- so it is read from here on
+// every launch and only recomputed when the user asks.
+export function getEncoderCapabilitiesCache(): EncoderCapabilities | null {
+  const row = queryOne<{ value: string }>(`SELECT value FROM settings WHERE key = ?`, [
+    ENCODER_CAPABILITIES_KEY
+  ])
+  if (!row) return null
+  try {
+    const parsed = JSON.parse(row.value)
+    // A row from an older shape is treated as absent rather than patched up:
+    // re-probing is cheap enough, and a half-populated capability set would
+    // silently pick the wrong encoder.
+    if (!parsed || !Array.isArray(parsed.outcomes)) return null
+    return parsed as EncoderCapabilities
+  } catch {
+    return null
+  }
+}
+
+export function saveEncoderCapabilitiesCache(capabilities: EncoderCapabilities): void {
+  run(
+    `INSERT INTO settings (key, value) VALUES (?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+    [ENCODER_CAPABILITIES_KEY, JSON.stringify(capabilities)]
   )
 }
 

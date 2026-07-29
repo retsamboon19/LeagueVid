@@ -4,6 +4,7 @@ import type {
   AppSettings,
   AutoTagEvent,
   DDragonBundle,
+  EncoderCapabilities,
   LeadSwingResult,
   MatchActionTimelineResult,
   MatchPickerSummary,
@@ -337,7 +338,15 @@ const api = {
     // response is the configuration that will actually be used.
     getSettings: (): Promise<RecordingSettings> => ipcRenderer.invoke('recorder:getSettings'),
     saveSettings: (settings: RecordingSettings): Promise<RecordingSettings> =>
-      ipcRenderer.invoke('recorder:saveSettings', settings)
+      ipcRenderer.invoke('recorder:saveSettings', settings),
+
+    // Which video encoders actually work on this machine. The first call
+    // after install probes (a few seconds, one child process per candidate);
+    // later calls read the cached result.
+    getCapabilities: (): Promise<EncoderCapabilities> =>
+      ipcRenderer.invoke('recorder:getCapabilities'),
+    refreshCapabilities: (): Promise<EncoderCapabilities> =>
+      ipcRenderer.invoke('recorder:refreshCapabilities')
   }
 }
 

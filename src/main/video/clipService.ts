@@ -2,8 +2,8 @@ import { app, shell } from 'electron'
 import { spawn } from 'child_process'
 import { existsSync, mkdirSync, statSync } from 'fs'
 import { basename, dirname, extname, join } from 'path'
-import ffmpegPath from 'ffmpeg-static'
 import { getClipsDirOverride } from '../db/repository'
+import { ffmpegBinaryPath } from '../recorder/ffmpegBinary'
 
 // Exports a section of a recording to its own video file.
 //
@@ -159,9 +159,11 @@ function buildArgs(request: ClipRequest, outputPath: string): string[] {
 }
 
 export async function createClip(request: ClipRequest): Promise<ClipResult> {
-  if (!ffmpegPath) {
-    throw new Error('The bundled video encoder is missing. Try reinstalling LeagueVid.')
-  }
+  // Shared with the recorder, which is what makes the packaged-build path
+  // (app.asar.unpacked) correct for both instead of only whichever was
+  // tested last.
+  const ffmpegPath = ffmpegBinaryPath()
+
   if (!existsSync(request.sourcePath)) {
     throw new Error('The source recording could not be found on disk.')
   }
@@ -179,7 +181,7 @@ export async function createClip(request: ClipRequest): Promise<ClipResult> {
   const args = buildArgs(request, outputPath)
 
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(ffmpegPath as string, args, { windowsHide: true })
+    const child = spawn(ffmpegPath, args, { windowsHide: true })
 
     // ffmpeg reports everything on stderr, including real errors, so it's
     // captured to give a useful message instead of a bare exit code.

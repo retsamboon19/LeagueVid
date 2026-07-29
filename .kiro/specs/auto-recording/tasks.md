@@ -27,17 +27,21 @@
     read-only for now
   - _Requirements: 3.3, 3.4, 3.5, 3.6, 3.7_
 
-- [ ] 2. ffmpeg resolution and isolated encoder probing
-- [ ] 2.1 Extract `ffmpegBinaryPath()` and refactor `clipService.ts` onto it
+- [x] 2. ffmpeg resolution and isolated encoder probing
+- [x] 2.1 Extract `ffmpegBinaryPath()` and refactor `clipService.ts` onto it
   - Handle dev, packaged, and `app.asar.unpacked`; error naming the path searched
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
-- [ ] 2.2 Probe encoders in hard-timeout-bounded child processes
+- [x] 2.2 Probe encoders in hard-timeout-bounded child processes
   - Parse `-encoders` and `-filters`, then verify each candidate with a one-second
     `testsrc` encode in its own child that cannot hang or crash the app
   - Rank nvenc > qsv > amf > mf > libx264; cache in settings; manual refresh
   - Show "Detected: NVENC H.264 (hardware)" in Settings; fall back to libx264 loudly
-  - **Go/no-go:** if no hardware encoder passes, the task 15 presets need
-    re-centring around libx264
+  - **Go/no-go answered — GO.** `scripts/probe-encoders.ts` on the development
+    machine: `h264_nvenc` PASS (285ms), `h264_amf` PASS, `h264_mf` PASS, `libx264`
+    PASS, `hevc_nvenc` PASS, `h264_qsv` FAIL (no active Intel iGPU — "Error while
+    opening encoder"). `ddagrab`, scaling and tonemap filters all present; 213
+    encoders and 503 filters parsed out of the real listings. Task 15 presets can
+    assume hardware NVENC rather than being re-centred on libx264
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9, 5.10_
 
 - [ ] 3. Pure argument builder
