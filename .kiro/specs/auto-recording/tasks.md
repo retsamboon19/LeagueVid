@@ -94,7 +94,7 @@
   - Tests: exhaustive transition table including illegal transitions and mid-flight errors
   - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 12.7, 12.8, 12.9, 12.10_
 
-- [ ] 8. Live Client Data watcher
+- [x] 8. Live Client Data watcher
   - `liveClientData.ts` polls `https://127.0.0.1:2999/liveclientdata/allgamedata` with
     `rejectUnauthorized: false` and a ~1.5s timeout; 2s idle, 5s while recording
   - Three consecutive failures required before declaring the game over
