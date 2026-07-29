@@ -29,6 +29,7 @@ import {
   detectPreset,
   type QualityPresetName
 } from './presets'
+import { getDiskUsage, previewRetentionSweep, runRetentionSweep } from './retentionService'
 import { ffmpegBinaryPath } from './ffmpegBinary'
 import {
   getRecorderState,
@@ -184,6 +185,16 @@ export function registerRecorderHandlers(): void {
       summary: formatStorageEstimate({ settings, target }, audioTracks)
     }
   })
+
+  // --- Disk usage and retention ---
+
+  ipcMain.handle('recorder:getDiskUsage', () => getDiskUsage())
+
+  // The dry run. Deliberately a separate channel from the sweep so that
+  // previewing can never be mistaken for performing.
+  ipcMain.handle('recorder:previewRetentionSweep', () => previewRetentionSweep())
+
+  ipcMain.handle('recorder:runRetentionSweep', () => runRetentionSweep())
 
   // Records for real, briefly, and reports what happened. Refuses to run while
   // a genuine recording is in progress: two captures of the same display would

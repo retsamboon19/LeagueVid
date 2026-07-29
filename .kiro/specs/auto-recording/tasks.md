@@ -178,7 +178,7 @@
   - Tests: estimator math, health-threshold logic
   - _Requirements: 20.1, 20.2, 20.3, 20.4, 20.5, 20.6, 20.7, 20.8_
 
-- [ ] 16. Disk management and retention
+- [x] 16. Disk management and retention
   - Free-space preflight requiring `max(5GB, estimatedBitrate × 60min × 1.2)` to cover
     the remux peak; a 60s check during recording that stops gracefully rather than
     filling the disk; a usage readout

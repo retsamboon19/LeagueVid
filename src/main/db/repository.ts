@@ -865,3 +865,49 @@ export function bumpRecordingLinkAttempt(id: number): void {
 export function setVideoSource(videoId: number, source: VideoSource): void {
   run(`UPDATE videos SET source = ? WHERE id = ?`, [source, videoId])
 }
+
+/**
+ * Everything a retention sweep might consider, with its size where known.
+ *
+ * Deliberately returns imported videos too, even though they can never be
+ * deleted: they occupy the same disk, so the size readout and the "am I over the
+ * limit" arithmetic have to see them. The exclusion happens in the planner,
+ * where it's tested, rather than being hidden in this query.
+ */
+export function listRetentionCandidates(): Array<{
+  videoId: number
+  filePath: string
+  fileName: string
+  sizeBytes: number | null
+  recordedAt: number
+  isFavorite: boolean
+  source: string | null
+}> {
+  const rows = queryAll<{
+    id: number
+    file_path: string
+    file_name: string
+    recorded_at: number | null
+    created_at: number
+    is_favorite: number
+    source: string | null
+    size_bytes: number | null
+  }>(
+    `SELECT v.id, v.file_path, v.file_name, v.recorded_at, v.created_at, v.is_favorite, v.source,
+            (SELECT r.size_bytes FROM recordings r
+              WHERE r.video_id = v.id AND r.size_bytes IS NOT NULL
+              ORDER BY r.id DESC LIMIT 1) AS size_bytes
+     FROM videos v`
+  )
+
+  return rows.map((row) => ({
+    videoId: row.id,
+    filePath: row.file_path,
+    fileName: row.file_name,
+    sizeBytes: row.size_bytes,
+    // recorded_at is when the game was played, which is what "old" means here.
+    recordedAt: row.recorded_at ?? row.created_at,
+    isFavorite: row.is_favorite === 1,
+    source: row.source
+  }))
+}

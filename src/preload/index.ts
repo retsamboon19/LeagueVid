@@ -6,6 +6,7 @@ import type {
   AutoTagEvent,
   CaptureDisplay,
   DDragonBundle,
+  DiskUsageInfo,
   EncoderCapabilities,
   LeadSwingResult,
   MatchActionTimelineResult,
@@ -22,6 +23,8 @@ import type {
   RecordingLinkState,
   RecordingRow,
   RecordingSettings,
+  RetentionPreviewInfo,
+  RetentionSweepInfo,
   RiotAccountDto,
   TagRow,
   VideoFileInfo,
@@ -447,7 +450,17 @@ const api = {
     // Records for ten seconds with the exact configured pipeline and reports
     // measured framerate, dropped frames and size.
     runPreflightTest: (): Promise<PreflightResultInfo> =>
-      ipcRenderer.invoke('recorder:runPreflightTest')
+      ipcRenderer.invoke('recorder:runPreflightTest'),
+
+    // --- Disk usage and retention ---
+    getDiskUsage: (): Promise<DiskUsageInfo> => ipcRenderer.invoke('recorder:getDiskUsage'),
+
+    // The dry run and the deletion are separate channels on purpose: previewing
+    // must never be mistakable for performing.
+    previewRetentionSweep: (): Promise<RetentionPreviewInfo> =>
+      ipcRenderer.invoke('recorder:previewRetentionSweep'),
+    runRetentionSweep: (): Promise<RetentionSweepInfo> =>
+      ipcRenderer.invoke('recorder:runRetentionSweep')
   }
 }
 

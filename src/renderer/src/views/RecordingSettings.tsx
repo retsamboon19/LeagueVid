@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
-import { Gauge, RefreshCw } from 'lucide-react'
+import { Gauge, RefreshCw, Trash2 } from 'lucide-react'
 import type {
   AudioCaptureDevice,
   CaptureDisplay,
+  DiskUsageInfo,
   EncoderCapabilities,
   PreflightResultInfo,
   QualityPresetInfo,
-  RecordingSettings
+  RecordingSettings,
+  RetentionPreviewInfo,
+  RetentionSweepInfo
 } from '../../../shared/types'
 import { describeEncoder } from '../../../shared/encoders'
 
@@ -84,6 +87,10 @@ function RecordingSettingsSection(): JSX.Element {
   const [preflight, setPreflight] = useState<PreflightResultInfo | null>(null)
   const [preflightError, setPreflightError] = useState<string | null>(null)
   const [testing, setTesting] = useState(false)
+  const [usage, setUsage] = useState<DiskUsageInfo | null>(null)
+  const [retentionPreview, setRetentionPreview] = useState<RetentionPreviewInfo | null>(null)
+  const [sweepResult, setSweepResult] = useState<RetentionSweepInfo | null>(null)
+  const [sweeping, setSweeping] = useState(false)
 
   const loopbackDevices = audioDevices.filter((d) => d.likelyLoopback)
 
@@ -103,6 +110,29 @@ function RecordingSettingsSection(): JSX.Element {
     // result no longer describes what would be recorded.
     setPreflight(null)
     await refreshQuality()
+  }
+
+  async function handlePreviewSweep(): Promise<void> {
+    setSweepResult(null)
+    setRetentionPreview(await window.api.recorder.previewRetentionSweep())
+  }
+
+  /**
+   * Deletes exactly what the preview listed.
+   *
+   * Only reachable once a preview has been produced, which is the point: this is
+   * the one destructive action in the recorder, and it never runs without the
+   * user having seen the list first.
+   */
+  async function handleRunSweep(): Promise<void> {
+    setSweeping(true)
+    try {
+      setSweepResult(await window.api.recorder.runRetentionSweep())
+      setRetentionPreview(null)
+      setUsage(await window.api.recorder.getDiskUsage())
+    } finally {
+      setSweeping(false)
+    }
   }
 
   async function handlePreflight(): Promise<void> {
@@ -132,6 +162,8 @@ function RecordingSettingsSection(): JSX.Element {
     refreshQuality().catch(() => {
       // Presets and the estimate are additive; the summary below still renders.
     })
+
+    window.api.recorder.getDiskUsage().then(setUsage).catch(() => setUsage(null))
 
     // The first call after install probes the machine (one child process per
     // candidate), so this can take a few seconds. Every later launch reads
@@ -365,6 +397,56 @@ function RecordingSettingsSection(): JSX.Element {
               : 'LeagueVid can capture it from Windows directly instead, without any extra driver. Until that is switched on, recordings will have no game sound rather than a silent track you discover later.'}
           </p>
         )}
+
+      <div className="clips-dir-row">
+        <div className="clips-dir-path">
+          <span className="clip-field-label">Disk space</span>
+          <code>{usage ? usage.summary : 'Checking...'}</code>
+          {retentionPreview && (
+            <>
+              <span
+                className={
+                  retentionPreview.files.length > 0
+                    ? 'settings-row-hint status-error'
+                    : 'settings-row-hint'
+                }
+              >
+                {retentionPreview.summary}
+              </span>
+              {retentionPreview.files.map((file) => (
+                <span key={file.videoId} className="settings-row-hint">
+                  {file.fileName} — {(file.sizeBytes / 1024 ** 3).toFixed(2)} GB — {file.reason}
+                </span>
+              ))}
+            </>
+          )}
+          {sweepResult && (
+            <span className="settings-row-hint status-success">
+              Deleted {sweepResult.deletedCount} recording(s), freeing{' '}
+              {(sweepResult.freedBytes / 1024 ** 3).toFixed(2)} GB.
+              {sweepResult.failures.length > 0 &&
+                ` ${sweepResult.failures.length} couldn't be removed.`}
+            </span>
+          )}
+          {!settings.retentionEnabled && (
+            <span className="settings-row-hint">
+              Automatic deletion is off. Nothing is ever removed unless you turn it on, and even
+              then only recordings LeagueVid made itself — never files you imported, and never
+              anything you&apos;ve marked as a favourite.
+            </span>
+          )}
+        </div>
+        <div className="clips-dir-actions">
+          <button className="secondary" onClick={handlePreviewSweep} disabled={sweeping}>
+            <Trash2 size={15} /> Preview cleanup
+          </button>
+          {retentionPreview && retentionPreview.files.length > 0 && (
+            <button onClick={handleRunSweep} disabled={sweeping}>
+              {sweeping ? 'Deleting...' : `Delete these ${retentionPreview.files.length}`}
+            </button>
+          )}
+        </div>
+      </div>
 
       <dl className="recording-summary">
         {rows.map((row) => (

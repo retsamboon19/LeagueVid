@@ -837,3 +837,37 @@ export interface PreflightResultInfo {
   sizeBytes: number
   durationSeconds: number
 }
+
+// --- Disk usage and retention ---
+
+export interface DiskUsageInfo {
+  libraryBytes: number
+  /** Bytes used by recordings LeagueVid made itself. */
+  recordedBytes: number
+  recordedCount: number
+  freeBytes: number | null
+  totalBytes: number | null
+  summary: string
+}
+
+/**
+ * What a retention sweep would delete.
+ *
+ * The preview and the sweep are built from the same plan, so this list is
+ * exactly what gets removed -- automatic deletion is the one destructive
+ * behaviour in the recorder, and it never runs without this being available
+ * first.
+ */
+export interface RetentionPreviewInfo {
+  summary: string
+  totalBytes: number
+  reclaimedBytes: number
+  files: Array<{ videoId: number; fileName: string; sizeBytes: number; reason: string }>
+}
+
+export interface RetentionSweepInfo {
+  deletedCount: number
+  freedBytes: number
+  /** Files that couldn't be removed, e.g. open in another program. */
+  failures: Array<{ fileName: string; reason: string }>
+}
