@@ -693,3 +693,62 @@ export interface AudioCaptureDevice {
    */
   likelyLoopback: boolean
 }
+
+// --- Recording sessions ---
+
+/**
+ * Where a video came from. Rows written before this column existed are null,
+ * which every consumer treats as 'imported' -- the reading that keeps
+ * retention away from files the user brought in themselves.
+ */
+export type VideoSource = 'imported' | 'recorded'
+
+export type RecordingState =
+  | 'recording'
+  | 'stopping'
+  | 'remuxing'
+  | 'complete'
+  | 'failed'
+  | 'discarded'
+
+/** Progress of attaching a finished recording to its Riot match. */
+export type RecordingLinkState = 'pending' | 'linked' | 'failed' | 'skipped'
+
+/**
+ * One capture session. The row is created when capture starts, not when it
+ * finishes, so that a session interrupted by a crash leaves a trace the next
+ * launch can find and repair.
+ */
+export interface RecordingRow {
+  id: number
+  video_id: number | null
+  /** The .mkv being written. */
+  temp_path: string
+  /** The .mp4 after remux, once there is one. */
+  final_path: string | null
+  state: RecordingState
+  started_at: number
+  ended_at: number | null
+  /**
+   * Measured wall-clock time at which the in-game clock read zero. This is
+   * what makes the resulting sync offset a measurement rather than a guess.
+   */
+  game_start_ms: number | null
+  /** platform_gameId, from the League client. */
+  match_id_hint: string | null
+  platform: string | null
+  puuid: string | null
+  queue_id: number | null
+  champion_name: string | null
+  /** JSON-encoded in-game event feed, used only if linking never succeeds. */
+  live_events: string | null
+  link_state: RecordingLinkState | null
+  link_attempts: number
+  /** The configuration this session actually ran with. */
+  settings_json: string
+  ffmpeg_error: string | null
+  dropped_frames: number | null
+  avg_fps: number | null
+  size_bytes: number | null
+  created_at: number
+}

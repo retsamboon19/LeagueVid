@@ -9,6 +9,7 @@ import { registerMediaProtocol } from './video/mediaProtocol'
 import { registerDDragonHandlers } from './ddragon/ipc'
 import { registerRecorderHandlers } from './recorder/ipc'
 import { startBackfillService, stopBackfillService } from './riot/backfillService'
+import { recoverInterruptedRecordings } from './recorder/orphanRecovery'
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -72,6 +73,19 @@ app.whenReady().then(async () => {
   // background (lowest priority -- never competes with user-triggered
   // requests) so linking videos later hits the cache instead of the API.
   startBackfillService()
+
+  // A recording session left mid-flight by a crash or a forced quit still has
+  // its Matroska file on disk -- that's why sessions are recorded as Matroska.
+  // Repair and import it before the window opens, so the library shows the
+  // finished recording rather than nothing at all. Deliberately not awaited:
+  // remuxing a long recording takes seconds, and the UI shouldn't wait.
+  recoverInterruptedRecordings()
+    .then((outcomes) => {
+      for (const outcome of outcomes) {
+        console.log(`[recorder] recovered ${outcome.recordingId}: ${outcome.result} -- ${outcome.note}`)
+      }
+    })
+    .catch((err) => console.error('[recorder] recovery failed', err))
 
   createWindow()
 

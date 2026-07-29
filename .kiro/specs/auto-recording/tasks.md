@@ -73,7 +73,7 @@
   - Tests: device-listing fixtures with quoted names and alternative-name lines
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6_
 
-- [ ] 6. Remux, recordings table, orphan recovery
+- [x] 6. Remux, recordings table, orphan recovery
   - `recordings` table in `migrate()`; `['source','TEXT']` in `migrateAddColumns`
   - `remux.ts`: mkv → mp4 `-c copy`, verify existence and a sane duration, delete the
     mkv only on success

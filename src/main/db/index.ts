@@ -177,7 +177,13 @@ function migrateAddColumns(database: SqlJsDatabase): void {
     ['team_position', 'TEXT'], // TOP/JUNGLE/MIDDLE/BOTTOM/UTILITY, captured at link time
     ['queue_id', 'INTEGER'], // Riot queue id (420 ranked solo, 450 ARAM, etc.)
     ['is_favorite', 'INTEGER', '0'],
-    ['last_position_ms', 'INTEGER']
+    ['last_position_ms', 'INTEGER'],
+    // 'imported' (the user already had the file) or 'recorded' (LeagueVid
+    // captured it). Drives the library badge, and scopes retention so that
+    // automatic deletion can never reach a file the user brought themselves.
+    // Rows predating this column are null, which retention treats as
+    // imported -- the safe reading.
+    ['source', 'TEXT']
   ]
 
   for (const [name, type, defaultValue] of columnsToAdd) {
@@ -396,6 +402,41 @@ function migrate(database: SqlJsDatabase): void {
       size_bytes INTEGER NOT NULL,
       duration_ms INTEGER NOT NULL,
       updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+    );
+
+    -- One row per recording LeagueVid made itself, from the moment capture
+    -- starts. Written before the file is finished on purpose: if the app is
+    -- killed mid-game, this row is what the next launch uses to find the
+    -- orphaned Matroska file, remux it and import it rather than leaving the
+    -- footage stranded (see recorder/remux.ts).
+    --
+    -- game_start_ms is the measured wall-clock time at which the in-game
+    -- clock read zero, derived from the Live Client Data endpoint. That is
+    -- what makes sync_offset_ms on the resulting video a measurement instead
+    -- of a guess from the file name.
+    CREATE TABLE IF NOT EXISTS recordings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      video_id INTEGER REFERENCES videos(id) ON DELETE SET NULL,
+      temp_path TEXT NOT NULL,          -- the .mkv being written
+      final_path TEXT,                  -- the .mp4 after remux
+      state TEXT NOT NULL,              -- recording|stopping|remuxing|complete|failed|discarded
+      started_at INTEGER NOT NULL,
+      ended_at INTEGER,
+      game_start_ms INTEGER,
+      match_id_hint TEXT,               -- platform_gameId, from the League client
+      platform TEXT,
+      puuid TEXT,
+      queue_id INTEGER,
+      champion_name TEXT,
+      live_events TEXT,                 -- JSON: in-game event feed, bookmark fallback
+      link_state TEXT,                  -- pending|linked|failed|skipped
+      link_attempts INTEGER NOT NULL DEFAULT 0,
+      settings_json TEXT NOT NULL,      -- the configuration this session actually ran with
+      ffmpeg_error TEXT,
+      dropped_frames INTEGER,
+      avg_fps REAL,
+      size_bytes INTEGER,
+      created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
     );
   `)
 }

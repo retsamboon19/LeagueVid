@@ -5,13 +5,17 @@ import type {
   EncoderCapabilities,
   MatchRosterData,
   PlayerPreferences,
+  RecordingLinkState,
+  RecordingRow,
   RecordingSettings,
+  RecordingState,
   TagRow,
-  VideoRow
+  VideoRow,
+  VideoSource
 } from '../../shared/types'
 import { DEFAULT_PLAYER_PREFERENCES, parseRecordingSettings } from '../../shared/types'
 
-export type { AppSettings, RecordingSettings, TagRow, VideoRow }
+export type { AppSettings, RecordingRow, RecordingSettings, TagRow, VideoRow }
 
 const SETTINGS_KEY = 'riotAccount'
 const PREFS_KEY = 'playerPreferences'
@@ -223,12 +227,25 @@ export function insertVideo(input: {
   fileName: string
   recordedAt?: number | null
   durationMs?: number | null
+  /**
+   * 'recorded' when LeagueVid captured the file itself, 'imported' otherwise.
+   * Defaults to 'imported' because every existing caller is an import path,
+   * and because retention must never be able to delete a file the user
+   * brought in themselves -- so the safe value is the default one.
+   */
+  source?: VideoSource
 }): VideoRow {
   run(
-    `INSERT INTO videos (file_path, file_name, recorded_at, duration_ms)
-     VALUES (?, ?, ?, ?)
+    `INSERT INTO videos (file_path, file_name, recorded_at, duration_ms, source)
+     VALUES (?, ?, ?, ?, ?)
      ON CONFLICT(file_path) DO UPDATE SET file_name = excluded.file_name`,
-    [input.filePath, input.fileName, input.recordedAt ?? null, input.durationMs ?? null]
+    [
+      input.filePath,
+      input.fileName,
+      input.recordedAt ?? null,
+      input.durationMs ?? null,
+      input.source ?? 'imported'
+    ]
   )
   const row = queryOne<VideoRow>(`SELECT * FROM videos WHERE file_path = ?`, [input.filePath])
   return row as VideoRow
@@ -701,4 +718,148 @@ export function deleteVideos(videoIds: number[]): void {
     execRaw(`DELETE FROM tags WHERE video_id IN (${placeholders})`, videoIds)
     execRaw(`DELETE FROM videos WHERE id IN (${placeholders})`, videoIds)
   })
+}
+
+// --- Recording sessions ---
+//
+// The row is inserted when capture starts rather than when it finishes. That
+// ordering is the whole point: if the app is killed mid-game, the next launch
+// finds a row still marked 'recording', locates the orphaned Matroska file and
+// repairs it. A row written only on success would leave that footage stranded
+// with nothing pointing at it.
+
+export function insertRecording(input: {
+  tempPath: string
+  startedAt: number
+  settingsJson: string
+  platform?: string | null
+  puuid?: string | null
+  matchIdHint?: string | null
+  gameStartMs?: number | null
+  queueId?: number | null
+  championName?: string | null
+}): RecordingRow {
+  run(
+    `INSERT INTO recordings
+       (temp_path, state, started_at, settings_json, platform, puuid, match_id_hint,
+        game_start_ms, queue_id, champion_name, link_state)
+     VALUES (?, 'recording', ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+    [
+      input.tempPath,
+      input.startedAt,
+      input.settingsJson,
+      input.platform ?? null,
+      input.puuid ?? null,
+      input.matchIdHint ?? null,
+      input.gameStartMs ?? null,
+      input.queueId ?? null,
+      input.championName ?? null
+    ]
+  )
+  return queryOne<RecordingRow>(`SELECT * FROM recordings WHERE id = ?`, [
+    lastInsertRowId()
+  ]) as RecordingRow
+}
+
+export function getRecording(id: number): RecordingRow | undefined {
+  return queryOne<RecordingRow>(`SELECT * FROM recordings WHERE id = ?`, [id])
+}
+
+export function listRecordings(limit = 100): RecordingRow[] {
+  return queryAll<RecordingRow>(`SELECT * FROM recordings ORDER BY started_at DESC LIMIT ?`, [
+    limit
+  ])
+}
+
+/**
+ * Updates whichever fields are supplied. A partial update rather than a whole
+ * row rewrite because several of these arrive at different times: the match
+ * hint during the game, the capture health at the end, the video id after
+ * import.
+ */
+export function updateRecording(
+  id: number,
+  patch: {
+    state?: RecordingState
+    finalPath?: string | null
+    endedAt?: number | null
+    gameStartMs?: number | null
+    matchIdHint?: string | null
+    platform?: string | null
+    puuid?: string | null
+    queueId?: number | null
+    championName?: string | null
+    liveEvents?: string | null
+    videoId?: number | null
+    linkState?: RecordingLinkState | null
+    ffmpegError?: string | null
+    droppedFrames?: number | null
+    avgFps?: number | null
+    sizeBytes?: number | null
+  }
+): void {
+  const columns: Record<string, unknown> = {
+    state: patch.state,
+    final_path: patch.finalPath,
+    ended_at: patch.endedAt,
+    game_start_ms: patch.gameStartMs,
+    match_id_hint: patch.matchIdHint,
+    platform: patch.platform,
+    puuid: patch.puuid,
+    queue_id: patch.queueId,
+    champion_name: patch.championName,
+    live_events: patch.liveEvents,
+    video_id: patch.videoId,
+    link_state: patch.linkState,
+    ffmpeg_error: patch.ffmpegError,
+    dropped_frames: patch.droppedFrames,
+    avg_fps: patch.avgFps,
+    size_bytes: patch.sizeBytes
+  }
+
+  const assignments: string[] = []
+  const values: unknown[] = []
+  for (const [column, value] of Object.entries(columns)) {
+    // undefined means "leave alone"; null is a real value that clears a field.
+    if (value === undefined) continue
+    assignments.push(`${column} = ?`)
+    values.push(value as string | number | null)
+  }
+  if (assignments.length === 0) return
+
+  values.push(id)
+  run(`UPDATE recordings SET ${assignments.join(', ')} WHERE id = ?`, values as never)
+}
+
+/**
+ * Sessions that were still in progress when the app stopped running.
+ *
+ * 'recording' and 'stopping' are the two states that can only be left by the
+ * process that owns the capture child, so finding one at startup means that
+ * process died. 'remuxing' is included for the same reason: a remux
+ * interrupted halfway leaves a partial mp4 and an intact mkv.
+ */
+export function findInterruptedRecordings(): RecordingRow[] {
+  return queryAll<RecordingRow>(
+    `SELECT * FROM recordings
+     WHERE state IN ('recording', 'stopping', 'remuxing')
+     ORDER BY started_at ASC`
+  )
+}
+
+/** Finished recordings still waiting to be attached to a Riot match. */
+export function listPendingLinkRecordings(): RecordingRow[] {
+  return queryAll<RecordingRow>(
+    `SELECT * FROM recordings
+     WHERE state = 'complete' AND link_state = 'pending' AND video_id IS NOT NULL
+     ORDER BY started_at ASC`
+  )
+}
+
+export function bumpRecordingLinkAttempt(id: number): void {
+  run(`UPDATE recordings SET link_attempts = link_attempts + 1 WHERE id = ?`, [id])
+}
+
+export function setVideoSource(videoId: number, source: VideoSource): void {
+  run(`UPDATE videos SET source = ? WHERE id = ?`, [source, videoId])
 }
