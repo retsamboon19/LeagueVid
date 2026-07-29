@@ -49,6 +49,19 @@ let handle: CaptureHandle | null = null
 let currentSettings: RecordingSettings | null = null
 
 /**
+ * Notified when frames start arriving.
+ *
+ * A registered callback rather than an import of the automatic-recording host,
+ * which would make the two modules import each other. The host is the layer
+ * above this one; it may know about the service, not the reverse.
+ */
+let framesFlowingListener: (() => void) | null = null
+
+export function onFramesFlowing(listener: (() => void) | null): void {
+  framesFlowingListener = listener
+}
+
+/**
  * Sends to every open window.
  *
  * Every push channel also has a pull handler in ipc.ts. That pairing is not
@@ -154,6 +167,9 @@ export async function startRecording(
       },
       onFirstFrames: () => {
         dispatch({ type: 'frames-flowing', at: Date.now() })
+        // Cancels the readiness timeout: frames are arriving, so this capture
+        // is real rather than a pipeline that opened a display and stalled.
+        framesFlowingListener?.()
       }
     })
   } catch (err) {
@@ -307,6 +323,23 @@ function discard(recordingId: number, tempPath: string): void {
 /** True while a capture child exists -- used by the quit path. */
 export function hasActiveCapture(): boolean {
   return handle !== null
+}
+
+/** Whether frames have actually been observed for the current capture. */
+export function isProducingFrames(): boolean {
+  return handle?.isProducingFrames() ?? false
+}
+
+/** Stores the in-game event feed against the session in flight. */
+export function persistLiveEventsForCurrentSession(events: unknown[]): void {
+  const recordingId = state.recordingId
+  if (recordingId == null) return
+  updateRecording(recordingId, { liveEvents: JSON.stringify(events) })
+}
+
+/** Reports a problem to every window without changing recorder state. */
+export function reportRecorderProblem(message: string): void {
+  broadcast(RECORDER_CHANNELS.error, message)
 }
 
 /**

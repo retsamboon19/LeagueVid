@@ -116,7 +116,7 @@
   - Tests: lockfile parsing, command-line arg extraction, matchId composition per platform
   - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5, 14.6, 14.7_
 
-- [ ] 10. Automatic start/stop with a render-readiness gate
+- [x] 10. Automatic start/stop with a render-readiness gate
   - Wire the watcher into the service; gate the start on Live Client Data responding
     **and** N consecutive frames at the target interval — not on a fixed delay
   - Keep `startDelayMs` as a manual override only

@@ -11,6 +11,7 @@ import { registerRecorderHandlers } from './recorder/ipc'
 import { startBackfillService, stopBackfillService } from './riot/backfillService'
 import { recoverInterruptedRecordings } from './recorder/orphanRecovery'
 import { initRecorderService } from './recorder/recorderService'
+import { startAutoRecording, stopAutoRecording } from './recorder/autoRecorderHost'
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -74,6 +75,12 @@ app.whenReady().then(async () => {
   initRecorderService()
   registerRecorderHandlers()
 
+  // Watches for a League game and records it. The watcher runs regardless of
+  // whether recording is enabled -- it's a 2-second loopback request -- and the
+  // enabled check happens when a game is actually found, so toggling the
+  // setting takes effect without a restart.
+  startAutoRecording()
+
   // Continuously warms the local Riot match/timeline cache in the
   // background (lowest priority -- never competes with user-triggered
   // requests) so linking videos later hits the cache instead of the API.
@@ -107,6 +114,7 @@ app.on('before-quit', () => {
 
 app.on('window-all-closed', () => {
   stopBackfillService()
+  stopAutoRecording()
   flushPersist()
   if (process.platform !== 'darwin') {
     app.quit()
