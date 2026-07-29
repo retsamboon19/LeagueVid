@@ -4,12 +4,13 @@ import type {
   AppSettings,
   MatchRosterData,
   PlayerPreferences,
+  RecordingSettings,
   TagRow,
   VideoRow
 } from '../../shared/types'
-import { DEFAULT_PLAYER_PREFERENCES } from '../../shared/types'
+import { DEFAULT_PLAYER_PREFERENCES, parseRecordingSettings } from '../../shared/types'
 
-export type { AppSettings, TagRow, VideoRow }
+export type { AppSettings, RecordingSettings, TagRow, VideoRow }
 
 const SETTINGS_KEY = 'riotAccount'
 const PREFS_KEY = 'playerPreferences'
@@ -106,6 +107,26 @@ export function setRiotRateLimitOverride(config: RateLimitConfig | null): void {
     `INSERT INTO settings (key, value) VALUES (?, ?)
      ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
     [RATE_LIMIT_SETTING, JSON.stringify(config)]
+  )
+}
+
+const RECORDING_SETTINGS_KEY = 'recordingSettings'
+
+// Recorder configuration. Kept out of AppSettings on purpose: that object is
+// the linked Riot account list and is replaced wholesale whenever an account
+// is added or removed, which would take the recorder's configuration with it.
+export function getRecordingSettings(): RecordingSettings {
+  const row = queryOne<{ value: string }>(`SELECT value FROM settings WHERE key = ?`, [
+    RECORDING_SETTINGS_KEY
+  ])
+  return parseRecordingSettings(row?.value)
+}
+
+export function saveRecordingSettings(settings: RecordingSettings): void {
+  run(
+    `INSERT INTO settings (key, value) VALUES (?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+    [RECORDING_SETTINGS_KEY, JSON.stringify(settings)]
   )
 }
 

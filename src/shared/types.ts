@@ -464,3 +464,138 @@ export interface MatchActionTimelineResult {
   hasTimeline: boolean
   events: MatchActionEvent[]
 }
+
+// --- Recording (automatic League match capture) ---
+// Deliberately its own settings object rather than part of AppSettings,
+// which is only the list of linked Riot accounts. Follows the
+// PlayerPreferences precedent: one JSON row in the settings table, with
+// these defaults merged over whatever is stored so adding a field later
+// doesn't invalidate an existing row.
+
+export type ResolutionScale = 'native' | '1440p' | '1080p' | '720p'
+export type RecordingFramerate = 30 | 48 | 60
+export type RateControlMode = 'quality' | 'bitrate'
+export type AudioTrackMode = 'mixed' | 'separate'
+
+export interface RecordingSettings {
+  /** Master switch for automatic recording. Off until the user opts in. */
+  enabled: boolean
+  /** null = the default folder (a 'recordings' folder beside the app). */
+  outputDir: string | null
+
+  /** Electron display id to capture. null = primary. */
+  displayId: number | null
+  /**
+   * 'native' keeps frames on the GPU for the whole pipeline. Anything else
+   * costs a download to system memory plus a scale, so it's an explicit
+   * choice rather than the default.
+   */
+  resolutionScale: ResolutionScale
+  framerate: RecordingFramerate
+  drawMouse: boolean
+
+  /** null = whichever encoder capability probing ranked highest. */
+  encoder: string | null
+  rateControl: RateControlMode
+  /**
+   * One number across five encoders whose scales differ (NVENC cq, x264 crf,
+   * AMF qp, QSV global_quality, MF quality). The argument builder owns the
+   * translation; the UI labels it per encoder.
+   */
+  quality: number
+  bitrateKbps: number
+  /**
+   * Also the granularity of the clip editor's lossless "fast" cut, since that
+   * mode can only start on a keyframe -- which is why this is a labeled
+   * setting and not a hidden constant.
+   */
+  keyframeIntervalSeconds: number
+
+  micDeviceName: string | null
+  desktopAudioDeviceName: string | null
+  /**
+   * Chromium loopback bridge for system audio. The bundled ffmpeg has no
+   * WASAPI loopback input, so without either this or a virtual audio device
+   * there is no way to capture game sound.
+   */
+  useLoopbackBridge: boolean
+  audioTrackMode: AudioTrackMode
+
+  /** Manual override only -- the real start trigger is render readiness. */
+  startDelayMs: number
+  /** Keep recording past game end so the post-game screen is captured. */
+  stopDelayMs: number
+  /** Anything shorter is discarded, which is what drops remakes. */
+  minKeepDurationMs: number
+
+  replayBufferEnabled: boolean
+  replayBufferSeconds: number
+  replayHotkey: string | null
+
+  /** Opt-in. Deleting recordings is the one destructive behavior here. */
+  retentionEnabled: boolean
+  retentionMaxGb: number | null
+  retentionMaxAgeDays: number | null
+}
+
+export const DEFAULT_RECORDING_SETTINGS: RecordingSettings = {
+  enabled: false,
+  outputDir: null,
+
+  displayId: null,
+  resolutionScale: 'native',
+  framerate: 60,
+  drawMouse: false,
+
+  encoder: null,
+  rateControl: 'quality',
+  // Visually clean for gameplay on every encoder's scale without the file
+  // size of a near-lossless setting.
+  quality: 21,
+  bitrateKbps: 40000,
+  keyframeIntervalSeconds: 1,
+
+  micDeviceName: null,
+  desktopAudioDeviceName: null,
+  useLoopbackBridge: false,
+  audioTrackMode: 'mixed',
+
+  startDelayMs: 0,
+  stopDelayMs: 20000,
+  // A remake is called at 3 minutes, and the surrender vote plus the return
+  // to lobby lands well inside 4 -- so anything under this is a game that
+  // was never played.
+  minKeepDurationMs: 4 * 60 * 1000,
+
+  replayBufferEnabled: false,
+  replayBufferSeconds: 120,
+  replayHotkey: null,
+
+  retentionEnabled: false,
+  retentionMaxGb: null,
+  retentionMaxAgeDays: null
+}
+
+/**
+ * Turns a stored settings row into usable RecordingSettings.
+ *
+ * Pure, so the three cases that matter can be tested without a database:
+ * no row yet (first run), a row written by an older version that predates
+ * some fields, and a row that isn't valid JSON at all. All three resolve to
+ * something usable -- a recorder that refuses to load its own configuration
+ * would be a worse outcome than one that falls back to defaults.
+ */
+export function parseRecordingSettings(stored: string | null | undefined): RecordingSettings {
+  if (!stored) return { ...DEFAULT_RECORDING_SETTINGS }
+  try {
+    const parsed = JSON.parse(stored)
+    // Guards against a row holding a JSON array, number or null, any of
+    // which would spread into nonsense rather than throwing.
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return { ...DEFAULT_RECORDING_SETTINGS }
+    }
+    return { ...DEFAULT_RECORDING_SETTINGS, ...parsed }
+  } catch {
+    return { ...DEFAULT_RECORDING_SETTINGS }
+  }
+}

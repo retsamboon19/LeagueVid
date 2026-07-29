@@ -7,6 +7,7 @@ import { registerDbHandlers } from './db/ipc'
 import { registerVideoHandlers } from './video/ipc'
 import { registerMediaProtocol } from './video/mediaProtocol'
 import { registerDDragonHandlers } from './ddragon/ipc'
+import { registerRecorderHandlers } from './recorder/ipc'
 import { startBackfillService, stopBackfillService } from './riot/backfillService'
 
 protocol.registerSchemesAsPrivileged([
@@ -65,6 +66,7 @@ app.whenReady().then(async () => {
   registerDbHandlers()
   registerVideoHandlers()
   registerDDragonHandlers()
+  registerRecorderHandlers()
 
   // Continuously warms the local Riot match/timeline cache in the
   // background (lowest priority -- never competes with user-triggered

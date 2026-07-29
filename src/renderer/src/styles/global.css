@@ -3850,3 +3850,44 @@ select:focus {
   flex-direction: column;
   gap: 0.4rem;
 }
+
+/* --- Recording settings summary --- */
+
+.recording-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  background: #1c1f28;
+  border: 1px solid #2f333f;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.recording-summary-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0.9rem;
+  border-top: 1px solid #262a34;
+}
+
+.recording-summary-row:first-child {
+  border-top: none;
+}
+
+.recording-summary-row dt {
+  font-size: 0.8rem;
+  color: #9aa0ad;
+  /* Labels can wrap; the value stays on one line where it fits. */
+  min-width: 0;
+}
+
+.recording-summary-row dd {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #e6e6e6;
+  text-align: right;
+  min-width: 0;
+}

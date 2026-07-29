@@ -12,6 +12,7 @@ import type {
   MatchStatsResult,
   PlatformRouting,
   PlayerPreferences,
+  RecordingSettings,
   RiotAccountDto,
   TagRow,
   VideoFileInfo,
@@ -329,6 +330,14 @@ const api = {
     revealClipsFolder: (): Promise<void> => ipcRenderer.invoke('video:revealClipsFolder'),
     revealClip: (filePath: string): Promise<void> =>
       ipcRenderer.invoke('video:revealClip', filePath)
+  },
+  recorder: {
+    // Recorder configuration. Saving returns the stored result rather than
+    // void, because reads merge the row over the current defaults -- so the
+    // response is the configuration that will actually be used.
+    getSettings: (): Promise<RecordingSettings> => ipcRenderer.invoke('recorder:getSettings'),
+    saveSettings: (settings: RecordingSettings): Promise<RecordingSettings> =>
+      ipcRenderer.invoke('recorder:saveSettings', settings)
   }
 }
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { FolderOpen, RefreshCw, Trash2 } from 'lucide-react'
 import type { AppSettings, PlatformRouting, RiotAccountLink } from '../../../shared/types'
 import LinkedFoldersManager from './LinkedFoldersManager'
+import RecordingSettingsSection from './RecordingSettings'
 
 const PLATFORM_OPTIONS: { value: PlatformRouting; label: string }[] = [
   { value: 'na1', label: 'North America (NA1)' },
@@ -393,6 +394,17 @@ function Settings({ onSaved }: SettingsProps): JSX.Element {
           {clipsDirMessage.text}
         </p>
       )}
+
+      <hr style={{ border: 'none', borderTop: '1px solid #2f333f', margin: '0.5rem 0' }} />
+
+      <h2>Recording</h2>
+      <p className="subtitle">
+        LeagueVid is learning to record your games itself: start when a game does, stop when it
+        ends, and hand the file to the library already linked to the right match. Because the
+        recorder knows exactly when its first frame landed, bookmarks on those recordings are
+        placed from a measured offset instead of a guess at what the file name means.
+      </p>
+      <RecordingSettingsSection />
 
       <hr style={{ border: 'none', borderTop: '1px solid #2f333f', margin: '0.5rem 0' }} />
 
