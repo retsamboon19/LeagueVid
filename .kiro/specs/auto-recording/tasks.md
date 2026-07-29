@@ -138,7 +138,7 @@
   - Tests: offset math, backoff schedule, fallback
   - _Requirements: 16.1, 16.2, 16.3, 16.4, 16.5, 16.6, 16.7_
 
-- [ ] 12. Live event fallback bookmarks
+- [x] 12. Live event fallback bookmarks
   - Persist the in-game event feed onto the recordings row
   - Riot's timeline wins when linking succeeds; live events only when linking has
     permanently failed

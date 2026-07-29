@@ -269,9 +269,18 @@ describe('stopping when the game ends', () => {
     const h = harness()
     const events = [{ EventID: 1, EventName: 'ChampionKill', EventTime: 120 }]
     await h.recorder.handleWatcherEvent(gameplayStarted)
-    await h.recorder.handleWatcherEvent({ type: 'game-ended', lastSnapshot: null, events })
+    await h.recorder.handleWatcherEvent({
+      type: 'game-ended',
+      lastSnapshot: snapshot(),
+      events
+    })
 
-    expect(h.deps.persistLiveEvents).toHaveBeenCalledWith(events)
+    // The player's own name goes with the feed: without it, kill, death and
+    // assist attribution is impossible once the game is gone.
+    expect(h.deps.persistLiveEvents).toHaveBeenCalledWith({
+      activePlayerName: 'Yorickenjoyer#EUW',
+      events
+    })
   })
 
   it('ignores a game ending when nothing is being recorded', async () => {

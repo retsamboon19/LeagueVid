@@ -4,6 +4,11 @@ import type {
   RecordingRow,
   VideoRow
 } from '../../../shared/types'
+import {
+  mapLiveEventsToTags,
+  shouldUseLiveEventFallback,
+  type LiveEventLike
+} from '../../../shared/liveEventTags'
 
 // Fallback slack when a video's duration isn't known (older imports from
 // before duration probing existed, or a single-file add that skipped it),
@@ -630,6 +635,7 @@ export async function drainPendingRecordingLinks(
       // late still gets picked up on a later visit to the library.
       if (hasExhaustedRetries(recording.link_attempts + 1)) {
         await window.api.recorder.setLinkState({ recordingId: recording.id, state: 'failed' })
+        await applyLiveEventFallback(video, recording)
       }
     } catch {
       // Network or API trouble. Left pending for the next attempt.
@@ -637,4 +643,79 @@ export async function drainPendingRecordingLinks(
   }
 
   return linked
+}
+
+/**
+ * Writes bookmarks from the in-game event feed, for a recording that will
+ * never link.
+ *
+ * Reached only after every retry has failed, which in practice means a custom
+ * game (never published to match-v5 at all) or a match Riot never returned. The
+ * markers are thinner than the timeline's -- no assist lists, no positions, so
+ * no tower-dive detection -- but a kill marker with less detail still takes you
+ * to the kill, and the alternative here is no bookmarks at all.
+ *
+ * The offset is the measured one, so these land in the right place even though
+ * there is no match data to check them against.
+ */
+export async function applyLiveEventFallback(
+  video: VideoRow,
+  recording: RecordingRow
+): Promise<number> {
+  if (
+    !shouldUseLiveEventFallback({
+      linkState: 'failed',
+      hasMatchId: !!video.match_id,
+      hasLiveEvents: !!recording.live_events
+    })
+  ) {
+    return 0
+  }
+
+  let events: LiveEventLike[] = []
+  let activePlayerName: string | null = null
+  try {
+    const parsed = JSON.parse(recording.live_events as string)
+    if (Array.isArray(parsed)) {
+      events = parsed as LiveEventLike[]
+    } else if (parsed && Array.isArray(parsed.events)) {
+      events = parsed.events as LiveEventLike[]
+      activePlayerName = typeof parsed.activePlayerName === 'string' ? parsed.activePlayerName : null
+    }
+  } catch {
+    return 0
+  }
+
+  const tags = mapLiveEventsToTags(events, activePlayerName)
+  if (tags.length === 0) return 0
+
+  // Written with the automatic source so every existing bookmark behaviour --
+  // filters, the lead-in jump, rebuilds -- applies unchanged. Cleared first so
+  // a second attempt cannot double them up.
+  await window.api.db.clearAutoTags(video.id)
+  await window.api.db.insertTags({
+    videoId: video.id,
+    tags: tags.map((tag) => ({
+      timestampMs: tag.gameTimestampMs + syncOffsetForFallback(recording),
+      type: tag.type,
+      label: tag.label,
+      detail: tag.detail ?? null,
+      source: 'auto' as const
+    }))
+  })
+
+  return tags.length
+}
+
+/**
+ * Offset for fallback bookmarks.
+ *
+ * The measured game start is used when the watcher managed to anchor one. With
+ * no anchor, in-game time and video time are treated as equal -- imperfect, but
+ * a recording that started when the game did is the common case, and the error
+ * is seconds rather than the whole-game shift the filename path can produce.
+ */
+function syncOffsetForFallback(recording: RecordingRow): number {
+  if (recording.game_start_ms == null) return 0
+  return recording.game_start_ms - recordingStartMs(recording)
 }

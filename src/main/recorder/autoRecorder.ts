@@ -51,8 +51,14 @@ export interface AutoRecorderDeps {
   isCapturing: () => boolean
   /** True once frames have actually been observed. */
   isProducingFrames: () => boolean
-  /** Records the collected in-game event feed against the session. */
-  persistLiveEvents: (events: unknown[]) => void
+  /**
+   * Records the collected in-game event feed against the session.
+   *
+   * The active player's name goes with it: kill/death/assist attribution is
+   * impossible without knowing who "you" were, and by the time the fallback
+   * runs the game is long gone.
+   */
+  persistLiveEvents: (payload: { activePlayerName: string | null; events: unknown[] }) => void
   /** Told when to slow its polling down. */
   setWatcherRecording: (recording: boolean) => void
   reportProblem: (message: string) => void
@@ -92,7 +98,10 @@ export class AutoRecorder {
         return
 
       case 'game-ended':
-        this.deps.persistLiveEvents(event.events)
+        this.deps.persistLiveEvents({
+          activePlayerName: event.lastSnapshot?.activePlayerName ?? null,
+          events: event.events
+        })
         this.scheduleStop()
         return
 

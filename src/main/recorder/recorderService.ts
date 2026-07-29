@@ -334,11 +334,20 @@ export function isProducingFrames(): boolean {
   return handle?.isProducingFrames() ?? false
 }
 
-/** Stores the in-game event feed against the session in flight. */
-export function persistLiveEventsForCurrentSession(events: unknown[]): void {
+/**
+ * Stores the in-game event feed against the session in flight.
+ *
+ * Stored as an object with the player's own name rather than a bare array,
+ * because kill/death/assist attribution needs to know who "you" were and the
+ * game is long gone by the time the fallback runs.
+ */
+export function persistLiveEventsForCurrentSession(payload: {
+  activePlayerName: string | null
+  events: unknown[]
+}): void {
   const recordingId = state.recordingId
   if (recordingId == null) return
-  updateRecording(recordingId, { liveEvents: JSON.stringify(events) })
+  updateRecording(recordingId, { liveEvents: JSON.stringify(payload) })
 }
 
 /** Reports a problem to every window without changing recorder state. */
