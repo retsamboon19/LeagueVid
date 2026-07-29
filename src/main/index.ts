@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, protocol, powerSaveBlocker } from 'electron'
+import { app, shell, BrowserWindow, protocol, powerSaveBlocker, globalShortcut } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { initDb, flushPersist } from './db'
@@ -16,6 +16,7 @@ import {
   hasActiveCapture,
   initRecorderService,
   onRecorderStateChange,
+  saveReplay,
   startRecording,
   stopRecording
 } from './recorder/recorderService'
@@ -140,6 +141,34 @@ function syncPowerSaveBlocker(recording: boolean): void {
   }
 }
 
+/**
+ * Binds the replay-save hotkey.
+ *
+ * A global shortcut is the only kind that works here: the point of a replay
+ * buffer is pressing a key while the game has focus, so an in-app shortcut would
+ * never fire. Registration can legitimately fail when another program already
+ * owns the combination, which is reported rather than thrown -- a taken hotkey
+ * should not stop the app from starting.
+ */
+function registerReplayHotkey(): void {
+  const hotkey = getRecordingSettings().replayHotkey
+  globalShortcut.unregisterAll()
+  if (!hotkey) return
+
+  try {
+    const registered = globalShortcut.register(hotkey, () => {
+      saveReplay()
+        .then((result) => console.log(`[recorder] replay saved: ${result.outputPath}`))
+        .catch((err) => console.error(`[recorder] replay save failed: ${err.message}`))
+    })
+    if (!registered) {
+      console.warn(`[recorder] the hotkey ${hotkey} is already in use by another program`)
+    }
+  } catch (err) {
+    console.warn(`[recorder] could not register ${hotkey}: ${(err as Error).message}`)
+  }
+}
+
 async function startManualRecording(): Promise<void> {
   const target = currentCaptureTarget()
   if (!target) return
@@ -185,6 +214,8 @@ app.whenReady().then(async () => {
       state.phase === 'starting' || state.phase === 'recording' || state.phase === 'stopping'
     )
   })
+
+  registerReplayHotkey()
 
   createRecorderTray({
     onShowWindow: showMainWindow,
@@ -262,6 +293,7 @@ app.on('before-quit', (event) => {
 })
 
 app.on('will-quit', () => {
+  globalShortcut.unregisterAll()
   stopBackfillService()
   stopAutoRecording()
   destroyRecorderTray()

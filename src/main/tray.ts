@@ -3,7 +3,13 @@ import { join } from 'path'
 import { existsSync } from 'fs'
 import type { RecorderStateSnapshot } from '../shared/types'
 import { getRecordingSettings, saveRecordingSettings } from './db/repository'
-import { getRecorderState, setRecordingEnabled, stopRecording } from './recorder/recorderService'
+import {
+  getRecorderState,
+  isReplayBufferActive,
+  saveReplay,
+  setRecordingEnabled,
+  stopRecording
+} from './recorder/recorderService'
 import { describePhase } from './recorder/recorderState'
 
 // The tray icon, which is what makes LeagueVid useful with its window closed.
@@ -93,6 +99,15 @@ export function refreshTray(state: RecorderStateSnapshot): void {
         click: (item) => {
           saveRecordingSettings({ ...getRecordingSettings(), enabled: item.checked })
           refreshTray(setRecordingEnabled(item.checked))
+        }
+      },
+      {
+        label: 'Save replay',
+        // Only meaningful while the ring is being written; the buffer cannot be
+        // switched on mid-recording because it's part of the same encode.
+        enabled: isReplayBufferActive(),
+        click: () => {
+          saveReplay().catch((err) => console.error('[recorder] replay save failed', err))
         }
       },
       {

@@ -1,5 +1,5 @@
 import { BrowserWindow } from 'electron'
-import { basename } from 'path'
+import { basename, dirname, join } from 'path'
 import { statSync, unlinkSync } from 'fs'
 import type { RecorderProgress, RecordingSettings, VideoRow } from '../../shared/types'
 import {
@@ -12,9 +12,19 @@ import {
 import { buildCaptureArgs, type AudioInputSpec, type CaptureTarget } from './ffmpegArgs'
 import { ffmpegBinaryPath } from './ffmpegBinary'
 import { startCapture, type CaptureHandle } from './ffmpegProcess'
+import { spawn } from 'child_process'
 import { buildSessionPath } from './outputPaths'
 import { assessCaptureHealth } from './progressParser'
 import { remuxToMp4 } from './remux'
+import {
+  cleanupConcatList,
+  listSegments,
+  prepareRing,
+  ringFor,
+  selectRecentSegments,
+  writeConcatList,
+  type ReplayRing
+} from './replayBuffer'
 import {
   initialRecorderState,
   recorderReducer,
@@ -67,6 +77,9 @@ export function onFramesFlowing(listener: (() => void) | null): void {
  */
 let sessionCompletion: Promise<void> | null = null
 let resolveSessionCompletion: (() => void) | null = null
+
+/** The replay ring for the session in flight, when the buffer is enabled. */
+let activeRing: ReplayRing | null = null
 
 /**
  * Sends to every open window.
@@ -174,12 +187,27 @@ export async function startRecording(
     championName: options.championName
   })
 
+  // The replay ring is written by the same encode as the session file, so it
+  // has to be decided before the child is spawned -- it cannot be switched on
+  // mid-recording.
+  activeRing = settings.replayBufferEnabled
+    ? ringFor(join(dirname(outputPath), 'replay-buffer'), settings.replayBufferSeconds)
+    : null
+  if (activeRing) prepareRing(activeRing)
+
   const args = buildCaptureArgs(
     {
       settings,
       target: options.target,
       outputPath,
-      audioInputs: options.audioInputs ?? []
+      audioInputs: options.audioInputs ?? [],
+      replay: activeRing
+        ? {
+            segmentPattern: activeRing.pattern,
+            segmentSeconds: activeRing.segmentSeconds,
+            segmentCount: activeRing.segmentCount
+          }
+        : undefined
     },
     options.fallbackEncoder
   )
@@ -333,6 +361,9 @@ function finishSessionCompletion(): void {
   resolveSessionCompletion?.()
   resolveSessionCompletion = null
   sessionCompletion = null
+  // The ring belongs to the session that just ended. Left in place, a later
+  // replay save would reach back into the previous game's footage.
+  activeRing = null
 }
 
 /**
@@ -396,6 +427,102 @@ export function persistLiveEventsForCurrentSession(payload: {
 /** Reports a problem to every window without changing recorder state. */
 export function reportRecorderProblem(message: string): void {
   broadcast(RECORDER_CHANNELS.error, message)
+}
+
+export interface SaveReplayResult {
+  outputPath: string
+  durationSeconds: number
+  sizeBytes: number
+}
+
+/**
+ * Saves the last N seconds as its own file, without interrupting the recording.
+ *
+ * Reads the segment ring the tee muxer is already writing, so this costs a
+ * stream copy of a couple of files rather than a second encode. The recording
+ * carries on untouched -- pressing the hotkey after a good play must not risk
+ * the rest of the game.
+ */
+export async function saveReplay(): Promise<SaveReplayResult> {
+  if (!activeRing) {
+    throw new Error('The replay buffer is not running. Turn it on in Settings before recording.')
+  }
+
+  const settings = currentSettings ?? getRecordingSettings()
+  const segments = selectRecentSegments(
+    listSegments(activeRing.directory),
+    settings.replayBufferSeconds,
+    activeRing.segmentSeconds
+  )
+
+  if (segments.length === 0) {
+    throw new Error('There is no buffered footage to save yet.')
+  }
+
+  const listPath = writeConcatList(activeRing.directory, segments)
+  const outputPath = buildSessionPath({ championName: 'Replay' }).replace(/\.mkv$/i, '.mp4')
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(
+        ffmpegBinaryPath(),
+        [
+          '-hide_banner',
+          '-loglevel',
+          'error',
+          '-f',
+          'concat',
+          // The list holds absolute paths, which concat refuses without this.
+          '-safe',
+          '0',
+          '-i',
+          listPath,
+          '-c',
+          'copy',
+          '-movflags',
+          '+faststart',
+          '-y',
+          outputPath
+        ],
+        { windowsHide: true }
+      )
+      let stderr = ''
+      child.stderr?.on('data', (chunk) => {
+        stderr += String(chunk)
+      })
+      child.on('error', reject)
+      child.on('close', (code) =>
+        code === 0 ? resolve() : reject(new Error(stderr.trim() || `Exited with code ${code}.`))
+      )
+    })
+  } finally {
+    cleanupConcatList(listPath)
+  }
+
+  const sizeBytes = statSync(outputPath).size
+  const video = insertVideo({
+    filePath: outputPath,
+    fileName: basename(outputPath),
+    recordedAt: Date.now() - settings.replayBufferSeconds * 1000,
+    durationMs: settings.replayBufferSeconds * 1000,
+    source: 'recorded'
+  })
+
+  broadcast(RECORDER_CHANNELS.recordingSaved, {
+    recordingId: -1,
+    video,
+    converted: true
+  } satisfies RecordingSavedPayload)
+
+  return {
+    outputPath,
+    durationSeconds: segments.length * activeRing.segmentSeconds,
+    sizeBytes
+  }
+}
+
+export function isReplayBufferActive(): boolean {
+  return activeRing !== null
 }
 
 /**

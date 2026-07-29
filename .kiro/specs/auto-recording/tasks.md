@@ -188,7 +188,7 @@
     deletion
   - _Requirements: 21.1, 21.2, 21.3, 21.4, 21.5, 21.6, 21.7, 21.8, 21.9, 21.10, 21.11, 21.12, 21.13_
 
-- [ ] 17. Replay buffer
+- [x] 17. Replay buffer
   - Single encode split with the `tee` muxer into the session file and a wrapping segment
     ring (`segment_time`, `segment_wrap`, `reset_timestamps`, `h264_mp4toannexb` on the
     mpegts leg) so the buffer costs one encode rather than two

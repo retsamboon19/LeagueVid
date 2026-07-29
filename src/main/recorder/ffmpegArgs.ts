@@ -33,12 +33,28 @@ export interface AudioInputSpec {
   role: 'mic' | 'desktop'
 }
 
+export interface ReplayRingSpec {
+  /** printf-style path, e.g. 'H:\\rec\\buffer\\seg%03d.ts'. */
+  segmentPattern: string
+  /** Seconds per segment. */
+  segmentSeconds: number
+  /** How many segments before the ring wraps. */
+  segmentCount: number
+}
+
 export interface BuildCaptureArgsInput {
   settings: RecordingSettings
   target: CaptureTarget
   /** Matroska session file. */
   outputPath: string
   audioInputs: AudioInputSpec[]
+  /**
+   * When present, the encoded stream is split with the tee muxer: once into the
+   * session file and once into a wrapping segment ring for the replay buffer.
+   * One encode, two destinations -- the naive alternative runs the encoder twice
+   * and doubles the cost of the feature.
+   */
+  replay?: ReplayRingSpec
 }
 
 /** Target height per resolution setting. 'native' means don't scale. */
@@ -320,12 +336,63 @@ export function buildCaptureArgs(
     }
   }
 
+  if (input.replay) {
+    // Forces the encoder to emit parameter sets as a global header, which is
+    // what Matroska needs; the segment leg converts them back to in-band for
+    // mpegts. Without it the Matroska leg refuses the stream outright.
+    args.push('-flags', '+global_header')
+    args.push('-f', 'tee', '-y', teeTarget(outputPath, input.replay))
+    return args
+  }
+
   // Matroska, not MP4: a truncated MP4 has no moov atom and will not play,
   // and this file exists precisely to survive a crash mid-game. It's remuxed
   // to MP4 with -c copy once the session ends cleanly.
   args.push('-f', 'matroska', '-y', outputPath)
 
   return args
+}
+
+/**
+ * The tee muxer's output specification.
+ *
+ * Two legs from one encode: the Matroska session file, and an mpegts segment
+ * ring. mpegts for the ring specifically because its segments concatenate
+ * cleanly with the concat demuxer and `-c copy`, which is how a replay gets
+ * saved without re-encoding -- MP4 fragments do not join that way.
+ *
+ * `segment_wrap` is what makes the ring bounded: segment numbering returns to 0
+ * after N files, so the buffer overwrites its own oldest footage instead of
+ * filling the disk for the whole game.
+ */
+export function teeTarget(sessionPath: string, replay: ReplayRingSpec): string {
+  const segment = [
+    'f=segment',
+    `segment_time=${replay.segmentSeconds}`,
+    `segment_wrap=${replay.segmentCount}`,
+    'segment_format=mpegts',
+    // Each segment starts at zero, so a saved replay doesn't inherit an offset
+    // from where it happened to fall in the game.
+    'reset_timestamps=1',
+    // The two legs want H.264 packaged differently: Matroska needs the
+    // parameter sets out of band in a global header, mpegts needs them in band.
+    // Verified against the bundled ffmpeg -- without this the Matroska leg fails
+    // with "error writing header: Invalid data found when processing input" and
+    // writes a 293-byte stub, while the segments come out fine. So the encoder
+    // is asked for a global header (see buildCaptureArgs) and this leg converts
+    // back to in-band.
+    'bsfs/v=h264_mp4toannexb'
+  ].join(':')
+
+  // Escaping: within a tee target, ':' separates options and '|' separates
+  // legs, so both have to be escaped inside a Windows path.
+  return `[f=matroska]${escapeTeePath(sessionPath)}|[${segment}]${escapeTeePath(
+    replay.segmentPattern
+  )}`
+}
+
+function escapeTeePath(path: string): string {
+  return path.replace(/([:|\\])/g, '\\$1')
 }
 
 /** The same argv as a copy-pasteable command line, for scripts and logs. */

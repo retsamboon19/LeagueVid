@@ -34,6 +34,7 @@ import { ffmpegBinaryPath } from './ffmpegBinary'
 import {
   getRecorderState,
   hasActiveCapture,
+  saveReplay,
   setRecordingEnabled,
   startRecording,
   stopRecording
@@ -140,6 +141,11 @@ export function registerRecorderHandlers(): void {
   })
 
   ipcMain.handle('recorder:stopManual', () => stopRecording('Stopped by hand'))
+
+  // Saves the last N seconds from the ring the capture is already writing. The
+  // recording carries on: pressing this after a good play must not risk the
+  // rest of the game.
+  ipcMain.handle('recorder:saveReplay', () => saveReplay())
 
   // --- Linking queue ---
   // Recordings finish whether or not a window is open, so the queue is drained

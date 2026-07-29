@@ -460,7 +460,15 @@ const api = {
     previewRetentionSweep: (): Promise<RetentionPreviewInfo> =>
       ipcRenderer.invoke('recorder:previewRetentionSweep'),
     runRetentionSweep: (): Promise<RetentionSweepInfo> =>
-      ipcRenderer.invoke('recorder:runRetentionSweep')
+      ipcRenderer.invoke('recorder:runRetentionSweep'),
+
+    // Saves the last N seconds from the buffer the capture is already writing.
+    // The recording continues.
+    saveReplay: (): Promise<{
+      outputPath: string
+      durationSeconds: number
+      sizeBytes: number
+    }> => ipcRenderer.invoke('recorder:saveReplay')
   }
 }
 
