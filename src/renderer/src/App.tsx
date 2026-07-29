@@ -3,6 +3,7 @@ import { Settings as SettingsIcon } from 'lucide-react'
 import type { AppSettings } from '../../shared/types'
 import Settings from './views/Settings'
 import Library from './views/Library'
+import RecorderIndicator from './components/RecorderIndicator'
 
 function App(): JSX.Element {
   const [settings, setSettings] = useState<AppSettings | null>(null)
@@ -47,6 +48,7 @@ function App(): JSX.Element {
           </button>
           {settings && (
             <div className="app-header-actions">
+              <RecorderIndicator />
               {!showSettings && (
                 <span className="app-header-account">
                   {settings.accounts.length === 1

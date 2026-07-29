@@ -10,6 +10,7 @@ import { registerDDragonHandlers } from './ddragon/ipc'
 import { registerRecorderHandlers } from './recorder/ipc'
 import { startBackfillService, stopBackfillService } from './riot/backfillService'
 import { recoverInterruptedRecordings } from './recorder/orphanRecovery'
+import { initRecorderService } from './recorder/recorderService'
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -67,6 +68,10 @@ app.whenReady().then(async () => {
   registerDbHandlers()
   registerVideoHandlers()
   registerDDragonHandlers()
+
+  // Reads the persisted enabled flag, so the recorder's reported state matches
+  // the setting from the moment the first window opens.
+  initRecorderService()
   registerRecorderHandlers()
 
   // Continuously warms the local Riot match/timeline cache in the

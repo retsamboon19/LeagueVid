@@ -15,6 +15,8 @@ import type {
   MatchStatsResult,
   PlatformRouting,
   PlayerPreferences,
+  RecorderProgress,
+  RecorderStateSnapshot,
   RecordingSettings,
   RiotAccountDto,
   TagRow,
@@ -68,6 +70,28 @@ export interface LinkedFolderRow {
   last_scanned_at: number | null
   last_scan_imported: number
   last_scan_skipped: number
+}
+
+/** What the main process sends when a recording lands in the library. */
+export interface RecordingSavedPayload {
+  recordingId: number
+  video: VideoRow
+  /** False when converting failed and the original recording was imported. */
+  converted: boolean
+}
+
+/**
+ * Wraps ipcRenderer.on and hands back an unsubscribe.
+ *
+ * The listener is wrapped so the renderer never receives the IpcRendererEvent,
+ * which would leak a privileged object across the context bridge.
+ */
+function subscribe<T>(channel: string, callback: (payload: T) => void): () => void {
+  const listener = (_event: unknown, payload: T): void => callback(payload)
+  ipcRenderer.on(channel, listener)
+  return () => {
+    ipcRenderer.removeListener(channel, listener)
+  }
 }
 
 const api = {
@@ -359,7 +383,35 @@ const api = {
     // bundled ffmpeg has -- there is no WASAPI loopback -- so desktop audio
     // depends on either a virtual device listed here or the loopback bridge.
     listAudioDevices: (): Promise<AudioCaptureDevice[]> =>
-      ipcRenderer.invoke('recorder:listAudioDevices')
+      ipcRenderer.invoke('recorder:listAudioDevices'),
+
+    // --- Recorder state ---
+    // Each of these pull methods mirrors a push channel below. That pairing
+    // matters: a renderer mounting halfway through a recording has missed
+    // every push so far, so it reads the current state once and then
+    // subscribes.
+    getState: (): Promise<RecorderStateSnapshot> => ipcRenderer.invoke('recorder:getState'),
+    getProgress: (): Promise<RecorderProgress | null> =>
+      ipcRenderer.invoke('recorder:getProgress'),
+
+    setEnabled: (enabled: boolean): Promise<RecorderStateSnapshot> =>
+      ipcRenderer.invoke('recorder:setEnabled', enabled),
+    startManual: (): Promise<RecorderStateSnapshot> => ipcRenderer.invoke('recorder:startManual'),
+    stopManual: (): Promise<RecorderStateSnapshot> => ipcRenderer.invoke('recorder:stopManual'),
+
+    // --- Push subscriptions ---
+    // The first use of main-to-renderer push in this app; everything else is
+    // request/response. Each returns its own unsubscribe function so a React
+    // effect's cleanup is the natural shape and listeners can't accumulate
+    // across remounts.
+    onState: (callback: (state: RecorderStateSnapshot) => void): (() => void) =>
+      subscribe('recorder:state', callback),
+    onProgress: (callback: (progress: RecorderProgress) => void): (() => void) =>
+      subscribe('recorder:progress', callback),
+    onRecordingSaved: (callback: (payload: RecordingSavedPayload) => void): (() => void) =>
+      subscribe('recorder:recordingSaved', callback),
+    onError: (callback: (message: string) => void): (() => void) =>
+      subscribe('recorder:error', callback)
   }
 }
 

@@ -1,5 +1,5 @@
 import { ipcMain, screen } from 'electron'
-import type { EncoderCapabilities, RecordingSettings } from '../../shared/types'
+import type { CaptureDisplay, EncoderCapabilities, RecordingSettings } from '../../shared/types'
 import {
   getEncoderCapabilitiesCache,
   getRecordingSettings,
@@ -7,9 +7,16 @@ import {
   saveRecordingSettings
 } from '../db/repository'
 import { listAudioDevices } from './audioDevices'
-import { mapDisplaysToOutputs } from './displays'
+import { mapDisplaysToOutputs, resolveCaptureDisplay } from './displays'
 import { probeEncoders } from './encoderCapabilities'
+import type { AudioInputSpec } from './ffmpegArgs'
 import { ffmpegBinaryPath } from './ffmpegBinary'
+import {
+  getRecorderState,
+  setRecordingEnabled,
+  startRecording,
+  stopRecording
+} from './recorderService'
 
 // The recorder's IPC surface. Pull-only for now, matching every other
 // channel in the app; the push side (recorder:state, recorder:progress) is
@@ -63,20 +70,79 @@ export function registerRecorderHandlers(): void {
   // Monitors, mapped onto the ddagrab output index that (probably) captures
   // each one. Read live rather than cached: a display can be plugged in
   // between opening Settings and starting a game.
-  ipcMain.handle('recorder:listDisplays', () => {
-    return mapDisplaysToOutputs(
-      screen.getAllDisplays().map((d) => ({
-        id: d.id,
-        bounds: d.bounds,
-        size: d.size,
-        scaleFactor: d.scaleFactor,
-        internal: d.internal,
-        label: d.label,
-        rotation: d.rotation
-      })),
-      screen.getPrimaryDisplay().id
-    )
-  })
+  ipcMain.handle('recorder:listDisplays', () => currentDisplays())
 
   ipcMain.handle('recorder:listAudioDevices', () => listAudioDevices(ffmpegBinaryPath()))
+
+  // Pull equivalent of the recorder:state push. A renderer that mounts
+  // mid-recording has missed every push so far; without this it would show an
+  // idle recorder until something happened to change.
+  ipcMain.handle('recorder:getState', () => getRecorderState())
+
+  // Pull equivalent of recorder:progress -- the latest sample lives on the
+  // state snapshot, so a late-mounting renderer gets the current fps and size
+  // rather than waiting up to a second for the next push.
+  ipcMain.handle('recorder:getProgress', () => getRecorderState().progress)
+
+  ipcMain.handle('recorder:setEnabled', (_e, enabled: boolean) => {
+    // Persisted as well as applied, so the setting survives a restart.
+    saveRecordingSettings({ ...getRecordingSettings(), enabled })
+    return setRecordingEnabled(enabled)
+  })
+
+  ipcMain.handle('recorder:startManual', async () => {
+    const settings = getRecordingSettings()
+    const displays = currentDisplays()
+    const resolved = resolveCaptureDisplay(displays, settings.displayId)
+
+    if (!resolved) {
+      throw new Error('No display was found to record.')
+    }
+
+    return startRecording({
+      manual: true,
+      target: {
+        outputIdx: resolved.display.outputIdx,
+        width: resolved.display.width,
+        height: resolved.display.height,
+        // HDR detection needs a Windows API Electron doesn't expose; until the
+        // preflight test can tell us, assume SDR. ddagrab is given
+        // allow_fallback=1 either way, so an HDR display still captures.
+        isHdr: false
+      },
+      fallbackEncoder: getEncoderCapabilitiesCache()?.chosen ?? 'libx264',
+      audioInputs: resolveAudioInputs(settings)
+    })
+  })
+
+  ipcMain.handle('recorder:stopManual', () => stopRecording('Stopped by hand'))
+}
+
+/** Audio inputs the current settings can actually deliver. */
+function resolveAudioInputs(settings: RecordingSettings): AudioInputSpec[] {
+  const inputs: AudioInputSpec[] = []
+  if (settings.micDeviceName) {
+    inputs.push({ kind: 'dshow', source: settings.micDeviceName, role: 'mic' })
+  }
+  // Only a real device is used here. The loopback bridge is a separate path and
+  // isn't wired up yet, so claiming desktop audio would record silence.
+  if (settings.desktopAudioDeviceName) {
+    inputs.push({ kind: 'dshow', source: settings.desktopAudioDeviceName, role: 'desktop' })
+  }
+  return inputs
+}
+
+function currentDisplays(): CaptureDisplay[] {
+  return mapDisplaysToOutputs(
+    screen.getAllDisplays().map((d) => ({
+      id: d.id,
+      bounds: d.bounds,
+      size: d.size,
+      scaleFactor: d.scaleFactor,
+      internal: d.internal,
+      label: d.label,
+      rotation: d.rotation
+    })),
+    screen.getPrimaryDisplay().id
+  )
 }

@@ -3919,3 +3919,89 @@ select:focus {
   min-width: 0;
   word-break: break-word;
 }
+
+/* --- Recorder indicator (app header) --- */
+
+.recorder-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.28rem 0.6rem;
+  border: 1px solid #2f333f;
+  border-radius: 999px;
+  background: #1c1f28;
+  font-size: 0.76rem;
+  color: #9aa0ad;
+  /* Long warning text must not push the settings button off the header. */
+  max-width: 46ch;
+  min-width: 0;
+}
+
+.recorder-indicator-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.recorder-dot {
+  color: #4d5361;
+}
+
+/* Only a live recording gets the red pulse. Everything else stays quiet. */
+.recorder-dot-live {
+  color: #e2564d;
+  fill: #e2564d;
+  animation: recorder-pulse 2s ease-in-out infinite;
+}
+
+@keyframes recorder-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* Users who prefer reduced motion still need to see that it's live, so the
+   dot stays red and simply stops pulsing. */
+@media (prefers-reduced-motion: reduce) {
+  .recorder-dot-live {
+    animation: none;
+  }
+}
+
+.recorder-indicator-recording {
+  border-color: #4a2b2b;
+  color: #e6e6e6;
+}
+
+.recorder-indicator-failed {
+  border-color: #5a2f2f;
+  color: #f0a2a2;
+}
+
+.recorder-indicator-meta {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: #e6e6e6;
+}
+
+.recorder-indicator-warning {
+  color: #e8b45c;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.recorder-indicator-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0;
+  font-size: 0.76rem;
+  flex-shrink: 0;
+}

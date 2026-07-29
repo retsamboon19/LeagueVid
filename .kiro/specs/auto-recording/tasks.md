@@ -82,7 +82,7 @@
   - Output naming that identifies the game start time
   - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7_
 
-- [ ] 7. State machine, IPC, header indicator
+- [x] 7. State machine, IPC, header indicator
   - Pure `recorderState.ts` reducer; illegal transitions are no-ops
   - `recorderService.ts` owns the child and is the only writer of state
   - `ipc.ts` pull handlers plus a `broadcast()` helper over

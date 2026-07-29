@@ -752,3 +752,39 @@ export interface RecordingRow {
   size_bytes: number | null
   created_at: number
 }
+
+/**
+ * What the recorder is doing. Shared because the header indicator, the tray
+ * tooltip and the main-process reducer all describe the same value.
+ *
+ * 'arming' and 'starting' are separate on purpose: the readiness gate has two
+ * independent conditions -- the game being up, and frames actually arriving --
+ * and one phase could not say which is outstanding.
+ */
+export type RecorderPhase =
+  | 'disabled'
+  | 'idle'
+  | 'arming'
+  | 'starting'
+  | 'recording'
+  | 'stopping'
+  | 'remuxing'
+  | 'finalizing'
+  | 'failed'
+
+export interface RecorderStateSnapshot {
+  phase: RecorderPhase
+  /** recordings.id of the session in flight. */
+  recordingId: number | null
+  /** Wall clock at which capture was confirmed to be producing frames. */
+  startedAt: number | null
+  /** The .mkv being written. */
+  outputPath: string | null
+  progress: RecorderProgress | null
+  /** Set in the failed phase. */
+  error: string | null
+  /** Short human-readable reason for the current phase. */
+  detail: string | null
+  /** Whether automatic recording is switched on. */
+  enabled: boolean
+}
