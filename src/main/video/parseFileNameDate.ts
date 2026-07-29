@@ -4,8 +4,9 @@
 // birthtime/mtime, which reset whenever the file is touched.
 //
 // Supported patterns (checked in order, first match wins):
-//   1. Outplay-style:      MM-DD-YYYY_HH-MM-SS[-mmm]
+//   1. Outplay-style:      MM-DD-YYYY_[H]H-MM-SS[-mmm]
 //        e.g. "League of Legends_07-22-2026_22-35-48-300.mp4"
+//             "League of Legends 07-27-2026_1-02-21-702.mp4"
 //   2. ISO-ish:            YYYY-MM-DD_HH-MM-SS or YYYY-MM-DD HH.MM.SS
 //        e.g. "Recording_2026-07-22_22-35-48.mp4"
 //   3. Compact timestamp:  YYYYMMDD_HHMMSS or YYYYMMDD-HHMMSS
@@ -16,8 +17,18 @@ export function parseRecordedAtFromFileName(fileName: string): number | null {
     build: (m: RegExpMatchArray) => number
   }> = [
     {
-      // MM-DD-YYYY_HH-MM-SS(-mmm)?
-      regex: /(\d{2})-(\d{2})-(\d{4})[_ ](\d{2})-(\d{2})-(\d{2})(?:-(\d{1,3}))?/,
+      // MM-DD-YYYY_(H)H-MM-SS(-mmm)?
+      //
+      // The hour is 1-2 digits because Outplayed doesn't pad it: real file
+      // names include "Desktop 07-27-2026_0-25-37-967.mp4" and
+      // "League of Legends 07-27-2026_1-02-21-702.mp4". Requiring two digits
+      // made every recording from midnight to 9am miss all three patterns
+      // and fall back to birthtime/mtime -- i.e. the time the file was last
+      // copied, not the time the game was played, which then sent match
+      // linking looking in the wrong part of the day. Minutes and seconds
+      // stay two-digit: they're always padded, and keeping them fixed limits
+      // how much unrelated punctuation this can match by accident.
+      regex: /(\d{2})-(\d{2})-(\d{4})[_ ](\d{1,2})-(\d{2})-(\d{2})(?:-(\d{1,3}))?/,
       build: (m) => {
         const [, mm, dd, yyyy, hh, min, ss, ms] = m
         return new Date(
