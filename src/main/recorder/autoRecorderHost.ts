@@ -6,6 +6,7 @@ import { AutoRecorder } from './autoRecorder'
 import { checkFreeSpaceForStart, checkFreeSpaceWhileRecording, DISK_CHECK_INTERVAL_MS } from './diskSpace'
 import { mapDisplaysToOutputs, resolveCaptureDisplay } from './displays'
 import type { AudioInputSpec, CaptureTarget } from './ffmpegArgs'
+import { startLoopbackBridge, stopLoopbackBridge } from './loopbackAudio'
 import { recordingsDir } from './outputPaths'
 import {
   hasActiveCapture,
@@ -69,16 +70,50 @@ function currentTarget(): CaptureTarget | null {
   }
 }
 
-function audioInputs(): AudioInputSpec[] {
+/**
+ * Audio inputs for a session, starting the loopback bridge if it's wanted.
+ *
+ * Failure to start the bridge degrades to recording without system audio and
+ * says so, rather than failing the recording: losing the game is worse than
+ * losing its sound. What it must never do is quietly produce a silent track.
+ */
+export async function resolveAudioInputs(): Promise<AudioInputSpec[]> {
   const settings = getRecordingSettings()
   const inputs: AudioInputSpec[] = []
+
   if (settings.micDeviceName) {
     inputs.push({ kind: 'dshow', source: settings.micDeviceName, role: 'mic' })
   }
+
+  // A real loopback device the user has installed takes precedence: it's fewer
+  // moving parts than the bridge.
   if (settings.desktopAudioDeviceName) {
     inputs.push({ kind: 'dshow', source: settings.desktopAudioDeviceName, role: 'desktop' })
+    return inputs
   }
+
+  if (settings.useLoopbackBridge) {
+    try {
+      const bridge = await startLoopbackBridge()
+      inputs.push({ kind: 'loopback-socket', source: bridge.url, role: 'desktop' })
+    } catch (err) {
+      reportRecorderProblem(
+        `System audio couldn't be captured, so this recording has no game sound: ${
+          (err as Error).message
+        }`
+      )
+    }
+  }
+
   return inputs
+}
+
+/** Synchronous count, for the disk estimate before a session starts. */
+function audioInputCount(): number {
+  const settings = getRecordingSettings()
+  let count = settings.micDeviceName ? 1 : 0
+  if (settings.desktopAudioDeviceName || settings.useLoopbackBridge) count += 1
+  return count
 }
 
 /** The platform of the first linked account, for composing the match id. */
@@ -97,7 +132,7 @@ export function startAutoRecording(): void {
         recordingsDir(),
         getRecordingSettings(),
         target,
-        audioInputs().length
+        audioInputCount()
       )
       return { ok: check.ok, reason: check.reason }
     },
@@ -118,7 +153,7 @@ export function startAutoRecording(): void {
         platform: primaryPlatform(),
         puuid: getSettings()?.accounts[0]?.puuid ?? null,
         target: options.target,
-        audioInputs: audioInputs(),
+        audioInputs: await resolveAudioInputs(),
         fallbackEncoder: getEncoderCapabilitiesCache()?.chosen ?? 'libx264'
       })
     },
@@ -158,6 +193,9 @@ export function startAutoRecording(): void {
 }
 
 export function stopAutoRecording(): void {
+  // The bridge holds a hidden window and a listening socket, so it has to go
+  // with the rest of the pipeline.
+  stopLoopbackBridge()
   watcher?.stop()
   watcher = null
   auto?.dispose()

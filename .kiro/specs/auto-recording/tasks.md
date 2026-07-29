@@ -158,7 +158,7 @@
   - Tests: quit-while-recording ordering (stop → remux → finalize → quit) with a fake child
   - _Requirements: 18.1, 18.2, 18.3, 18.4, 18.5, 18.6, 18.7, 18.8, 18.9, 18.10, 18.11_
 
-- [ ] 14. System audio without a virtual driver
+- [x] 14. System audio without a virtual driver
   - Hidden `BrowserWindow` with `setDisplayMediaRequestHandler` and `audio: 'loopback'`,
     an `AudioWorklet` producing Float32 PCM over a localhost TCP socket, read by ffmpeg
     as `-f f32le -ar 48000 -ac 2 -i tcp://127.0.0.1:PORT`

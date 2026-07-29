@@ -18,8 +18,8 @@ import {
 import { listAudioDevices } from './audioDevices'
 import { mapDisplaysToOutputs, resolveCaptureDisplay } from './displays'
 import { applyLaunchAtLogin } from '../tray'
+import { resolveAudioInputs } from './autoRecorderHost'
 import { probeEncoders } from './encoderCapabilities'
-import type { AudioInputSpec } from './ffmpegArgs'
 import { ffmpegBinaryPath } from './ffmpegBinary'
 import {
   getRecorderState,
@@ -124,7 +124,7 @@ export function registerRecorderHandlers(): void {
         isHdr: false
       },
       fallbackEncoder: getEncoderCapabilitiesCache()?.chosen ?? 'libx264',
-      audioInputs: resolveAudioInputs(settings)
+      audioInputs: await resolveAudioInputs()
     })
   })
 
@@ -146,20 +146,6 @@ export function registerRecorderHandlers(): void {
   )
 
   ipcMain.handle('recorder:listRecordings', () => listRecordings())
-}
-
-/** Audio inputs the current settings can actually deliver. */
-function resolveAudioInputs(settings: RecordingSettings): AudioInputSpec[] {
-  const inputs: AudioInputSpec[] = []
-  if (settings.micDeviceName) {
-    inputs.push({ kind: 'dshow', source: settings.micDeviceName, role: 'mic' })
-  }
-  // Only a real device is used here. The loopback bridge is a separate path and
-  // isn't wired up yet, so claiming desktop audio would record silence.
-  if (settings.desktopAudioDeviceName) {
-    inputs.push({ kind: 'dshow', source: settings.desktopAudioDeviceName, role: 'desktop' })
-  }
-  return inputs
 }
 
 function currentDisplays(): CaptureDisplay[] {

@@ -157,9 +157,11 @@ function RecordingSettingsSection(): JSX.Element {
       label: 'System audio',
       value: settings.desktopAudioDeviceName
         ? describeAudio(settings.desktopAudioDeviceName, audioDevices, 'Not recorded')
-        : loopbackDevices.length > 0
-          ? `Not recorded (${loopbackDevices[0].name} is available)`
-          : 'Not available on this machine'
+        : settings.useLoopbackBridge
+          ? 'Captured from Windows directly'
+          : loopbackDevices.length > 0
+            ? `Not recorded (${loopbackDevices[0].name} is available)`
+            : 'Not recorded'
     },
     {
       label: 'Keep recording after the game ends',
@@ -253,14 +255,18 @@ function RecordingSettingsSection(): JSX.Element {
         </p>
       )}
 
-      {audioDevices.length > 0 && loopbackDevices.length === 0 && (
-        <p className="settings-row-hint">
-          System audio can&apos;t be captured on this machine yet. The bundled encoder can only
-          read microphone-style inputs on Windows, and none of your {audioDevices.length} audio
-          devices carries desktop sound. Rather than record silence and let you find out
-          afterwards, LeagueVid will record no system audio until the loopback capture path lands.
-        </p>
-      )}
+      {audioDevices.length > 0 &&
+        loopbackDevices.length === 0 &&
+        !settings.desktopAudioDeviceName && (
+          <p className="settings-row-hint">
+            None of your {audioDevices.length} audio devices carries desktop sound -- the bundled
+            encoder can only read microphone-style inputs on Windows, and you have no Stereo Mix or
+            virtual cable installed.{' '}
+            {settings.useLoopbackBridge
+              ? 'LeagueVid captures game audio from Windows directly instead, so no extra driver is needed.'
+              : 'LeagueVid can capture it from Windows directly instead, without any extra driver. Until that is switched on, recordings will have no game sound rather than a silent track you discover later.'}
+          </p>
+        )}
 
       <dl className="recording-summary">
         {rows.map((row) => (
