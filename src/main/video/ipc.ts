@@ -1,9 +1,10 @@
 import { ipcMain, dialog, shell } from 'electron'
 import { statSync, readdirSync, mkdirSync, writeFileSync, unlinkSync, existsSync } from 'fs'
-import { basename, dirname, extname, join } from 'path'
+import { basename, extname, join } from 'path'
 import { toMediaUrl } from './mediaProtocol'
 import { parseRecordedAtFromFileName } from './parseFileNameDate'
 import { probeMp4DurationMs } from './probeMp4Duration'
+import { planReveal } from './revealTarget'
 import {
   clipsDir,
   createClip,
@@ -162,24 +163,12 @@ export function registerVideoHandlers(): void {
   // and if even that is gone the caller is told rather than being sent to an
   // unrelated directory.
   ipcMain.handle('video:revealInFolder', (_e, filePath: string) => {
-    if (existsSync(filePath)) {
-      shell.showItemInFolder(filePath)
-      return { revealed: true, reason: null }
-    }
+    const plan = planReveal(filePath, existsSync)
 
-    const parent = dirname(filePath)
-    if (existsSync(parent)) {
-      shell.openPath(parent)
-      return {
-        revealed: true,
-        reason: 'That file is no longer there, so its folder was opened instead.'
-      }
-    }
+    if (plan.action === 'select-file') shell.showItemInFolder(plan.path)
+    else if (plan.action === 'open-folder') void shell.openPath(plan.path)
 
-    return {
-      revealed: false,
-      reason: 'Neither the file nor the folder it was in still exists.'
-    }
+    return { revealed: plan.action !== 'none', reason: plan.reason }
   })
 
   // Fast duration lookup: checks the on-disk cache first (instant, no I/O

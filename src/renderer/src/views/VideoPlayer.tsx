@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, Link2, Maximize, Minimize, Scissors } from 'lucide-react'
+import { ChevronDown, FolderOpen, Link2, Maximize, Minimize, Scissors } from 'lucide-react'
+import { revealVideoInFolder } from '../lib/revealInFolder'
 import ClipEditor from './ClipEditor'
 import { buildActionDensity, densityAreaPath, fromMatchActionEvents, type DensityEvent } from '../lib/actionDensity'
 import type { MatchActionEvent } from '../../../shared/types'
@@ -541,6 +542,14 @@ function VideoPlayer({ video, settings, onBack, onVideoUpdated }: VideoPlayerPro
           <span className="player-sync-label">sec into match</span>
           <button className="secondary player-sync-btn" onClick={handleSync} disabled={syncing}>
             {syncing ? 'Syncing...' : 'Sync'}
+          </button>
+          <button
+            className="secondary player-sync-btn"
+            onClick={() => void revealVideoInFolder(video.file_path)}
+            aria-label="Show this video in its folder"
+            title={`Show in folder: ${video.file_path}`}
+          >
+            <FolderOpen size={14} /> Show in folder
           </button>
           <div className="relink-menu-wrap" ref={relinkMenuRef}>
             <button

@@ -4332,10 +4332,26 @@ select:focus {
   min-width: 0;
 }
 
+/* Room for six digits *plus* padding and the number spinner.
+ *
+ * This was 9ch, which looked generous and wasn't: with border-box sizing the
+ * padding and the spinner buttons come out of that 9ch, leaving about three
+ * characters of visible text. A field holding 40000 showed "40", so it read as a
+ * two-digit limit rather than a too-small box. Sized in rem with a floor, and
+ * the spinner is dropped since a 500-step field is not something anyone wants to
+ * click 80 times. */
 .recorder-bitrate input[type='number'] {
-  /* Wide enough for six digits without stretching across the row. */
-  width: 9ch;
-  flex-shrink: 0;
+  width: 100%;
+  min-width: 6rem;
+  max-width: 11rem;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.recorder-bitrate input[type='number']::-webkit-outer-spin-button,
+.recorder-bitrate input[type='number']::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
 }
 
 .recorder-inline-hint {
