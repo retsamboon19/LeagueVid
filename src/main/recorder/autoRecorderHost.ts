@@ -29,6 +29,11 @@ let watcher: GameWatcher | null = null
 let auto: AutoRecorder | null = null
 let diskTimer: NodeJS.Timeout | null = null
 
+/** The display a recording started now would capture, or null if there is none. */
+export function currentCaptureTarget(): CaptureTarget | null {
+  return currentTarget()
+}
+
 function currentTarget(): CaptureTarget | null {
   const settings = getRecordingSettings()
   const displays = mapDisplaysToOutputs(

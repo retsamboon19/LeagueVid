@@ -146,7 +146,7 @@
   - Tests: per-event-type mapping fixtures, precedence between live and Riot tags
   - _Requirements: 17.1, 17.2, 17.3, 17.4, 17.5, 17.6_
 
-- [ ] 13. Background app lifecycle
+- [x] 13. Background app lifecycle
   - `requestSingleInstanceLock()` with `second-instance` focusing the window
   - Tray with a state-reflecting tooltip and menu (Open / Recording on-off / Start-stop
     now / Save replay / Quit)

@@ -62,6 +62,13 @@ export function onFramesFlowing(listener: (() => void) | null): void {
 }
 
 /**
+ * Resolves when the current session has finished being written to the library.
+ * Null when nothing is in flight.
+ */
+let sessionCompletion: Promise<void> | null = null
+let resolveSessionCompletion: (() => void) | null = null
+
+/**
  * Sends to every open window.
  *
  * Every push channel also has a pull handler in ipc.ts. That pairing is not
@@ -83,11 +90,32 @@ function dispatch(event: RecorderEvent): RecorderStateSnapshot {
 
   state = next
   broadcast(RECORDER_CHANNELS.state, state)
+  for (const listener of stateListeners) {
+    try {
+      listener(state)
+    } catch {
+      // A misbehaving observer must not derail the recorder.
+    }
+  }
   return state
 }
 
 export function getRecorderState(): RecorderStateSnapshot {
   return state
+}
+
+/**
+ * Main-process observers of recorder state: the tray tooltip and the power-save
+ * blocker. Separate from the renderer broadcast because these have to work with
+ * no window open at all, which is exactly when the tray matters most.
+ */
+const stateListeners = new Set<(state: RecorderStateSnapshot) => void>()
+
+export function onRecorderStateChange(
+  listener: (state: RecorderStateSnapshot) => void
+): () => void {
+  stateListeners.add(listener)
+  return () => stateListeners.delete(listener)
 }
 
 /** Called once at startup, after the database is available. */
@@ -156,6 +184,12 @@ export async function startRecording(
     options.fallbackEncoder
   )
 
+  // Created before the child so the quit path can never observe a capture with
+  // no completion promise attached to it.
+  sessionCompletion = new Promise<void>((resolve) => {
+    resolveSessionCompletion = resolve
+  })
+
   try {
     handle = startCapture({
       ffmpegPath: ffmpegBinaryPath(),
@@ -181,6 +215,7 @@ export async function startRecording(
     updateRecording(row.id, { state: 'failed', endedAt: Date.now(), ffmpegError: message })
     dispatch({ type: 'failure', message })
     broadcast(RECORDER_CHANNELS.error, message)
+    finishSessionCompletion()
     return state
   }
 
@@ -258,6 +293,7 @@ async function finishSession(
     discard(recordingId, tempPath)
     dispatch({ type: 'remux-finished', ok: true })
     dispatch({ type: 'finalized', discarded: true })
+    finishSessionCompletion()
     return
   }
 
@@ -290,6 +326,13 @@ async function finishSession(
   } satisfies RecordingSavedPayload)
 
   dispatch({ type: 'finalized', discarded: false })
+  finishSessionCompletion()
+}
+
+function finishSessionCompletion(): void {
+  resolveSessionCompletion?.()
+  resolveSessionCompletion = null
+  sessionCompletion = null
 }
 
 /**
@@ -356,21 +399,13 @@ export function reportRecorderProblem(message: string): void {
 }
 
 /**
- * Stops any capture and waits for the file to be finished and imported.
- * Used by the quit path, which must not leave a half-written recording.
+ * Resolves when the session in flight has been stopped, remuxed and imported.
+ *
+ * Waiting for the capture child to exit is not enough: the remux and the
+ * library insert happen after it, and quitting between them would leave a
+ * Matroska file with no library row -- recoverable on the next launch, but only
+ * because of the recovery sweep. Waiting for the whole sequence is better.
  */
-export async function shutdownRecorder(timeoutMs = 30000): Promise<void> {
-  if (!handle) return
-
-  const finished = new Promise<void>((resolve) => {
-    const check = setInterval(() => {
-      if (!handle) {
-        clearInterval(check)
-        resolve()
-      }
-    }, 100)
-  })
-
-  await stopRecording('Closing LeagueVid')
-  await Promise.race([finished, new Promise<void>((resolve) => setTimeout(resolve, timeoutMs))])
+export function currentSessionCompletion(): Promise<void> | null {
+  return sessionCompletion
 }

@@ -528,6 +528,14 @@ export interface RecordingSettings {
   /** Anything shorter is discarded, which is what drops remakes. */
   minKeepDurationMs: number
 
+  /**
+   * Start LeagueVid with Windows, hidden in the tray.
+   *
+   * The point of the whole background mode: a recorder that only runs when the
+   * user remembers to open it will miss games.
+   */
+  launchAtLogin: boolean
+
   replayBufferEnabled: boolean
   replayBufferSeconds: number
   replayHotkey: string | null
@@ -566,6 +574,8 @@ export const DEFAULT_RECORDING_SETTINGS: RecordingSettings = {
   // to lobby lands well inside 4 -- so anything under this is a game that
   // was never played.
   minKeepDurationMs: 4 * 60 * 1000,
+
+  launchAtLogin: false,
 
   replayBufferEnabled: false,
   replayBufferSeconds: 120,

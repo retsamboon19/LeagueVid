@@ -170,6 +170,10 @@ function RecordingSettingsSection(): JSX.Element {
       value: `${formatSeconds(settings.minKeepDurationMs)} -- drops remakes`
     },
     {
+      label: 'Start with Windows',
+      value: settings.launchAtLogin ? 'Yes, hidden in the tray' : 'No'
+    },
+    {
       label: 'Replay buffer',
       value: settings.replayBufferEnabled
         ? `Last ${formatSeconds(settings.replayBufferSeconds * 1000)}`

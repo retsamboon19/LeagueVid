@@ -17,6 +17,7 @@ import {
 } from '../db/repository'
 import { listAudioDevices } from './audioDevices'
 import { mapDisplaysToOutputs, resolveCaptureDisplay } from './displays'
+import { applyLaunchAtLogin } from '../tray'
 import { probeEncoders } from './encoderCapabilities'
 import type { AudioInputSpec } from './ffmpegArgs'
 import { ffmpegBinaryPath } from './ffmpegBinary'
@@ -61,6 +62,9 @@ export function registerRecorderHandlers(): void {
 
   ipcMain.handle('recorder:saveSettings', (_e, settings: RecordingSettings) => {
     saveRecordingSettings(settings)
+    // Applied here rather than at startup so the OS registration always matches
+    // what the user last chose, including after they turn it off.
+    applyLaunchAtLogin(settings.launchAtLogin)
     // Echoed back rather than returning void: the stored row is merged over
     // the current defaults on read, so what the renderer gets back is the
     // configuration that will actually be used, not just what it sent.
