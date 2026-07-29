@@ -631,3 +631,31 @@ export interface EncoderCapabilities {
   hasScalingFilters: boolean
   hasTonemapFilters: boolean
 }
+
+/**
+ * One capture health sample, parsed from ffmpeg's -progress stream.
+ *
+ * Reported to the renderer roughly once a second while recording, and kept on
+ * the recordings row afterwards so "why does this one look bad" is answerable.
+ */
+export interface RecorderProgress {
+  /** Frames encoded so far. */
+  frame: number
+  /** Instantaneous encode rate. Well below the target means trouble. */
+  fps: number
+  /** Bytes written so far. */
+  totalSizeBytes: number
+  /** Position in the output, milliseconds. */
+  outTimeMs: number
+  /**
+   * Frames the capture pipeline threw away because it couldn't keep up. The
+   * single most useful number for "is this recording actually healthy".
+   */
+  dropFrames: number
+  /** Frames repeated to hold the constant output rate. */
+  dupFrames: number
+  /** Processing speed against real time. Under 1.0 means falling behind. */
+  speed: number
+  /** True on the final sample, when ffmpeg reports progress=end. */
+  ended: boolean
+}

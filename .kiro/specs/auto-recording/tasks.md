@@ -55,7 +55,7 @@
   - Table-driven tests: every encoder × both rate modes × scaled/native × 0/1/2 audio
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 6.10, 6.11, 6.12_
 
-- [ ] 4. Long-lived capture process manager
+- [x] 4. Long-lived capture process manager
   - `ffmpegProcess.ts`: piped stdin, `-progress` parsing into `RecorderProgress`
     (frame, fps, total_size, out_time_us, drop_frames, dup_frames, speed)
   - Throttle emission to 1/sec; bounded stderr tail as in `clipService`
