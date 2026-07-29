@@ -4005,3 +4005,23 @@ select:focus {
   font-size: 0.76rem;
   flex-shrink: 0;
 }
+
+/* --- Recording quality presets --- */
+
+.recording-presets {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.recording-preset-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.recording-preset-custom {
+  font-size: 0.76rem;
+  color: #9aa0ad;
+}

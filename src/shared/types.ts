@@ -806,3 +806,34 @@ export interface RecorderStateSnapshot {
   /** Whether automatic recording is switched on. */
   enabled: boolean
 }
+
+// --- Quality presets and preflight ---
+
+export interface QualityPresetInfo {
+  name: string
+  label: string
+  description: string
+}
+
+/**
+ * Outcome of a ten-second test recording using the configured pipeline.
+ *
+ * Measured rather than modelled: the estimate can say what a configuration
+ * should cost, but only a real capture reveals whether this machine sustains it.
+ */
+export interface PreflightResultInfo {
+  verdict: {
+    ok: boolean
+    headline: string
+    details: string[]
+    /** A specific setting to change, when there is one worth suggesting. */
+    recommendation: string | null
+    suggestedPreset: string | null
+  }
+  frames: number
+  droppedFrames: number
+  averageFps: number
+  targetFps: number
+  sizeBytes: number
+  durationSeconds: number
+}

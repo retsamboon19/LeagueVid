@@ -168,7 +168,7 @@
   - Tests: PCM framing, socket lifecycle, mixing arg generation
   - _Requirements: 19.1, 19.2, 19.3, 19.4, 19.5, 19.6, 19.7_
 
-- [ ] 15. Preflight test and quality presets
+- [x] 15. Preflight test and quality presets
   - Low/Medium/High/Custom presets, a live "~X GB per hour" estimate, and a "Test for 10
     seconds" action running the exact configured pipeline
   - Report measured fps, dropped frames, A/V drift and file size, with a specific

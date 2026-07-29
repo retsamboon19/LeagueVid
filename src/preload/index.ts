@@ -15,6 +15,8 @@ import type {
   MatchStatsResult,
   PlatformRouting,
   PlayerPreferences,
+  PreflightResultInfo,
+  QualityPresetInfo,
   RecorderProgress,
   RecorderStateSnapshot,
   RecordingLinkState,
@@ -425,7 +427,27 @@ const api = {
     }): Promise<void> => ipcRenderer.invoke('recorder:setLinkState', input),
     bumpLinkAttempt: (recordingId: number): Promise<void> =>
       ipcRenderer.invoke('recorder:bumpLinkAttempt', recordingId),
-    listRecordings: (): Promise<RecordingRow[]> => ipcRenderer.invoke('recorder:listRecordings')
+    listRecordings: (): Promise<RecordingRow[]> => ipcRenderer.invoke('recorder:listRecordings'),
+
+    // --- Quality ---
+    getPresets: (): Promise<{ presets: QualityPresetInfo[]; active: string }> =>
+      ipcRenderer.invoke('recorder:getPresets'),
+    applyPreset: (preset: string): Promise<RecordingSettings> =>
+      ipcRenderer.invoke('recorder:applyPreset', preset),
+
+    // Modelled cost of the current configuration. The preflight test below is
+    // the measured counterpart -- an estimate can't know whether this machine
+    // sustains the settings.
+    estimateBitrate: (): Promise<{
+      totalKbps: number
+      gbPerHour: number
+      summary: string
+    } | null> => ipcRenderer.invoke('recorder:estimateBitrate'),
+
+    // Records for ten seconds with the exact configured pipeline and reports
+    // measured framerate, dropped frames and size.
+    runPreflightTest: (): Promise<PreflightResultInfo> =>
+      ipcRenderer.invoke('recorder:runPreflightTest')
   }
 }
 

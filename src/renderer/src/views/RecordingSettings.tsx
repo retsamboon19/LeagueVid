@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { Gauge, RefreshCw } from 'lucide-react'
 import type {
   AudioCaptureDevice,
   CaptureDisplay,
   EncoderCapabilities,
+  PreflightResultInfo,
+  QualityPresetInfo,
   RecordingSettings
 } from '../../../shared/types'
 import { describeEncoder } from '../../../shared/encoders'
@@ -76,8 +78,45 @@ function RecordingSettingsSection(): JSX.Element {
   const [capabilityError, setCapabilityError] = useState<string | null>(null)
   const [displays, setDisplays] = useState<CaptureDisplay[]>([])
   const [audioDevices, setAudioDevices] = useState<AudioCaptureDevice[]>([])
+  const [presets, setPresets] = useState<QualityPresetInfo[]>([])
+  const [activePreset, setActivePreset] = useState<string>('custom')
+  const [estimate, setEstimate] = useState<{ summary: string } | null>(null)
+  const [preflight, setPreflight] = useState<PreflightResultInfo | null>(null)
+  const [preflightError, setPreflightError] = useState<string | null>(null)
+  const [testing, setTesting] = useState(false)
 
   const loopbackDevices = audioDevices.filter((d) => d.likelyLoopback)
+
+  async function refreshQuality(): Promise<void> {
+    const [presetInfo, estimateInfo] = await Promise.all([
+      window.api.recorder.getPresets(),
+      window.api.recorder.estimateBitrate()
+    ])
+    setPresets(presetInfo.presets)
+    setActivePreset(presetInfo.active)
+    setEstimate(estimateInfo)
+  }
+
+  async function handlePreset(preset: string): Promise<void> {
+    setSettings(await window.api.recorder.applyPreset(preset))
+    // A different preset means a different expected cost, and any earlier test
+    // result no longer describes what would be recorded.
+    setPreflight(null)
+    await refreshQuality()
+  }
+
+  async function handlePreflight(): Promise<void> {
+    setTesting(true)
+    setPreflightError(null)
+    setPreflight(null)
+    try {
+      setPreflight(await window.api.recorder.runPreflightTest())
+    } catch (err) {
+      setPreflightError((err as Error).message)
+    } finally {
+      setTesting(false)
+    }
+  }
 
   useEffect(() => {
     window.api.recorder
@@ -89,6 +128,10 @@ function RecordingSettingsSection(): JSX.Element {
     // summary can say "not connected" instead of showing a stale id.
     window.api.recorder.listDisplays().then(setDisplays).catch(() => setDisplays([]))
     window.api.recorder.listAudioDevices().then(setAudioDevices).catch(() => setAudioDevices([]))
+
+    refreshQuality().catch(() => {
+      // Presets and the estimate are additive; the summary below still renders.
+    })
 
     // The first call after install probes the machine (one child process per
     // candidate), so this can take a few seconds. Every later launch reads
@@ -245,6 +288,61 @@ function RecordingSettingsSection(): JSX.Element {
           </ul>
         </details>
       )}
+
+      <div className="recording-presets">
+        <span className="clip-field-label">Quality</span>
+        <div className="recording-preset-buttons">
+          {presets.map((preset) => (
+            <button
+              key={preset.name}
+              type="button"
+              className={activePreset === preset.name ? '' : 'secondary'}
+              onClick={() => handlePreset(preset.name)}
+              title={preset.description}
+            >
+              {preset.label}
+            </button>
+          ))}
+          {activePreset === 'custom' && <span className="recording-preset-custom">Custom</span>}
+        </div>
+        {estimate && <p className="settings-row-hint">{estimate.summary} at these settings.</p>}
+      </div>
+
+      <div className="clips-dir-row">
+        <div className="clips-dir-path">
+          <span className="clip-field-label">Test these settings</span>
+          {preflight ? (
+            <>
+              <code className={preflight.verdict.ok ? 'status-success' : 'status-error'}>
+                {preflight.verdict.headline}
+              </code>
+              {preflight.verdict.details.map((detail) => (
+                <span key={detail} className="settings-row-hint">
+                  {detail}
+                </span>
+              ))}
+              {preflight.verdict.recommendation && (
+                <span className="settings-row-hint status-error">
+                  {preflight.verdict.recommendation}
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="settings-row-hint">
+              Records your screen for ten seconds using exactly these settings, then reports the
+              framerate it actually managed, how many frames it dropped, and how big the file
+              was. An estimate can tell you what a setting should cost; only a real capture can
+              tell you whether this machine keeps up with it.
+            </span>
+          )}
+          {preflightError && <span className="status status-error">{preflightError}</span>}
+        </div>
+        <div className="clips-dir-actions">
+          <button onClick={handlePreflight} disabled={testing}>
+            <Gauge size={15} /> {testing ? 'Recording 10s...' : 'Test for 10 seconds'}
+          </button>
+        </div>
+      </div>
 
       {displays.length > 1 && (
         <p className="settings-row-hint">

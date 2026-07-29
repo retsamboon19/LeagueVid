@@ -20,9 +20,19 @@ import { mapDisplaysToOutputs, resolveCaptureDisplay } from './displays'
 import { applyLaunchAtLogin } from '../tray'
 import { resolveAudioInputs } from './autoRecorderHost'
 import { probeEncoders } from './encoderCapabilities'
+import { estimateTotalBitrateKbps, formatStorageEstimate, gigabytesPerHour } from './estimates'
+import type { CaptureTarget } from './ffmpegArgs'
+import { runPreflightTest } from './preflight'
+import {
+  QUALITY_PRESETS,
+  applyPreset,
+  detectPreset,
+  type QualityPresetName
+} from './presets'
 import { ffmpegBinaryPath } from './ffmpegBinary'
 import {
   getRecorderState,
+  hasActiveCapture,
   setRecordingEnabled,
   startRecording,
   stopRecording
@@ -146,6 +156,72 @@ export function registerRecorderHandlers(): void {
   )
 
   ipcMain.handle('recorder:listRecordings', () => listRecordings())
+
+  // --- Quality presets and preflight ---
+
+  ipcMain.handle('recorder:applyPreset', (_e, preset: QualityPresetName) => {
+    const next = applyPreset(getRecordingSettings(), preset)
+    saveRecordingSettings(next)
+    return next
+  })
+
+  ipcMain.handle('recorder:getPresets', () => ({
+    presets: QUALITY_PRESETS,
+    active: detectPreset(getRecordingSettings())
+  }))
+
+  // What the current configuration is expected to cost. Modelled, not measured
+  // -- which is why the preflight test exists alongside it.
+  ipcMain.handle('recorder:estimateBitrate', () => {
+    const settings = getRecordingSettings()
+    const target = captureTargetForSettings(settings)
+    if (!target) return null
+
+    const audioTracks = audioTrackCount(settings)
+    return {
+      totalKbps: estimateTotalBitrateKbps({ settings, target }, audioTracks),
+      gbPerHour: gigabytesPerHour(estimateTotalBitrateKbps({ settings, target }, audioTracks)),
+      summary: formatStorageEstimate({ settings, target }, audioTracks)
+    }
+  })
+
+  // Records for real, briefly, and reports what happened. Refuses to run while
+  // a genuine recording is in progress: two captures of the same display would
+  // contend for the encoder and mismeasure both.
+  ipcMain.handle('recorder:runPreflightTest', async () => {
+    if (hasActiveCapture()) {
+      throw new Error('A recording is already running. Stop it before running the test.')
+    }
+
+    const settings = getRecordingSettings()
+    const target = captureTargetForSettings(settings)
+    if (!target) throw new Error('No display was found to record.')
+
+    return runPreflightTest({
+      settings,
+      target,
+      audioInputs: [],
+      fallbackEncoder: getEncoderCapabilitiesCache()?.chosen ?? 'libx264'
+    })
+  })
+}
+
+/** The display the current settings would capture, as a capture target. */
+function captureTargetForSettings(settings: RecordingSettings): CaptureTarget | null {
+  const resolved = resolveCaptureDisplay(currentDisplays(), settings.displayId)
+  if (!resolved) return null
+  return {
+    outputIdx: resolved.display.outputIdx,
+    width: resolved.display.width,
+    height: resolved.display.height,
+    isHdr: false
+  }
+}
+
+function audioTrackCount(settings: RecordingSettings): number {
+  let count = settings.micDeviceName ? 1 : 0
+  if (settings.desktopAudioDeviceName || settings.useLoopbackBridge) count += 1
+  return count
 }
 
 function currentDisplays(): CaptureDisplay[] {
