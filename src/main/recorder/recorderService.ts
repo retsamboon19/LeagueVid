@@ -294,6 +294,12 @@ function reportHealth(sample: RecorderProgress): void {
   const message = health.reasons.join(' ')
   if (message === lastHealthWarning) return
   lastHealthWarning = message
+
+  // Logged as well as broadcast. Automatic recording is the normal case and it
+  // runs with LeagueVid in the tray, where there is no window to receive the
+  // broadcast -- so without this the one warning that matters would be delivered
+  // to nobody during exactly the sessions it was written for.
+  console.warn(`[recorder] capture health: ${message}`)
   broadcast(RECORDER_CHANNELS.error, message)
 }
 

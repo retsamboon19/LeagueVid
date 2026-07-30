@@ -123,6 +123,17 @@ export const SPEED_WARNING = 0.95
 export const DUP_RATIO_WARNING = 0.25
 
 /**
+ * Frames required before an unattached capture is worth mentioning.
+ *
+ * Shorter than the duplicate-frame window because this signal is unambiguous:
+ * the hook is either attached or it is not, so there is no ratio to average out.
+ * A few seconds of grace still matters -- LeagueVid starts recording as the game
+ * launches, and the hook cannot attach to a process that has not drawn a frame
+ * yet.
+ */
+export const MIN_FRAMES_FOR_ATTACH_JUDGEMENT = 300
+
+/**
  * Frames required before duplication is judged at all.
  *
  * Ten seconds at 60fps. Duplication is meaningless over a short window, and
@@ -139,6 +150,8 @@ export interface CaptureHealth {
   healthy: boolean
   dropRatio: number
   dupRatio: number
+  /** True when the backend reported the capture is not attached to the game. */
+  detached: boolean
   reasons: string[]
 }
 
@@ -158,16 +171,34 @@ export interface CaptureHealth {
  * well-formed 30fps file, at full size, at 1.00x speed, with zero drops. Every
  * number the recorder looked at said the session was fine. What the user saw was
  * a slideshow. Duplication is the only signal that separates those two cases.
+ *
+ * And a detached capture means the recorder is not looking at the game at all.
+ * Only game capture can report this, and where it can it is strictly better than
+ * inferring the same thing from duplicate frames after the fact.
  */
 export function assessCaptureHealth(sample: RecorderProgress): CaptureHealth {
   const reasons: string[] = []
   const dropRatio = sample.frame > 0 ? sample.dropFrames / sample.frame : 0
+  // Explicitly false, not merely falsy: undefined means the backend cannot tell,
+  // and treating "unknown" as "detached" would warn on every screen capture.
+  const detached =
+    sample.captureAttached === false && sample.frame >= MIN_FRAMES_FOR_ATTACH_JUDGEMENT
   // Clamped, because ffmpeg can report more duplicates than output frames --
   // observed as dup_frames=196 against frame=195. The counters are maintained
   // separately and a frame padded before the first real one lands is counted as
   // a duplicate without a corresponding output frame. Unclamped, this produced
   // the nonsense "-1% of frames are new".
   const dupRatio = sample.frame > 0 ? Math.min(1, sample.dupFrames / sample.frame) : 0
+
+  // First, because it subsumes the others: if the capture is not attached, the
+  // frame counters describe an empty picture and advising anything about
+  // bitrate or framerate would be beside the point.
+  if (detached) {
+    reasons.push(
+      'The recording is not attached to the game — it will be blank or show the desktop. ' +
+        'Check the game is running, and that it is in Fullscreen or Borderless rather than minimised.'
+    )
+  }
 
   if (dropRatio > DROP_RATIO_WARNING) {
     reasons.push(
@@ -189,5 +220,5 @@ export function assessCaptureHealth(sample: RecorderProgress): CaptureHealth {
     reasons.push(`Encoding slower than real time (${sample.speed.toFixed(2)}x).`)
   }
 
-  return { healthy: reasons.length === 0, dropRatio, dupRatio, reasons }
+  return { healthy: reasons.length === 0, dropRatio, dupRatio, detached, reasons }
 }

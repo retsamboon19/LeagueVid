@@ -331,6 +331,11 @@ class ObsSession implements CaptureHandle {
         // OBS records in real time or drops frames trying; there is no
         // equivalent of ffmpeg falling behind and buffering.
         speed: status.outputActive ? 1 : 0,
+        // The signal screen capture could never provide. Reported live rather
+        // than as everHooked, so a hook that detaches mid-game -- the game
+        // crashing, or being alt-tabbed into a state where it stops presenting --
+        // is visible while it is happening.
+        captureAttached: source.videoActive,
         ended: false
       }
 

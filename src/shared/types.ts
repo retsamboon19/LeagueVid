@@ -779,10 +779,16 @@ export interface EncoderCapabilities {
 }
 
 /**
- * One capture health sample, parsed from ffmpeg's -progress stream.
+ * One capture health sample.
  *
  * Reported to the renderer roughly once a second while recording, and kept on
  * the recordings row afterwards so "why does this one look bad" is answerable.
+ *
+ * Originally shaped around ffmpeg's -progress stream, and still is, but both
+ * capture backends fill it in. Where a field cannot be known the backend leaves
+ * it at a value documented below to mean exactly that, rather than inventing a
+ * plausible number -- guessing here is how a broken recording came to be
+ * reported as healthy in the first place.
  */
 export interface RecorderProgress {
   /** Frames encoded so far. */
@@ -798,11 +804,33 @@ export interface RecorderProgress {
    * single most useful number for "is this recording actually healthy".
    */
   dropFrames: number
-  /** Frames repeated to hold the constant output rate. */
+  /**
+   * Frames repeated to hold the constant output rate.
+   *
+   * Always 0 for a backend that does not pad. Only the ffmpeg path does, because
+   * it is asked for constant-framerate output and fills gaps when the desktop
+   * has produced nothing new; OBS simply encodes what it was given. So a rising
+   * count here means the source is stalling, and a zero means either everything
+   * is fine or the question does not apply -- which is why captureAttached
+   * exists as a separate signal.
+   */
   dupFrames: number
   /** Processing speed against real time. Under 1.0 means falling behind. */
   speed: number
-  /** True on the final sample, when ffmpeg reports progress=end. */
+  /**
+   * Whether the capture is actually attached to the thing being recorded.
+   *
+   * undefined means the backend cannot tell, which is the honest answer for
+   * screen capture: it always has *a* picture, so it has no way to distinguish
+   * "recording the game" from "recording a desktop where the game is invisible".
+   * Game capture knows, because the hook is either attached to the process or it
+   * is not.
+   *
+   * false is the state that used to be undetectable and produced hours of
+   * unusable footage.
+   */
+  captureAttached?: boolean
+  /** True on the final sample. */
   ended: boolean
 }
 

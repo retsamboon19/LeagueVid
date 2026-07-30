@@ -237,6 +237,79 @@ describe('assessCaptureHealth', () => {
     expect(health.dupRatio).toBe(1)
     expect(health.reasons[0]).toContain('Only 0% of frames are new')
   })
+})
+
+describe('assessCaptureHealth: capture attachment', () => {
+  const sample = {
+    frame: 1000,
+    fps: 60,
+    totalSizeBytes: 1000,
+    outTimeMs: 16000,
+    dropFrames: 0,
+    dupFrames: 0,
+    speed: 1.0,
+    ended: false
+  }
+
+  // Screen capture always has *a* picture, so it genuinely cannot distinguish
+  // recording the game from recording a desktop the game is invisible on.
+  // Warning on that unknown would fire on every single ffmpeg recording.
+  it('says nothing when the backend cannot tell', () => {
+    expect(assessCaptureHealth(sample).healthy).toBe(true)
+    expect(assessCaptureHealth({ ...sample, captureAttached: undefined }).healthy).toBe(true)
+  })
+
+  it('is healthy when the capture is attached', () => {
+    const health = assessCaptureHealth({ ...sample, captureAttached: true })
+    expect(health.healthy).toBe(true)
+    expect(health.detached).toBe(false)
+  })
+
+  // The state that used to be undetectable and produced hours of unusable
+  // footage: a perfectly healthy encode of nothing at all.
+  it('reports a capture that is not attached to the game', () => {
+    const health = assessCaptureHealth({ ...sample, captureAttached: false })
+    expect(health.healthy).toBe(false)
+    expect(health.detached).toBe(true)
+    expect(health.reasons[0]).toContain('not attached to the game')
+  })
+
+  // LeagueVid starts recording as the game launches, and the hook cannot attach
+  // to a process that has not drawn a frame yet.
+  it('allows a grace period before judging attachment', () => {
+    const health = assessCaptureHealth({ ...sample, frame: 60, captureAttached: false })
+    expect(health.healthy).toBe(true)
+    expect(health.detached).toBe(false)
+  })
+
+  // A detached capture makes the other numbers describe an empty picture, so its
+  // advice has to come first rather than being buried under bitrate suggestions.
+  it('reports detachment before any other problem', () => {
+    const health = assessCaptureHealth({
+      ...sample,
+      captureAttached: false,
+      dropFrames: 200,
+      speed: 0.5
+    })
+    expect(health.reasons.length).toBeGreaterThan(1)
+    expect(health.reasons[0]).toContain('not attached to the game')
+  })
+
+  // Game capture never pads, so dupFrames is always 0 for it and the
+  // duplicate-frame check is structurally incapable of firing. Attachment is the
+  // signal that replaces it.
+  it('catches a blank game-capture recording that no dup-frame check could', () => {
+    const health = assessCaptureHealth({
+      ...sample,
+      frame: 3600,
+      dupFrames: 0,
+      dropFrames: 0,
+      speed: 1,
+      captureAttached: false
+    })
+    expect(health.dupRatio).toBe(0)
+    expect(health.healthy).toBe(false)
+  })
 
   // Before the first frame lands, speed reads 0 and nothing has been dropped.
   // Warning there would fire on every single recording at startup.
