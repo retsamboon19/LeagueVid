@@ -19,6 +19,11 @@ Thumbs.db
 c.txt
 mintest/
 
+# Local build snapshots (see backups/*/MANIFEST.txt). Hundreds of MB of
+# packaged output per snapshot, and reproducible from the commit each one
+# records -- so they stay on this machine.
+backups/
+
 # SQLite artifacts if ever created outside userData during local testing
 *.db
 *.db-journal
