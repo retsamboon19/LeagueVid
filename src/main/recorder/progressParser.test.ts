@@ -214,6 +214,30 @@ describe('assessCaptureHealth', () => {
     expect(overloaded.reasons.every((r) => !r.includes('look choppy'))).toBe(true)
   })
 
+  // Regression: the first version of this check judged any sample, so a
+  // three-second preflight against a still desktop reported the recording as
+  // choppy. Nothing is wrong there -- ddagrab has nothing to hand over, which is
+  // the documented behaviour of a screen that isn't changing.
+  it('does not judge duplication over too short a window', () => {
+    const shortSample = { ...sample, frame: 195, dupFrames: 196, fps: 55 }
+    expect(assessCaptureHealth(shortSample).healthy).toBe(true)
+  })
+
+  // Same sample, seen for long enough to mean something.
+  it('does judge it once there are enough frames to be sure', () => {
+    const health = assessCaptureHealth({ ...sample, frame: 1200, dupFrames: 1150, fps: 55 })
+    expect(health.healthy).toBe(false)
+    expect(health.reasons[0]).toContain('look choppy')
+  })
+
+  // ffmpeg maintains dup_frames and frame separately and can report more
+  // duplicates than output frames, which produced '-1% of frames are new'.
+  it('never reports a negative share of new frames', () => {
+    const health = assessCaptureHealth({ ...sample, frame: 800, dupFrames: 900 })
+    expect(health.dupRatio).toBe(1)
+    expect(health.reasons[0]).toContain('Only 0% of frames are new')
+  })
+
   // Before the first frame lands, speed reads 0 and nothing has been dropped.
   // Warning there would fire on every single recording at startup.
   it('does not warn before the first frame', () => {

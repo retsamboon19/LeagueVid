@@ -122,6 +122,19 @@ export const SPEED_WARNING = 0.95
  */
 export const DUP_RATIO_WARNING = 0.25
 
+/**
+ * Frames required before duplication is judged at all.
+ *
+ * Ten seconds at 60fps. Duplication is meaningless over a short window, and
+ * reading it too early produces a confident warning about nothing: the first
+ * seconds of a session are the loading screen, and a preflight test runs against
+ * whatever is on the desktop -- usually a still image, which duplicates by
+ * definition. Both legitimately sit near 100% duplicate.
+ *
+ * The failure this check exists for is sustained, so waiting costs nothing.
+ */
+export const MIN_FRAMES_FOR_DUP_JUDGEMENT = 600
+
 export interface CaptureHealth {
   healthy: boolean
   dropRatio: number
@@ -149,18 +162,23 @@ export interface CaptureHealth {
 export function assessCaptureHealth(sample: RecorderProgress): CaptureHealth {
   const reasons: string[] = []
   const dropRatio = sample.frame > 0 ? sample.dropFrames / sample.frame : 0
-  const dupRatio = sample.frame > 0 ? sample.dupFrames / sample.frame : 0
+  // Clamped, because ffmpeg can report more duplicates than output frames --
+  // observed as dup_frames=196 against frame=195. The counters are maintained
+  // separately and a frame padded before the first real one lands is counted as
+  // a duplicate without a corresponding output frame. Unclamped, this produced
+  // the nonsense "-1% of frames are new".
+  const dupRatio = sample.frame > 0 ? Math.min(1, sample.dupFrames / sample.frame) : 0
 
   if (dropRatio > DROP_RATIO_WARNING) {
     reasons.push(
       `Dropping frames (${sample.dropFrames} of ${sample.frame}, ${(dropRatio * 100).toFixed(1)}%).`
     )
   }
-  if (dupRatio > DUP_RATIO_WARNING) {
+  if (sample.frame >= MIN_FRAMES_FOR_DUP_JUDGEMENT && dupRatio > DUP_RATIO_WARNING) {
     // Phrased as what it looks like rather than as a statistic, because
     // "duplicate frames" does not obviously mean "your recording stutters".
     reasons.push(
-      `Only ${((1 - dupRatio) * 100).toFixed(0)}% of frames are new — the recording will ` +
+      `Only ${Math.round((1 - dupRatio) * 100)}% of frames are new — the recording will ` +
         `look choppy even though it reports ${sample.fps.toFixed(0)} fps. ` +
         `${sample.dupFrames} of ${sample.frame} frames are repeats of the previous one.`
     )
