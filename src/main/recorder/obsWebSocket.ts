@@ -90,12 +90,18 @@ export interface ObsStats {
 }
 
 /**
- * Whether a source is producing video.
+ * Whether a source is part of the active and visible scene.
  *
- * The signal that matters most for game capture: videoActive is false when the
- * hook has not attached, which is the difference between "recording the game"
- * and "recording a black rectangle". Nothing in the ffmpeg pipeline had an
- * equivalent, which is why the original stutter went unnoticed for so long.
+ * Explicitly NOT whether game capture has hooked anything, however much the
+ * names suggest otherwise. Measured against ground truth with League closed and
+ * OBS's own window enumeration confirming its absence: both fields read true for
+ * a game_capture source whose target window does not exist. They describe scene
+ * membership, not capture state.
+ *
+ * Recording this here because building the capture health warning on videoActive
+ * is the obvious thing to do and it would mean the warning could never fire --
+ * reintroducing the exact class of bug the warning exists to catch. Use
+ * captureWindowOptions for attachment instead.
  */
 export interface ObsSourceActive {
   videoActive: boolean
@@ -393,6 +399,33 @@ export class ObsWebSocketClient {
       videoActive: Boolean(data.videoActive),
       videoShowing: Boolean(data.videoShowing)
     }
+  }
+
+  /**
+   * The windows game capture can currently see, as OBS formats them.
+   *
+   * Each entry's value is the 'title:class:executable' triple that the source's
+   * `window` setting expects, so this is the authoritative way to check a match
+   * string rather than constructing one and hoping. Worth having for diagnosis:
+   * when a capture reports itself detached, the first question is whether OBS can
+   * see the game at all.
+   */
+  async captureWindowOptions(
+    inputName: string
+  ): Promise<Array<{ name: string; value: string }>> {
+    const data = await this.request('GetInputPropertiesListPropertyItems', {
+      inputName,
+      propertyName: 'window'
+    })
+
+    const items = Array.isArray(data.propertyItems) ? data.propertyItems : []
+    return items
+      .map((item) => item as Record<string, unknown>)
+      .filter((item) => item.itemEnabled !== false)
+      .map((item) => ({
+        name: String(item.itemName ?? ''),
+        value: String(item.itemValue ?? '')
+      }))
   }
 
   async startReplayBuffer(): Promise<void> {

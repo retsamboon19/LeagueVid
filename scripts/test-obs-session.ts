@@ -104,6 +104,24 @@ async function main(): Promise<void> {
       }
     })
 
+    // What OBS can actually see. When a capture reports itself detached, the
+    // first question is whether the game is visible to game capture at all, and
+    // these are the exact match strings the source expects.
+    const windows = await client
+      .captureWindowOptions('Game Capture')
+      .catch(() => [] as Array<{ name: string; value: string }>)
+
+    console.log(`\ngame capture can see ${windows.length} window(s):`)
+    for (const option of windows) console.log(`  ${option.value}`)
+
+    const league = windows.filter((option) => /League of Legends\.exe/i.test(option.value))
+    console.log(
+      league.length > 0
+        ? `\nLeague found: ${league.map((l) => l.value).join(', ')}`
+        : '\nLeague is NOT running — expect hooked=false, which is the correct answer.'
+    )
+    console.log('')
+
     await client.startRecord()
     console.log(`recording started; sampling for ${seconds}s`)
 
@@ -182,11 +200,16 @@ async function sample(client: ObsWebSocketClient, seconds: number): Promise<Samp
 
   while (Date.now() - started < seconds * 1000) {
     await delay(1000)
-    const [stats, status, source] = await Promise.all([
+    const [stats, status, windows] = await Promise.all([
       client.stats(),
       client.recordStatus(),
-      client.sourceActive('Game Capture').catch(() => ({ videoActive: false, videoShowing: false }))
+      // Attachment comes from OBS's window enumeration, not GetSourceActive --
+      // videoActive reads true for a target that is not running at all.
+      client
+        .captureWindowOptions('Game Capture')
+        .catch(() => [] as Array<{ name: string; value: string }>)
     ])
+    const source = { videoActive: windows.some((w) => /League of Legends\.exe/i.test(w.value)) }
 
     const s: Sample = {
       atMs: Date.now() - started,

@@ -49,6 +49,26 @@ const STARTUP_TIMEOUT_MS = 45000
 /** How long to wait for OBS to exit after being asked to. */
 const SHUTDOWN_GRACE_MS = 15000
 
+/**
+ * How often to ask whether the game is visible to game capture.
+ *
+ * Slower than the progress poll because answering it makes OBS enumerate every
+ * top-level window, and a game does not appear or vanish between seconds.
+ */
+const ATTACH_CHECK_INTERVAL_MS = 5000
+
+/**
+ * The executable out of an OBS 'title:class:executable' window string.
+ *
+ * Split from the right, because a window title can itself contain colons -- the
+ * enumeration on this machine included one reading 'C:\WINDOWS\system32\cmd.exe'
+ * as its title, which splitting from the left would mangle.
+ */
+export function executableFrom(windowSpec: string): string {
+  const parts = windowSpec.split(':')
+  return parts.length > 0 ? parts[parts.length - 1] : ''
+}
+
 export class ObsGameCaptureBackend implements CaptureBackend {
   readonly id = 'obs' as const
   readonly label = 'OBS game capture'
@@ -142,6 +162,14 @@ class ObsSession implements CaptureHandle {
   private ready = false
   /** Whether game capture has ever reported being attached to the game. */
   private everHooked = false
+  /**
+   * Latest attachment answer, refreshed on its own slower cadence.
+   *
+   * undefined until the first check completes, which is also the honest value
+   * for a capture mode where attachment cannot be determined.
+   */
+  private attached: boolean | undefined = undefined
+  private attachCheckedAt = 0
   private forced = false
   private settled = false
   private stderrTail = ''
@@ -307,15 +335,10 @@ class ObsSession implements CaptureHandle {
     if (!client || !client.isConnected) return
 
     try {
-      const [stats, status, source] = await Promise.all([
-        client.stats(),
-        client.recordStatus(),
-        client
-          .sourceActive(GAME_CAPTURE_SOURCE_NAME)
-          .catch(() => ({ videoActive: false, videoShowing: false }))
-      ])
+      const [stats, status] = await Promise.all([client.stats(), client.recordStatus()])
 
-      if (source.videoActive) this.everHooked = true
+      await this.refreshAttachment()
+      if (this.attached) this.everHooked = true
 
       const sample: RecorderProgress = {
         frame: stats.outputTotalFrames,
@@ -335,7 +358,7 @@ class ObsSession implements CaptureHandle {
         // than as everHooked, so a hook that detaches mid-game -- the game
         // crashing, or being alt-tabbed into a state where it stops presenting --
         // is visible while it is happening.
-        captureAttached: source.videoActive,
+        captureAttached: this.attached,
         ended: false
       }
 
@@ -356,6 +379,52 @@ class ObsSession implements CaptureHandle {
     } catch {
       // A failed poll is not a failed recording. OBS is still writing; the next
       // sample will either succeed or the process will close and settle this.
+    }
+  }
+
+  /**
+   * Refreshes whether game capture can actually see the game.
+   *
+   * Determined from OBS's own enumeration of capturable windows rather than from
+   * GetSourceActive, whose videoActive and videoShowing both report true for a
+   * source whose target window does not exist -- measured with the game closed.
+   * They describe scene membership, not capture state, and a health warning
+   * built on them could never fire.
+   *
+   * Window presence is also the more useful answer: "OBS cannot see the game" is
+   * something the user can act on.
+   *
+   * Checked on a slower cadence than the rest of the sample because it makes OBS
+   * enumerate every top-level window, and nothing here changes second to second.
+   */
+  private async refreshAttachment(): Promise<void> {
+    const client = this.client
+    if (!client?.isConnected) return
+
+    // any_fullscreen has no named target, so window presence cannot answer the
+    // question. Left undefined, which the health check reads as "unknown" and
+    // stays quiet about -- better than a confident wrong answer either way.
+    const wanted = LEAGUE_CAPTURE_TARGET.window
+    if (LEAGUE_CAPTURE_TARGET.mode !== 'window' || !wanted) {
+      this.attached = undefined
+      return
+    }
+
+    if (Date.now() - this.attachCheckedAt < ATTACH_CHECK_INTERVAL_MS) return
+    this.attachCheckedAt = Date.now()
+
+    try {
+      const options = await client.captureWindowOptions(GAME_CAPTURE_SOURCE_NAME)
+      // Matched on the executable rather than the whole triple, because that is
+      // what the source is configured to match on (priority 2) and because the
+      // window title carries a match count that changes.
+      const executable = executableFrom(wanted)
+      this.attached = options.some(
+        (option) => executableFrom(option.value).toLowerCase() === executable.toLowerCase()
+      )
+    } catch {
+      // An enumeration that fails says nothing either way, so the previous
+      // answer stands rather than being downgraded to "detached".
     }
   }
 
