@@ -5,22 +5,22 @@ import { join } from 'path'
 // Where OBS lives, and how it is found.
 //
 // Unlike ffmpeg, OBS is not committed to the repository or bundled into the
-// installer: the official Windows portable build is 179 MB, which is larger than
-// everything else LeagueVid ships put together. So it is a managed runtime
-// dependency, resolved from the first of several places that actually has it.
+// installer: the official Windows portable build is 179 MB zipped and 466 MB
+// extracted, larger than everything else LeagueVid ships put together. So it is a
+// managed runtime dependency, resolved from either a copy sideloaded beside a
+// packaged app or LeagueVid's own copy under userData.
 //
-// The search order is deliberate:
+// Notably absent: an OBS Studio the user already installed. That looks like a
+// free win and is not one. LeagueVid must run OBS in portable mode, because
+// portable mode is what keeps OBS's configuration inside the distribution
+// instead of in the user's roaming profile -- and the alternative is writing our
+// profile, scene collection and output settings over their scenes and hotkeys,
+// which is indefensible. Verified against OBS 32.2.1: portable mode puts config
+// in <root>/config/obs-studio, so it needs a writable distribution root, and a
+// system install under Program Files is not writable without elevation.
 //
-//   1. A copy sideloaded next to the app (packaged builds that chose to bundle).
-//   2. LeagueVid's own managed copy under userData, which is what the in-app
-//      download writes.
-//   3. An OBS Studio the user already installed. Plenty of people who record
-//      games have one, and reusing it saves them a second 179 MB.
-//
-// Note that (3) is read, never written. Modifying someone's existing OBS
-// configuration -- their scenes, their profiles, their hotkeys -- to make our
-// recording work would be indefensible, so the OBS backend always runs with its
-// own portable configuration directory regardless of which binary was found.
+// So LeagueVid uses a distribution it owns, or none. That is also what Overwolf
+// does -- they ship their own OBS rather than reusing whatever is installed.
 
 /** Root of an OBS distribution: the folder containing bin/, data/, obs-plugins/. */
 export interface ObsInstall {
@@ -31,7 +31,7 @@ export interface ObsInstall {
   /** Where obs64.exe must be launched from -- OBS requires this as its cwd. */
   workingDirectory: string
   /** How this copy was found, for diagnostics and for the Settings screen. */
-  origin: 'sideloaded' | 'managed' | 'system'
+  origin: 'sideloaded' | 'managed'
 }
 
 /** Version LeagueVid downloads when asked to fetch OBS itself. */
@@ -50,15 +50,35 @@ export function managedObsRoot(): string {
 }
 
 /**
- * The configuration directory LeagueVid hands OBS.
+ * The configuration directory OBS will use, given a distribution.
  *
- * Always separate from the user's own OBS config, and always separate from the
- * distribution root -- a system-wide install under Program Files is not writable,
- * and even when it is, writing our scene collection into it would trample their
- * setup.
+ * Not a choice: OBS in portable mode derives this from where the binary lives,
+ * and there is no launch flag to point it elsewhere. Verified against 32.2.1 --
+ * running with --portable produced exactly this tree, containing global.ini,
+ * user.ini, basic/profiles/<name>/basic.ini, basic/scenes/<name>.json and
+ * plugin_config/obs-websocket/config.json.
+ *
+ * Because every distribution LeagueVid uses is one it owns, this always lands
+ * somewhere writable and never near the user's own %APPDATA%/obs-studio.
  */
-export function obsConfigRoot(): string {
-  return join(app.getPath('userData'), 'obs', 'config')
+export function obsConfigRoot(install: ObsInstall): string {
+  return join(install.root, 'config', 'obs-studio')
+}
+
+/** Profile and scene collection names LeagueVid creates and owns. */
+export const OBS_PROFILE_NAME = 'LeagueVid'
+export const OBS_COLLECTION_NAME = 'LeagueVid'
+
+export function obsProfileDir(install: ObsInstall): string {
+  return join(obsConfigRoot(install), 'basic', 'profiles', OBS_PROFILE_NAME)
+}
+
+export function obsSceneCollectionPath(install: ObsInstall): string {
+  return join(obsConfigRoot(install), 'basic', 'scenes', `${OBS_COLLECTION_NAME}.json`)
+}
+
+export function obsWebSocketConfigPath(install: ObsInstall): string {
+  return join(obsConfigRoot(install), 'plugin_config', 'obs-websocket', 'config.json')
 }
 
 /** Every place worth looking, in order. */
@@ -73,27 +93,7 @@ function candidateRoots(): Array<{ root: string; origin: ObsInstall['origin'] }>
 
   candidates.push({ root: managedObsRoot(), origin: 'managed' })
 
-  for (const root of systemInstallRoots()) {
-    candidates.push({ root, origin: 'system' })
-  }
-
   return candidates
-}
-
-/**
- * Standard install locations for OBS Studio.
- *
- * PROGRAMFILES is read from the environment rather than hardcoded to
- * 'C:\Program Files' because it is not always on C:, and someone who moved it
- * would otherwise be told OBS is missing while it sits there.
- */
-function systemInstallRoots(): string[] {
-  const roots: string[] = []
-  for (const variable of ['ProgramFiles', 'ProgramFiles(x86)', 'ProgramW6432']) {
-    const base = process.env[variable]
-    if (base) roots.push(join(base, 'obs-studio'))
-  }
-  return roots
 }
 
 /**

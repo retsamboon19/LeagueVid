@@ -16,10 +16,11 @@ import { ffmpegBackend } from './ffmpegBackend'
 /**
  * Every backend, most capable first.
  *
- * OBS is appended by registerBackend rather than imported, so that this module
- * -- and therefore the recorder -- does not depend on the OBS integration
- * existing. That keeps the fallback genuinely independent: a fault in the OBS
- * backend cannot stop the built-in one from loading.
+ * The built-in ffmpeg path is the only one hard-wired here, and is deliberately
+ * last. Anything better arrives through registerBackend, so this module -- and
+ * therefore the recorder -- does not depend on the OBS integration existing at
+ * all. That keeps the fallback genuinely independent: a fault in the OBS backend
+ * cannot stop the built-in one from loading.
  */
 const backends: CaptureBackend[] = [ffmpegBackend]
 

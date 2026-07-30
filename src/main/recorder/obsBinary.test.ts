@@ -63,23 +63,15 @@ describe('findObsInstall', () => {
     expect(install?.executable).toBe(`${root}\\bin\\64bit\\obs64.exe`)
   })
 
-  it('falls back to an OBS the user already installed', async () => {
+  // Deliberately NOT used, and this is the test that pins that decision down.
+  // Portable mode keeps config inside the distribution, so a Program Files
+  // install would need elevation to configure -- and running non-portable
+  // instead would write our profile and scene collection over the user's own.
+  it('ignores an OBS the user installed themselves', async () => {
     onlyRootExists('C:\\Program Files\\obs-studio')
     const { findObsInstall } = await loadModule()
 
-    expect(findObsInstall()?.origin).toBe('system')
-  })
-
-  // Our managed copy is the one we control the version of, so it wins over
-  // whatever the user happens to have.
-  it('prefers the managed copy over a system install', async () => {
-    const { managedObsRoot } = await loadModule()
-    const managed = `${managedObsRoot()}\\bin\\64bit\\obs64.exe`
-    const system = 'C:\\Program Files\\obs-studio\\bin\\64bit\\obs64.exe'
-    vi.mocked(existsSync).mockImplementation((path) => path === managed || path === system)
-
-    const { findObsInstall } = await loadModule()
-    expect(findObsInstall()?.origin).toBe('managed')
+    expect(findObsInstall()).toBeNull()
   })
 
   it('prefers a sideloaded copy in a packaged build over everything', async () => {
@@ -149,13 +141,47 @@ describe('obsConfigRoot', () => {
     appMock.getPath.mockReturnValue(USER_DATA)
   })
 
-  // The single most important property in this file. OBS run against the user's
-  // own configuration directory would have our scene collection, profile and
-  // output settings written over theirs.
-  it('is under userData, never inside the distribution', async () => {
-    const { obsConfigRoot, managedObsRoot } = await loadModule()
+  /** A managed install, as findObsInstall would report it. */
+  async function managedInstall(): Promise<import('./obsBinary').ObsInstall> {
+    const { managedObsRoot } = await loadModule()
+    const root = managedObsRoot()
+    return {
+      root,
+      executable: `${root}\\bin\\64bit\\obs64.exe`,
+      workingDirectory: `${root}\\bin\\64bit`,
+      origin: 'managed'
+    }
+  }
 
-    expect(obsConfigRoot().startsWith(USER_DATA)).toBe(true)
-    expect(obsConfigRoot().startsWith(managedObsRoot())).toBe(false)
+  // Matches what OBS 32.2.1 actually produced when run with --portable. This is
+  // observed behaviour, not a preference: there is no flag to move it.
+  it('is the portable config tree inside the distribution', async () => {
+    const { obsConfigRoot } = await loadModule()
+    const install = await managedInstall()
+
+    expect(obsConfigRoot(install)).toBe(`${install.root}\\config\\obs-studio`)
+  })
+
+  // The property that actually protects the user's setup: our config is under
+  // userData because our distribution is, so their %APPDATA%/obs-studio is never
+  // in the picture.
+  it('never lands in the user own OBS configuration', async () => {
+    const { obsConfigRoot } = await loadModule()
+    const install = await managedInstall()
+
+    expect(obsConfigRoot(install).startsWith(USER_DATA)).toBe(true)
+    expect(obsConfigRoot(install).toLowerCase()).not.toContain('appdata\\roaming\\obs-studio')
+  })
+
+  it('puts the profile, scene collection and websocket config where OBS looks', async () => {
+    const { obsProfileDir, obsSceneCollectionPath, obsWebSocketConfigPath } = await loadModule()
+    const install = await managedInstall()
+    const config = `${install.root}\\config\\obs-studio`
+
+    expect(obsProfileDir(install)).toBe(`${config}\\basic\\profiles\\LeagueVid`)
+    expect(obsSceneCollectionPath(install)).toBe(`${config}\\basic\\scenes\\LeagueVid.json`)
+    expect(obsWebSocketConfigPath(install)).toBe(
+      `${config}\\plugin_config\\obs-websocket\\config.json`
+    )
   })
 })

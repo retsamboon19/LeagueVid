@@ -8,6 +8,8 @@ import { registerVideoHandlers } from './video/ipc'
 import { registerMediaProtocol } from './video/mediaProtocol'
 import { registerDDragonHandlers } from './ddragon/ipc'
 import { registerRecorderHandlers } from './recorder/ipc'
+import { registerBackend } from './recorder/backendSelection'
+import { obsBackend } from './recorder/obsBackend'
 import { startBackfillService, stopBackfillService } from './riot/backfillService'
 import { recoverInterruptedRecordings } from './recorder/orphanRecovery'
 import {
@@ -200,6 +202,13 @@ app.whenReady().then(async () => {
   registerDbHandlers()
   registerVideoHandlers()
   registerDDragonHandlers()
+
+  // Offers OBS game capture to the recorder, ahead of the built-in screen
+  // capture. Registered here rather than imported by the selection module so a
+  // fault in the OBS integration cannot stop the fallback from loading; if its
+  // binaries are missing it simply probes unavailable and the built-in path is
+  // used.
+  registerBackend(obsBackend)
 
   // Reads the persisted enabled flag, so the recorder's reported state matches
   // the setting from the moment the first window opens.
