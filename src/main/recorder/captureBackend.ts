@@ -26,6 +26,27 @@ import type { CaptureHandle } from './ffmpegProcess'
 // what remains when OBS cannot be resolved.
 
 /**
+ * What a session is supposed to be recording.
+ *
+ * The distinction is a product decision, not a technical one. Automatic
+ * recording exists to capture League matches, so it should follow the game and
+ * nothing else -- alt-tabbing to a browser mid-game should not end up in the
+ * VOD. Pressing Record by hand means "record what I am doing", which is the
+ * whole screen, and confining that to League would produce an empty file
+ * whenever the game is not running.
+ */
+export type CaptureScope =
+  /**
+   * The game's own frames, via a hook into its swapchain.
+   *
+   * `window` is OBS's 'title:class:executable' triple. Nothing outside the game
+   * is captured, including overlays drawn over it.
+   */
+  | { kind: 'game'; window: string }
+  /** A whole monitor -- the one named by the request's CaptureTarget. */
+  | { kind: 'display' }
+
+/**
  * One recording session, described semantically.
  *
  * Note there is no argv here. Turning this into a command line is the ffmpeg
@@ -36,6 +57,14 @@ import type { CaptureHandle } from './ffmpegProcess'
 export interface CaptureRequest {
   settings: RecordingSettings
   target: CaptureTarget
+  /**
+   * Whether to follow the game or the screen.
+   *
+   * Backends that can only do one of the two say so through their own
+   * capabilities rather than silently substituting the other, because a
+   * recording of the wrong thing is worse than a clear refusal.
+   */
+  scope: CaptureScope
   /** Where the session file goes. Extension is the backend's to choose. */
   outputPath: string
   audioInputs: AudioInputSpec[]

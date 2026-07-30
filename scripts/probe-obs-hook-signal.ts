@@ -53,7 +53,7 @@ async function main(): Promise<void> {
     audioInputs: [],
     recordingDirectory: OUT_DIR,
     fileBasename: `hook-probe-${Date.now()}`,
-    capture: { mode: 'window', window: ABSENT },
+    scope: { kind: 'game', window: ABSENT },
     webSocketPort: 4466,
     webSocketPassword: password
   })

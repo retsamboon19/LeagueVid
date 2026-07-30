@@ -21,7 +21,8 @@ import { homedir } from 'os'
 import { DEFAULT_RECORDING_SETTINGS, type RecordingSettings } from '../src/shared/types'
 import type { AudioInputSpec, CaptureTarget } from '../src/main/recorder/ffmpegArgs'
 import {
-  LEAGUE_CAPTURE_TARGET,
+  DISPLAY_CAPTURE_SCOPE,
+  LEAGUE_CAPTURE_SCOPE,
   buildProfileIni,
   buildRecordEncoderJson,
   buildSceneCollection,
@@ -108,7 +109,7 @@ function main(): void {
         audioInputs,
         audioTrackMode: settings.audioTrackMode,
         drawMouse: settings.drawMouse,
-        capture: has('fullscreen') ? { mode: 'any_fullscreen' } : LEAGUE_CAPTURE_TARGET,
+        scope: has('fullscreen') ? DISPLAY_CAPTURE_SCOPE : LEAGUE_CAPTURE_SCOPE,
         uuid
       }),
       null,

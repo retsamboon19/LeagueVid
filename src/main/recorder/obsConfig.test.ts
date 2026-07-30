@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { DEFAULT_RECORDING_SETTINGS, type RecordingSettings } from '../../shared/types'
 import type { AudioInputSpec, CaptureTarget } from './ffmpegArgs'
 import {
+  DISPLAY_CAPTURE_SCOPE,
+  DISPLAY_CAPTURE_SOURCE_NAME,
   GAME_CAPTURE_SOURCE_NAME,
-  LEAGUE_CAPTURE_TARGET,
+  LEAGUE_CAPTURE_SCOPE,
   buildProfileIni,
+  captureSourceName,
   buildRecordEncoderJson,
   buildSceneCollection,
   buildUserIni,
@@ -264,7 +267,7 @@ describe('buildSceneCollection', () => {
       audioInputs: [desktop, mic],
       audioTrackMode: 'mixed',
       drawMouse: false,
-      capture: LEAGUE_CAPTURE_TARGET,
+      scope: LEAGUE_CAPTURE_SCOPE,
       uuid,
       ...overrides
     })
@@ -291,9 +294,51 @@ describe('buildSceneCollection', () => {
     expect(config.priority).toBe(2)
   })
 
-  it('can capture any fullscreen game instead', () => {
-    const capture = sourceById(collection({ capture: { mode: 'any_fullscreen' } }), 'game_capture')
-    expect((capture.settings as Record<string, unknown>).capture_mode).toBe('any_fullscreen')
+  // The behaviour split that matters: pressing Record by hand records the
+  // screen, because confining it to League would produce an empty file whenever
+  // the game is not running.
+  describe('display scope', () => {
+    it('uses monitor capture rather than game capture', () => {
+      const result = collection({ scope: DISPLAY_CAPTURE_SCOPE })
+      expect(sourceById(result, 'monitor_capture')).toBeTruthy()
+      expect(sourceById(result, 'game_capture')).toBeUndefined()
+    })
+
+    it('names the source so the backend polls the right one', () => {
+      const capture = sourceById(collection({ scope: DISPLAY_CAPTURE_SCOPE }), 'monitor_capture')
+      expect(capture.name).toBe(DISPLAY_CAPTURE_SOURCE_NAME)
+    })
+
+    // Windows Graphics Capture, not Desktop Duplication. Duplication is the API
+    // whose stalling behind foreground GPU work produced the original slideshow.
+    it('captures with Windows Graphics Capture', () => {
+      const capture = sourceById(collection({ scope: DISPLAY_CAPTURE_SCOPE }), 'monitor_capture')
+      expect((capture.settings as Record<string, unknown>).method).toBe(2)
+    })
+
+    // Deliberately absent, and the backend must fill it in over the websocket
+    // before recording starts. An unset monitor_id is not "the default monitor",
+    // it is no monitor: the first version of this recorded pure black, confirmed
+    // by extracting a frame.
+    it('leaves monitor_id for the backend to set from OBS enumeration', () => {
+      const capture = sourceById(collection({ scope: DISPLAY_CAPTURE_SCOPE }), 'monitor_capture')
+      expect((capture.settings as Record<string, unknown>).monitor_id).toBeUndefined()
+    })
+
+    it('is still the item the scene renders', () => {
+      const result = collection({ scope: DISPLAY_CAPTURE_SCOPE })
+      const scene = sourceById(result, 'scene')
+      const items = (scene.settings as { items: Array<Record<string, unknown>> }).items
+      expect(items[0].name).toBe(DISPLAY_CAPTURE_SOURCE_NAME)
+      expect(items[0].source_uuid).toBe(sourceById(result, 'monitor_capture').uuid)
+    })
+  })
+
+  describe('captureSourceName', () => {
+    it('matches the source each scope actually creates', () => {
+      expect(captureSourceName(LEAGUE_CAPTURE_SCOPE)).toBe(GAME_CAPTURE_SOURCE_NAME)
+      expect(captureSourceName(DISPLAY_CAPTURE_SCOPE)).toBe(DISPLAY_CAPTURE_SOURCE_NAME)
+    })
   })
 
   // League has anti-cheat, and the compatibility hook is what lets capture work

@@ -13,6 +13,7 @@ import type { AudioInputSpec, CaptureTarget } from './ffmpegArgs'
 import { ffmpegBinaryPath } from './ffmpegBinary'
 import type { CaptureHandle } from './ffmpegProcess'
 import { activeCaptureBackend, pinBackend } from './backendSelection'
+import { DISPLAY_CAPTURE_SCOPE, LEAGUE_CAPTURE_SCOPE } from './obsConfig'
 import type { CaptureBackend } from './captureBackend'
 import { spawn } from 'child_process'
 import { buildSessionPath } from './outputPaths'
@@ -230,6 +231,11 @@ export async function startRecording(
         settings,
         target: options.target,
         outputPath,
+        // Pressing Record by hand means "record what I am doing", so it takes the
+        // whole screen. Automatic recording exists to capture League matches, so
+        // it follows the game and nothing else -- alt-tabbing to a browser
+        // mid-game should not end up in the VOD.
+        scope: options.manual ? DISPLAY_CAPTURE_SCOPE : LEAGUE_CAPTURE_SCOPE,
         audioInputs: options.audioInputs ?? [],
         // Only described for a backend that implements the buffer with a segment
         // ring. One that owns its own must not be handed a ring to write into as

@@ -16,7 +16,7 @@ import {
   obsConfigRoot,
   type ObsInstall
 } from './obsBinary'
-import { GAME_CAPTURE_SOURCE_NAME, LEAGUE_CAPTURE_TARGET } from './obsConfig'
+import { DISPLAY_CAPTURE_SOURCE_NAME, GAME_CAPTURE_SOURCE_NAME } from './obsConfig'
 
 /** Name OBS gives the microphone input in a default scene collection. */
 const MIC_SOURCE_NAME = 'Mic/Aux'
@@ -214,9 +214,7 @@ class ObsSession implements CaptureHandle {
       audioInputs: this.request.audioInputs,
       recordingDirectory: dirname(target),
       fileBasename,
-      // League by default, because that is what LeagueVid records. Falling back
-      // to any_fullscreen would silently capture whatever else is open.
-      capture: LEAGUE_CAPTURE_TARGET,
+      scope: this.request.scope,
       fallbackEncoder: this.request.fallbackEncoder,
       webSocketPort: port,
       webSocketPassword: password
@@ -227,16 +225,23 @@ class ObsSession implements CaptureHandle {
 
     try {
       await this.connect()
+
+      // Before recording, not after. Both of these fill in identifiers that only
+      // OBS can supply, and the monitor one in particular decides whether there
+      // is a picture at all -- applying it afterwards would put black frames at
+      // the start of every manual recording.
+      //
+      // Neither is allowed to fail the session: a recording with the default
+      // microphone is fine, and the monitor step reports its own problems.
+      await this.applyMicrophoneChoice()
+      await this.applyMonitorChoice()
+
       await this.client.startRecord()
     } catch (err) {
       // A session that cannot start recording must not leave an OBS behind.
       await this.teardown(true)
       throw err
     }
-
-    // Best effort, and after recording has started: getting the specific
-    // microphone is worth having but not worth failing a session over.
-    await this.applyMicrophoneChoice()
 
     this.watchProcess()
     this.startPolling()
@@ -437,6 +442,51 @@ class ObsSession implements CaptureHandle {
   }
 
   /**
+   * Points display capture at the monitor the user chose to record.
+   *
+   * Deferred for the same reason as the microphone: monitor_capture identifies a
+   * screen by an opaque Windows device path, and only OBS's own enumeration can
+   * supply it. The collection therefore starts on OBS's default (the primary
+   * monitor) and this narrows it.
+   *
+   * Matched on the resolution OBS prints in each option's label, because that is
+   * the only field the two sides share -- Electron's display list and OBS's
+   * monitor list have no common identifier. When several monitors are the same
+   * size this can pick the wrong one, which is why it never overrides a
+   * single-monitor default and says nothing when it cannot be sure.
+   */
+  private async applyMonitorChoice(): Promise<void> {
+    const client = this.client
+    if (!client?.isConnected || this.request.scope.kind !== 'display') return
+
+    try {
+      const monitors = await client.monitorOptions(DISPLAY_CAPTURE_SOURCE_NAME)
+      if (monitors.length === 0) {
+        this.hooks.onStderr?.('OBS reported no monitors to record.')
+        return
+      }
+
+      const { width, height } = this.request.target
+      // Resolution is the only field the two sides share -- Electron's display
+      // list and OBS's monitor list have no common identifier.
+      const sized = monitors.filter((monitor) => monitor.name.includes(`${width}x${height}`))
+
+      const chosen =
+        // Exactly one monitor of that size is unambiguous.
+        (sized.length === 1 ? sized[0] : undefined) ??
+        // Otherwise the primary, which is what OBS's own UI would default to.
+        monitors.find((monitor) => /primary/i.test(monitor.name)) ??
+        monitors[0]
+
+      // Always set, never skipped. An unset monitor_id is not "the default
+      // monitor", it is no monitor, and it records pure black.
+      await client.setInputSettings(DISPLAY_CAPTURE_SOURCE_NAME, { monitor_id: chosen.value })
+    } catch (err) {
+      this.hooks.onStderr?.(`Could not select the monitor: ${(err as Error).message}`)
+    }
+  }
+
+  /**
    * Refreshes whether game capture can actually see the game.
    *
    * Determined from OBS's own enumeration of capturable windows rather than from
@@ -458,11 +508,14 @@ class ObsSession implements CaptureHandle {
     // any_fullscreen has no named target, so window presence cannot answer the
     // question. Left undefined, which the health check reads as "unknown" and
     // stays quiet about -- better than a confident wrong answer either way.
-    const wanted = LEAGUE_CAPTURE_TARGET.window
-    if (LEAGUE_CAPTURE_TARGET.mode !== 'window' || !wanted) {
+    // Only a game scope can be detached. Whole-screen capture always has a
+    // picture, so the question does not apply and undefined is the honest
+    // answer -- the health check reads that as "unknown" and stays quiet.
+    if (this.request.scope.kind !== 'game') {
       this.attached = undefined
       return
     }
+    const wanted = this.request.scope.window
 
     if (Date.now() - this.attachCheckedAt < ATTACH_CHECK_INTERVAL_MS) return
     this.attachCheckedAt = Date.now()

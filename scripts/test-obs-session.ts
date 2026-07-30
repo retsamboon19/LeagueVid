@@ -21,7 +21,12 @@ import { randomBytes } from 'crypto'
 import { homedir } from 'os'
 import { DEFAULT_RECORDING_SETTINGS, type RecordingSettings } from '../src/shared/types'
 import type { AudioInputSpec, CaptureTarget } from '../src/main/recorder/ffmpegArgs'
-import { LEAGUE_CAPTURE_TARGET, type GameCaptureTarget } from '../src/main/recorder/obsConfig'
+import type { CaptureScope } from '../src/main/recorder/captureBackend'
+import {
+  DISPLAY_CAPTURE_SCOPE,
+  LEAGUE_CAPTURE_SCOPE,
+  captureSourceName
+} from '../src/main/recorder/obsConfig'
 import { writeObsConfig } from '../src/main/recorder/obsConfigFiles'
 import { ObsWebSocketClient } from '../src/main/recorder/obsWebSocket'
 
@@ -77,11 +82,13 @@ async function main(): Promise<void> {
   ]
 
   const windowFlag = flag('window')
-  const capture: GameCaptureTarget = has('fullscreen')
-    ? { mode: 'any_fullscreen' }
+  // --display mirrors what pressing Record by hand does; the default mirrors
+  // automatic recording, which follows the League match.
+  const scope: CaptureScope = has('display')
+    ? DISPLAY_CAPTURE_SCOPE
     : windowFlag
-      ? { mode: 'window', window: windowFlag }
-      : LEAGUE_CAPTURE_TARGET
+      ? { kind: 'game', window: windowFlag }
+      : LEAGUE_CAPTURE_SCOPE
 
   const basename = `obs-session-${Date.now()}`
 
@@ -93,11 +100,13 @@ async function main(): Promise<void> {
     audioInputs,
     recordingDirectory: OUT_DIR,
     fileBasename: basename,
-    capture,
+    scope,
     webSocketPort: PORT,
     webSocketPassword: password
   })
-  console.log(`config written; capture mode: ${capture.mode}${capture.window ? ` (${capture.window})` : ''}`)
+  console.log(
+    `config written; scope: ${scope.kind}${scope.kind === 'game' ? ` (${scope.window})` : ''}`
+  )
 
   const obs = launchObs(executable)
   const client = new ObsWebSocketClient(`ws://127.0.0.1:${PORT}`, password)
@@ -114,28 +123,48 @@ async function main(): Promise<void> {
       }
     })
 
-    // What OBS can actually see. When a capture reports itself detached, the
-    // first question is whether the game is visible to game capture at all, and
-    // these are the exact match strings the source expects.
-    const windows = await client
-      .captureWindowOptions('Game Capture')
-      .catch(() => [] as Array<{ name: string; value: string }>)
+    if (scope.kind === 'game') {
+      // What OBS can actually see. When a capture reports itself detached, the
+      // first question is whether the game is visible to game capture at all,
+      // and these are the exact match strings the source expects.
+      const windows = await client
+        .captureWindowOptions(captureSourceName(scope))
+        .catch(() => [] as Array<{ name: string; value: string }>)
 
-    console.log(`\ngame capture can see ${windows.length} window(s):`)
-    for (const option of windows) console.log(`  ${option.value}`)
+      console.log(`\ngame capture can see ${windows.length} window(s):`)
+      for (const option of windows) console.log(`  ${option.value}`)
 
-    const league = windows.filter((option) => /League of Legends\.exe/i.test(option.value))
-    console.log(
-      league.length > 0
-        ? `\nLeague found: ${league.map((l) => l.value).join(', ')}`
-        : '\nLeague is NOT running — expect hooked=false, which is the correct answer.'
-    )
+      const league = windows.filter((option) => /League of Legends\.exe/i.test(option.value))
+      console.log(
+        league.length > 0
+          ? `\nLeague found: ${league.map((l) => l.value).join(', ')}`
+          : '\nLeague is NOT running — expect hooked=false, which is the correct answer.'
+      )
+    } else {
+      const monitors = await client
+        .monitorOptions(captureSourceName(scope))
+        .catch(() => [] as Array<{ name: string; value: string }>)
+      console.log(`\ndisplay capture sees ${monitors.length} monitor(s):`)
+      for (const monitor of monitors) console.log(`  ${monitor.name}`)
+    }
     console.log('')
+
+    // Mirrors what the backend does: monitor_capture has no monitor selected
+    // until this is set, and an unset monitor_id records pure black.
+    if (scope.kind === 'display') {
+      const monitors = await client.monitorOptions(captureSourceName(scope))
+      const chosen =
+        monitors.find((monitor) => /primary/i.test(monitor.name)) ?? monitors[0]
+      if (chosen) {
+        await client.setInputSettings(captureSourceName(scope), { monitor_id: chosen.value })
+        console.log(`selected monitor: ${chosen.name}`)
+      }
+    }
 
     await client.startRecord()
     console.log(`recording started; sampling for ${seconds}s`)
 
-    const samples = await sample(client, seconds)
+    const samples = await sample(client, seconds, scope)
     const outputPath = await client.stopRecord()
     console.log(`\nstopped. OBS wrote: ${outputPath}`)
 
@@ -204,7 +233,11 @@ interface Sample {
   durationMs: number
 }
 
-async function sample(client: ObsWebSocketClient, seconds: number): Promise<Sample[]> {
+async function sample(
+  client: ObsWebSocketClient,
+  seconds: number,
+  scope: CaptureScope
+): Promise<Sample[]> {
   const samples: Sample[] = []
   const started = Date.now()
 
@@ -214,12 +247,20 @@ async function sample(client: ObsWebSocketClient, seconds: number): Promise<Samp
       client.stats(),
       client.recordStatus(),
       // Attachment comes from OBS's window enumeration, not GetSourceActive --
-      // videoActive reads true for a target that is not running at all.
-      client
-        .captureWindowOptions('Game Capture')
-        .catch(() => [] as Array<{ name: string; value: string }>)
+      // videoActive reads true for a target that is not running at all. Only
+      // meaningful for a game scope; whole-screen capture is always attached.
+      scope.kind === 'game'
+        ? client
+            .captureWindowOptions(captureSourceName(scope))
+            .catch(() => [] as Array<{ name: string; value: string }>)
+        : Promise.resolve([] as Array<{ name: string; value: string }>)
     ])
-    const source = { videoActive: windows.some((w) => /League of Legends\.exe/i.test(w.value)) }
+    const source = {
+      videoActive:
+        scope.kind === 'game'
+          ? windows.some((w) => /League of Legends\.exe/i.test(w.value))
+          : true
+    }
 
     const s: Sample = {
       atMs: Date.now() - started,

@@ -1,4 +1,5 @@
 import type { RecordingSettings } from '../../shared/types'
+import type { CaptureScope } from './captureBackend'
 import type { AudioInputSpec, CaptureTarget } from './ffmpegArgs'
 import { effectiveScaleHeight } from './ffmpegArgs'
 
@@ -245,38 +246,29 @@ export function buildRecordEncoderJson(
 const MAIN_CANVAS_UUID = '6c69626f-6273-4c00-9d88-c5136d61696e'
 
 export const GAME_CAPTURE_SOURCE_NAME = 'Game Capture'
+export const DISPLAY_CAPTURE_SOURCE_NAME = 'Display Capture'
 export const SCENE_NAME = 'LeagueVid'
 
-/**
- * How game capture should find the game.
- *
- * 'window' with an executable match is the reliable choice for a known game and
- * is what LeagueVid uses, since it always knows it is recording League. The
- * window string is OBS's 'title:class:executable' triple.
- *
- * 'any_fullscreen' is the fallback for anything else, and is what makes this
- * useful for a manual recording of a game LeagueVid has no knowledge of.
- */
-export interface GameCaptureTarget {
-  mode: 'window' | 'any_fullscreen'
-  /** OBS 'title:class:executable'. Required for window mode. */
-  window?: string
+/** The source name a scope produces, which is what the backend later polls. */
+export function captureSourceName(scope: CaptureScope): string {
+  return scope.kind === 'game' ? GAME_CAPTURE_SOURCE_NAME : DISPLAY_CAPTURE_SOURCE_NAME
 }
 
 /** League's game client, as game capture needs to match it. */
 export const LEAGUE_GAME_WINDOW = 'League of Legends (TM) Client:RiotWindowClass:League of Legends.exe'
 
-export const LEAGUE_CAPTURE_TARGET: GameCaptureTarget = {
-  mode: 'window',
-  window: LEAGUE_GAME_WINDOW
-}
+/** Automatic recording follows the match, so it hooks this window. */
+export const LEAGUE_CAPTURE_SCOPE: CaptureScope = { kind: 'game', window: LEAGUE_GAME_WINDOW }
+
+/** Pressing Record by hand records the screen. */
+export const DISPLAY_CAPTURE_SCOPE: CaptureScope = { kind: 'display' }
 
 export interface ObsSceneInput {
   target: CaptureTarget
   audioInputs: AudioInputSpec[]
   audioTrackMode: RecordingSettings['audioTrackMode']
   drawMouse: boolean
-  capture: GameCaptureTarget
+  scope: CaptureScope
   /** Injected so the generated collection is deterministic in tests. */
   uuid?: () => string
 }
@@ -292,7 +284,7 @@ export interface ObsSceneInput {
  */
 export function buildSceneCollection(input: ObsSceneInput): Record<string, unknown> {
   const nextUuid = input.uuid ?? (() => crypto.randomUUID())
-  const gameCaptureUuid = nextUuid()
+  const captureUuid = nextUuid()
   const sceneUuid = nextUuid()
 
   const desktop = input.audioInputs.find((source) => source.role === 'desktop')
@@ -302,8 +294,10 @@ export function buildSceneCollection(input: ObsSceneInput): Record<string, unkno
   const collection: Record<string, unknown> = {
     name: 'LeagueVid',
     sources: [
-      gameCaptureSource(gameCaptureUuid, input),
-      sceneSource(sceneUuid, gameCaptureUuid, input.target)
+      input.scope.kind === 'game'
+        ? gameCaptureSource(captureUuid, input.scope.window, input.drawMouse)
+        : displayCaptureSource(captureUuid, input.drawMouse),
+      sceneSource(sceneUuid, captureUuid, captureSourceName(input.scope), input.target)
     ],
     groups: [],
     scene_order: [{ name: SCENE_NAME }],
@@ -369,18 +363,11 @@ export function volumeScalar(volume: number | undefined): number {
   return Number((clamped / 100).toFixed(4))
 }
 
-function gameCaptureSource(uuid: string, input: ObsSceneInput): Record<string, unknown> {
-  const settings: Record<string, unknown> =
-    input.capture.mode === 'window'
-      ? {
-          capture_mode: 'window',
-          window: input.capture.window,
-          // Match on executable. Titles are localised and the class can change
-          // between patches, but the exe name is stable.
-          priority: 2
-        }
-      : { capture_mode: 'any_fullscreen' }
-
+function gameCaptureSource(
+  uuid: string,
+  window: string,
+  drawMouse: boolean
+): Record<string, unknown> {
   return {
     prev_ver: 537001985,
     name: GAME_CAPTURE_SOURCE_NAME,
@@ -388,8 +375,12 @@ function gameCaptureSource(uuid: string, input: ObsSceneInput): Record<string, u
     id: 'game_capture',
     versioned_id: 'game_capture',
     settings: {
-      ...settings,
-      capture_cursor: input.drawMouse,
+      capture_mode: 'window',
+      window,
+      // Match on executable. Titles are localised and the class can change
+      // between patches, but the exe name is stable.
+      priority: 2,
+      capture_cursor: drawMouse,
       // Compatibility hooking. Costs nothing when unnecessary and is what lets
       // capture work with anti-cheat present, which League has.
       anti_cheat_hook: true,
@@ -420,9 +411,57 @@ function gameCaptureSource(uuid: string, input: ObsSceneInput): Record<string, u
   }
 }
 
+/**
+ * Whole-monitor capture, for a recording started by hand.
+ *
+ * method 2 is Windows Graphics Capture, which is the modern path and does not
+ * have Desktop Duplication's habit of stalling behind the foreground
+ * application's GPU work -- the same weakness that made the old ffmpeg pipeline
+ * produce a slideshow. Left on the default monitor here; the specific one is
+ * selected after OBS starts, because monitor_id is an opaque device path that
+ * only OBS's own enumeration can supply.
+ */
+function displayCaptureSource(uuid: string, drawMouse: boolean): Record<string, unknown> {
+  return {
+    prev_ver: 537001985,
+    name: DISPLAY_CAPTURE_SOURCE_NAME,
+    uuid,
+    id: 'monitor_capture',
+    versioned_id: 'monitor_capture',
+    settings: {
+      // Windows Graphics Capture. The modern path, and it does not have Desktop
+      // Duplication's habit of stalling behind the foreground application's GPU
+      // work -- the weakness that made the old ffmpeg pipeline a slideshow.
+      method: 2,
+      capture_cursor: drawMouse
+      // Deliberately no monitor_id: it is an opaque Windows device path that only
+      // OBS's own enumeration can supply, so it is set over the websocket once
+      // OBS is running and before recording starts. Leaving it unset selects no
+      // screen at all and records pure black -- verified by extracting a frame.
+    },
+    mixers: 0,
+    sync: 0,
+    flags: 0,
+    volume: 1.0,
+    balance: 0.5,
+    enabled: true,
+    muted: false,
+    'push-to-mute': false,
+    'push-to-mute-delay': 0,
+    'push-to-talk': false,
+    'push-to-talk-delay': 0,
+    hotkeys: {},
+    deinterlace_mode: 0,
+    deinterlace_field_order: 0,
+    monitoring_type: 0,
+    private_settings: {}
+  }
+}
+
 function sceneSource(
   uuid: string,
-  gameCaptureUuid: string,
+  captureUuid: string,
+  captureName: string,
   target: CaptureTarget
 ): Record<string, unknown> {
   return {
@@ -436,8 +475,8 @@ function sceneSource(
       custom_size: false,
       items: [
         {
-          name: GAME_CAPTURE_SOURCE_NAME,
-          source_uuid: gameCaptureUuid,
+          name: captureName,
+          source_uuid: captureUuid,
           visible: true,
           locked: false,
           rot: 0.0,

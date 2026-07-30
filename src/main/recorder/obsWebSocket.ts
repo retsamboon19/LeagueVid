@@ -108,6 +108,14 @@ export interface ObsSourceActive {
   videoShowing: boolean
 }
 
+/** One choice from a source's dropdown, as OBS presents it. */
+export interface ObsPropertyItem {
+  /** What OBS would show in its own UI, e.g. 'Monitor 1: 2560x1440 @ 0,0'. */
+  name: string
+  /** What the setting has to be set to. Usually an opaque identifier. */
+  value: string
+}
+
 export type ObsEventHandler = (eventType: string, eventData: Record<string, unknown>) => void
 
 interface PendingRequest {
@@ -402,20 +410,23 @@ export class ObsWebSocketClient {
   }
 
   /**
-   * The windows game capture can currently see, as OBS formats them.
+   * The choices OBS offers for one of a source's list properties.
    *
-   * Each entry's value is the 'title:class:executable' triple that the source's
-   * `window` setting expects, so this is the authoritative way to check a match
-   * string rather than constructing one and hoping. Worth having for diagnosis:
-   * when a capture reports itself detached, the first question is whether OBS can
-   * see the game at all.
+   * The general form of a pattern that keeps recurring: OBS identifies windows,
+   * audio endpoints and monitors by opaque strings, while LeagueVid holds
+   * human-readable names. Only OBS's own enumeration relates the two, so
+   * anything that needs an identifier asks for it here rather than constructing
+   * one and hoping.
+   *
+   * Property names are not interchangeable between source types -- monitor
+   * capture uses 'monitor_id' where audio uses 'device_id' -- and asking for the
+   * wrong one returns an empty list rather than an error, which reads as "there
+   * are no monitors".
    */
-  async captureWindowOptions(
-    inputName: string
-  ): Promise<Array<{ name: string; value: string }>> {
+  async listPropertyItems(inputName: string, propertyName: string): Promise<ObsPropertyItem[]> {
     const data = await this.request('GetInputPropertiesListPropertyItems', {
       inputName,
-      propertyName: 'window'
+      propertyName
     })
 
     const items = Array.isArray(data.propertyItems) ? data.propertyItems : []
@@ -429,6 +440,23 @@ export class ObsWebSocketClient {
   }
 
   /**
+   * The windows game capture can currently see, as OBS formats them.
+   *
+   * Each value is the 'title:class:executable' triple that the source's `window`
+   * setting expects, so this is the authoritative way to check a match string.
+   * Worth having for diagnosis: when a capture reports itself detached, the first
+   * question is whether OBS can see the game at all.
+   */
+  captureWindowOptions(inputName: string): Promise<ObsPropertyItem[]> {
+    return this.listPropertyItems(inputName, 'window')
+  }
+
+  /** The monitors display capture can record. Values are Windows device paths. */
+  monitorOptions(inputName: string): Promise<ObsPropertyItem[]> {
+    return this.listPropertyItems(inputName, 'monitor_id')
+  }
+
+  /**
    * The audio devices an input can use, as OBS enumerates them.
    *
    * Names map to Windows endpoint ids here. Needed because a WASAPI source's
@@ -436,17 +464,8 @@ export class ObsWebSocketClient {
    * from a list -- passing the name fails with 80070057 and the device never
    * starts.
    */
-  async audioDeviceOptions(inputName: string): Promise<Array<{ name: string; value: string }>> {
-    const data = await this.request('GetInputPropertiesListPropertyItems', {
-      inputName,
-      propertyName: 'device_id'
-    })
-
-    const items = Array.isArray(data.propertyItems) ? data.propertyItems : []
-    return items
-      .map((item) => item as Record<string, unknown>)
-      .filter((item) => item.itemEnabled !== false)
-      .map((item) => ({ name: String(item.itemName ?? ''), value: String(item.itemValue ?? '') }))
+  audioDeviceOptions(inputName: string): Promise<ObsPropertyItem[]> {
+    return this.listPropertyItems(inputName, 'device_id')
   }
 
   async setInputSettings(

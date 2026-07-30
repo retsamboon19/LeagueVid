@@ -2,13 +2,13 @@ import { mkdirSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
 import type { RecordingSettings } from '../../shared/types'
 import type { AudioInputSpec, CaptureTarget } from './ffmpegArgs'
+import type { CaptureScope } from './captureBackend'
 import {
   buildProfileIni,
   buildRecordEncoderJson,
   buildSceneCollection,
   buildUserIni,
-  buildWebSocketConfig,
-  type GameCaptureTarget
+  buildWebSocketConfig
 } from './obsConfig'
 
 // Puts the generated OBS configuration on disk.
@@ -33,7 +33,7 @@ export interface WriteObsConfigInput {
   recordingDirectory: string
   /** Exact basename, without extension. */
   fileBasename: string
-  capture: GameCaptureTarget
+  scope: CaptureScope
   fallbackEncoder?: string
   webSocketPort: number
   webSocketPassword: string
@@ -111,7 +111,7 @@ export function writeObsConfig(input: WriteObsConfigInput): WrittenObsConfig {
         audioInputs: input.audioInputs,
         audioTrackMode: input.settings.audioTrackMode,
         drawMouse: input.settings.drawMouse,
-        capture: input.capture,
+        scope: input.scope,
         uuid: input.uuid
       }),
       null,
