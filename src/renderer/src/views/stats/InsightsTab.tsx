@@ -7,7 +7,7 @@ interface InsightsTabProps {
   focus: StatsParticipant
 }
 
-type GroupKey = 'fighting' | 'farming' | 'objectives' | 'vision'
+type GroupKey = 'fighting' | 'ganks' | 'farming' | 'objectives' | 'vision'
 
 interface Gauge {
   name: string
@@ -79,6 +79,31 @@ function buildGauges(
       countGauge('Solo deaths', heuristics?.soloDeaths ?? null, 6, {
         isEstimate: true,
         tone: 'bad'
+      })
+    ]
+  }
+
+  if (group === 'ganks') {
+    // Absent for junglers (no lane of their own) and for non-Summoner's-Rift
+    // modes, in both cases leaving every ring as "Not reported" rather than
+    // implying a clean laning phase.
+    const gank = stats.gankByParticipant[focus.participantId]
+    return [
+      countGauge('Gank attempts', gank?.gankAttempts ?? null, 3, {
+        isEstimate: true,
+        tone: 'neutral'
+      }),
+      countGauge('Ganks survived', gank?.ganksSurvived ?? null, 3, {
+        isEstimate: true,
+        tone: 'good'
+      }),
+      countGauge('Deaths to ganks', gank?.gankDeaths ?? null, 4, {
+        isEstimate: true,
+        tone: 'bad'
+      }),
+      countGauge('Ganks turned around', gank?.ganksTurnedAround ?? null, 3, {
+        isEstimate: true,
+        tone: 'good'
       })
     ]
   }
@@ -163,6 +188,7 @@ function GaugeRing({ gauge }: { gauge: Gauge }): JSX.Element {
 
 const GROUPS: Array<{ key: GroupKey; label: string }> = [
   { key: 'fighting', label: 'Fighting' },
+  { key: 'ganks', label: 'Ganks' },
   { key: 'farming', label: 'Farming' },
   { key: 'objectives', label: 'Objectives' },
   { key: 'vision', label: 'Vision' }
@@ -171,6 +197,7 @@ const GROUPS: Array<{ key: GroupKey; label: string }> = [
 function InsightsTab({ stats, focus }: InsightsTabProps): JSX.Element {
   const [group, setGroup] = useState<GroupKey>('fighting')
   const heuristics = stats.heuristicsByParticipant[focus.participantId]
+  const gank = stats.gankByParticipant[focus.participantId]
   const gauges = buildGauges(group, focus, stats, heuristics)
   const showsEstimates = gauges.some((g) => g.isEstimate)
 
@@ -189,10 +216,18 @@ function InsightsTab({ stats, focus }: InsightsTabProps): JSX.Element {
         ))}
       </div>
 
-      {!stats.hasTimeline && group === 'fighting' && (
+      {!stats.hasTimeline && (group === 'fighting' || group === 'ganks') && (
         <p className="settings-row-hint">
-          Teamfight and duel estimates need the match timeline, which hasn&apos;t been downloaded
-          for this game yet.
+          These estimates need the match timeline, which hasn&apos;t been downloaded for this game
+          yet.
+        </p>
+      )}
+
+      {stats.hasTimeline && group === 'ganks' && !gank && (
+        <p className="settings-row-hint">
+          {focus.teamPosition === 'JUNGLE'
+            ? 'Gank stats are measured relative to a player\u2019s own lane, so they don\u2019t apply to junglers.'
+            : 'Gank stats need Summoner\u2019s Rift lanes, so they aren\u2019t measured for this game mode.'}
         </p>
       )}
 
@@ -202,7 +237,17 @@ function InsightsTab({ stats, focus }: InsightsTabProps): JSX.Element {
         ))}
       </div>
 
-      {showsEstimates && (
+      {showsEstimates && group === 'ganks' && (
+        <p className="settings-row-hint">
+          Values marked <span className="gauge-estimate">est.</span> are computed by LeagueVid, not
+          supplied by Riot. A gank is counted when someone outside your normal lane matchup comes
+          into your lane before 15 minutes. Riot only reports player positions once a minute, so
+          attempts are sampled rather than fully counted &mdash; treat the attempt figures as a
+          floor, not an exact tally.
+        </p>
+      )}
+
+      {showsEstimates && group !== 'ganks' && (
         <p className="settings-row-hint">
           Values marked <span className="gauge-estimate">est.</span> are computed by LeagueVid from
           timeline kill events, not supplied by Riot. Teamfights are inferred from kills that

@@ -317,6 +317,30 @@ export interface HeuristicStats {
   soloDeaths: number
 }
 
+/**
+ * Early-game gank pressure, computed by LeagueVid (see main/riot/gankAnalyzer.ts).
+ * Riot provides nothing equivalent, so this is an estimate and must carry the
+ * UI's "est." marker.
+ *
+ * Only present for LANE roles on Summoner's Rift. Junglers are absent from the
+ * containing record rather than zeroed -- they have no lane to be ganked in, so
+ * zeros would read as a flawless performance.
+ */
+export interface GankStats {
+  /** Deaths before 15 min, in own lane, with a third party involved. */
+  gankDeaths: number
+  /**
+   * Times a third party was seen in the player's lane next to them. Sampled at
+   * the 60s frame interval, so this is a floor on what really happened, not a
+   * complete count.
+   */
+  gankAttempts: number
+  /** Sampled attempts that were not followed by a gank death. */
+  ganksSurvived: number
+  /** Third parties who died in the player's lane, with the player's help, without trading the player's life. */
+  ganksTurnedAround: number
+}
+
 export interface StatsParticipant {
   puuid: string
   participantId: number
@@ -418,6 +442,11 @@ export interface MatchStats {
   heuristicsByParticipant: Record<number, HeuristicStats>
   /** Laning-phase kills/deaths, keyed by participantId. Empty without a timeline. */
   earlyPhaseByParticipant: Record<number, EarlyPhaseStats>
+  /**
+   * Early-game gank pressure, keyed by participantId. Empty without a timeline
+   * and on non-Summoner's Rift modes, and never contains jungle participants.
+   */
+  gankByParticipant: Record<number, GankStats>
   objectives: ObjectiveEvent[]
 }
 

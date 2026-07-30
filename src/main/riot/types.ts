@@ -110,6 +110,12 @@ export interface TimelineFrameEvent {
 /** Per-participant snapshot inside a timeline frame. */
 export interface TimelineParticipantFrameDto {
   participantId: number
+  /**
+   * Where the player stood at this frame. Present on 100% of frames in cached
+   * data, but frames are 60s apart (frameInterval), so this samples movement
+   * rather than tracking it -- see gankAnalyzer.ts.
+   */
+  position?: { x: number; y: number }
   totalGold?: number
   currentGold?: number
   xp?: number

@@ -153,6 +153,12 @@ export function buildLiteMatchFacts({ video, roster }: BuildLiteFactsArgs): Matc
     teamfightWinRate: null,
     teamfightParticipation: null,
     soloDeaths: null,
-    towerDiveKills: null
+    towerDiveKills: null,
+
+    // Gank detection needs timeline positions, which a library tile never has.
+    gankDeaths: null,
+    gankAttempts: null,
+    ganksSurvived: null,
+    ganksTurnedAround: null
   }
 }

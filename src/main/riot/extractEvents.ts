@@ -1,6 +1,9 @@
 import type { MatchInfoDto, MatchTimelineDto } from './types'
 import type { AutoTagEvent, AutoTagType } from '../../shared/types'
 import { MULTIKILL_LABELS, multiKillTagType } from '../../shared/types'
+// Turret coordinates and distance helpers live in laneGeometry so tower-dive
+// detection and gank detection share one copy of the map.
+import { TURRET_POSITIONS, type TurretPos, distance } from './laneGeometry'
 
 export type { AutoTagEvent, AutoTagType }
 
@@ -57,52 +60,11 @@ function describeBuilding(
 // value isn't arbitrary.
 const MULTIKILL_WINDOW_MS = 10_000
 
-// Static Summoner's Rift turret coordinates (map11). These don't come from
-// the API -- Riot's timeline only reports building kills, not where every
-// standing turret is at any given moment -- so they're a fixed table
-// sourced from the map's known bounds/positions (x: -120..14870, y: -120..
-// 14980). teamId 100 = blue side, 200 = red side, matching Riot's
-// participant.teamId values.
-interface TurretPos {
-  x: number
-  y: number
-  teamId: number
-}
-
-const TURRET_POSITIONS: TurretPos[] = [
-  { x: 981, y: 10441, teamId: 100 }, // BLUE_TOP_LANE_OUTER_TURRET
-  { x: 1512, y: 6699, teamId: 100 }, // BLUE_TOP_LANE_INNER_TURRET
-  { x: 1169, y: 4287, teamId: 100 }, // BLUE_TOP_LANE_BASE_TURRET
-  { x: 5846, y: 6396, teamId: 100 }, // BLUE_MID_LANE_OUTER_TURRET
-  { x: 5048, y: 4812, teamId: 100 }, // BLUE_MID_LANE_INNER_TURRET
-  { x: 3651, y: 3696, teamId: 100 }, // BLUE_MID_LANE_BASE_TURRET
-  { x: 10504, y: 1029, teamId: 100 }, // BLUE_BOT_LANE_OUTER_TURRET
-  { x: 6919, y: 1483, teamId: 100 }, // BLUE_BOT_LANE_INNER_TURRET
-  { x: 4281, y: 1253, teamId: 100 }, // BLUE_BOT_LANE_BASE_TURRET
-  { x: 1748, y: 2270, teamId: 100 }, // BLUE_TOP_LANE_NEXUS_TURRET
-  { x: 2177, y: 1807, teamId: 100 }, // BLUE_BOT_LANE_NEXUS_TURRET
-  { x: 4318, y: 13875, teamId: 200 }, // RED_TOP_LANE_OUTER_TURRET
-  { x: 7943, y: 13411, teamId: 200 }, // RED_TOP_LANE_INNER_TURRET
-  { x: 10481, y: 13650, teamId: 200 }, // RED_TOP_LANE_BASE_TURRET
-  { x: 8955, y: 8510, teamId: 200 }, // RED_MID_LANE_OUTER_TURRET
-  { x: 9767, y: 10113, teamId: 200 }, // RED_MID_LANE_INNER_TURRET
-  { x: 11134, y: 11207, teamId: 200 }, // RED_MID_LANE_BASE_TURRET
-  { x: 13866, y: 4505, teamId: 200 }, // RED_BOT_LANE_OUTER_TURRET
-  { x: 13327, y: 8226, teamId: 200 }, // RED_BOT_LANE_INNER_TURRET
-  { x: 13624, y: 10572, teamId: 200 }, // RED_BOT_LANE_BASE_TURRET
-  { x: 12611, y: 13084, teamId: 200 }, // RED_TOP_LANE_NEXUS_TURRET
-  { x: 13052, y: 12612, teamId: 200 } // RED_BOT_LANE_NEXUS_TURRET
-]
-
 // Turret attack range is 775 units. A little slack is added since the kill
 // position is the victim's death spot, not necessarily exactly where the
 // turret's hitbox line is drawn -- without it, dives that were obviously
 // "under tower" by eye were landing just outside 775 and getting missed.
 const TOWER_DIVE_RANGE = 775 + 100
-
-function distance(a: { x: number; y: number }, b: { x: number; y: number }): number {
-  return Math.hypot(a.x - b.x, a.y - b.y)
-}
 
 /**
  * True if the given position is within an enemy turret's attack range.

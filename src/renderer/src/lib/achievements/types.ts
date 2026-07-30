@@ -139,6 +139,22 @@ export interface MatchFacts {
   soloDeaths: number | null
   /** Solo kills landed under a standing enemy turret (tower dives). */
   towerDiveKills: number | null
+
+  // --- Early-game ganks (see main/riot/gankAnalyzer.ts) ---
+  // All null for junglers, who have no lane to be ganked in, and outside
+  // Summoner's Rift. Rules must not read a null as a clean laning phase.
+  /** Deaths before 15 min, in own lane, with a third party involved. */
+  gankDeaths: number | null
+  /**
+   * Times a third party was seen in the player's lane beside them. Sampled at
+   * Riot's 60s frame interval, so it is a floor rather than a full count --
+   * rules should use it as evidence that pressure existed, not as a tally.
+   */
+  gankAttempts: number | null
+  /** Sampled attempts not followed by a death to that gank. */
+  ganksSurvived: number | null
+  /** Gankers who died in the player's lane, with the player's help, no trade. */
+  ganksTurnedAround: number | null
 }
 
 export type AchievementCategory = 'positive' | 'negative'
@@ -169,6 +185,15 @@ export type AchievementGroup =
   | 'tanking'
   | 'longevity'
   | 'kda'
+  /** Dying to early ganks. */
+  | 'gank_pressure'
+  /**
+   * Coming out of early gank pressure ahead. Deliberately one group for
+   * surviving, going unfound, and killing the ganker: they measure the same
+   * laning phase from different angles, so only the strongest should show
+   * rather than three tiles all saying "the ganks went badly for them".
+   */
+  | 'gank_survival'
 
 export interface AchievementDefinition {
   /** Stable id. Persisted/filtered against, so never rename in place. */

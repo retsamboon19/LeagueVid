@@ -145,6 +145,7 @@ export function buildMatchFacts({ stats, focus, tags }: BuildFactsArgs): MatchFa
 
   const heuristics = stats.heuristicsByParticipant[focus.participantId]
   const earlyPhase = stats.earlyPhaseByParticipant?.[focus.participantId]
+  const ganks = stats.gankByParticipant?.[focus.participantId]
   const goldSeries = stats.hasTimeline ? teamGoldSeries(stats, focus.teamId) : []
   const phases = csPhases(stats, focus.participantId)
 
@@ -253,6 +254,13 @@ export function buildMatchFacts({ stats, focus, tags }: BuildFactsArgs): MatchFa
     teamfightWinRate: heuristics?.teamfightWinRate ?? null,
     teamfightParticipation: heuristics?.teamfightParticipation ?? null,
     soloDeaths: heuristics?.soloDeaths ?? null,
-    towerDiveKills
+    towerDiveKills,
+
+    // Absent for junglers and non-Summoner's-Rift modes, which must read as
+    // "unavailable" rather than a gank-free laning phase.
+    gankDeaths: ganks?.gankDeaths ?? null,
+    gankAttempts: ganks?.gankAttempts ?? null,
+    ganksSurvived: ganks?.ganksSurvived ?? null,
+    ganksTurnedAround: ganks?.ganksTurnedAround ?? null
   }
 }

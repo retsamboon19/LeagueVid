@@ -188,6 +188,44 @@ export const THRESHOLDS = {
     selfMitigated: 45_000
   },
 
+  // --- Early-game ganks ---
+  //
+  // Calibrated with scripts/verify-gank-stats.ts, which runs the shipped
+  // analyzer over 6,739 laner-games from 843 cached Summoner's Rift matches.
+  // That sample is all ten players in each game rather than one player's
+  // history, so it describes the population rather than any one account.
+  //
+  // Caveat on flat values: gank exposure is not uniform by role. Mean sampled
+  // attempts run 0.71 for MIDDLE and 0.66 for BOTTOM but only 0.47 for TOP,
+  // which is the most isolated lane. The counts are small integers, so role
+  // scaling would mostly move rules between "never fires" and "fires often"
+  // with nothing in between; these are flat until there is a per-role sample
+  // worth tuning against.
+  ganks: {
+    /**
+     * Deaths to early ganks that mark a lane as hunted. Measured: 3+ fires in
+     * 5.8% of laner-games (2+ would be 21.0%, too routine for a criticism).
+     * Below the 10-15% the other negatives target, because the distribution is
+     * coarse and over-firing a "you got camped" tile is the worse mistake.
+     */
+    manyGankDeaths: 3,
+    /**
+     * Sampled attempts survived without dying. Measured: 2+ fires in 4.5%.
+     */
+    ganksSurvived: 2,
+    /** Gankers killed in your own lane. Measured: 2+ fires in 4.0%. */
+    turnedAround: 2,
+    /** A single turnaround, for the lower tier. Measured: fires in 22.0%. */
+    turnedAroundOne: 1,
+    /**
+     * Attempts that must have been sampled before "never died to a gank" means
+     * anything. Zero gank deaths alone is 42.9% of games and usually just means
+     * nothing happened; pairing it with witnessed pressure drops it to 2.2%,
+     * which is what makes it an achievement rather than a quiet game.
+     */
+    pressureWitnessed: 2
+  },
+
   // --- Damage ---
   damage: {
     /** Champion damage for "Ouch You Hurt". TOP measured p90; fires ~10%. */

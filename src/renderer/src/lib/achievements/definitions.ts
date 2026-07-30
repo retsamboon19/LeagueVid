@@ -391,6 +391,72 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
       `You went ${Math.round(f.longestTimeSpentLiving / 60)} minutes straight without dying.`
   },
 
+  // --- Early ganks ----------------------------------------------------------
+  //
+  // All four share the gank_survival group on purpose, so a good laning phase
+  // shows its single strongest tile instead of four tiles restating it.
+  //
+  // Every rule here is an estimate: gank detection is LeagueVid's own, derived
+  // from lane corridor geometry and Riot's once-a-minute position samples. Null
+  // facts (junglers, non-Summoner's-Rift modes) must never satisfy a condition,
+  // hence the explicit null checks rather than `?? 0`.
+  {
+    id: 'unfindable',
+    title: 'Unfindable',
+    category: 'positive',
+    group: 'gank_survival',
+    // Rarest of the set at 2.2% of laner-games, and the one that best answers
+    // "did I play the map well", so it outranks the rest of the group.
+    priority: 90,
+    icon: 'shield',
+    isEstimate: true,
+    condition: (f, t) =>
+      f.gankDeaths !== null &&
+      f.gankAttempts !== null &&
+      f.gankDeaths === 0 &&
+      f.gankAttempts >= t.ganks.pressureWitnessed,
+    describe: (f) =>
+      `They came for your lane ${f.gankAttempts} times before 15 minutes and never got you once.`
+  },
+  {
+    id: 'gank_turnaround',
+    title: 'Turned the Tables',
+    category: 'positive',
+    group: 'gank_survival',
+    priority: 86,
+    icon: 'swords',
+    isEstimate: true,
+    condition: (f, t) =>
+      f.ganksTurnedAround !== null && f.ganksTurnedAround >= t.ganks.turnedAround,
+    describe: (f) => `${f.ganksTurnedAround} enemies came to gank your lane and died for it.`
+  },
+  {
+    id: 'ganks_survived',
+    title: 'Slippery',
+    category: 'positive',
+    group: 'gank_survival',
+    priority: 76,
+    icon: 'heart',
+    isEstimate: true,
+    condition: (f, t) => f.ganksSurvived !== null && f.ganksSurvived >= t.ganks.ganksSurvived,
+    describe: (f) => `You walked away from ${f.ganksSurvived} early ganks on your lane.`
+  },
+  {
+    id: 'gank_punisher',
+    title: 'Punished the Roam',
+    category: 'positive',
+    group: 'gank_survival',
+    // Fires in 22% of laner-games, so it sits in routine territory -- the
+    // group's higher tiers displace it whenever the laning phase went better
+    // than "a roam showed up and died".
+    priority: 46,
+    icon: 'crosshair',
+    isEstimate: true,
+    condition: (f, t) =>
+      f.ganksTurnedAround !== null && f.ganksTurnedAround >= t.ganks.turnedAroundOne,
+    describe: () => 'Someone rotated into your lane to kill you and died there instead.'
+  },
+
   // --- Support and utility --------------------------------------------------
   {
     id: 'medic',
@@ -680,6 +746,21 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     condition: (f, t) =>
       f.earlyDeaths !== null && f.earlyDeaths >= forRole(t.survival.earlyDeaths, f.role),
     describe: (f) => `${f.earlyDeaths} deaths inside the laning phase put you behind early.`
+  },
+  {
+    id: 'gank_magnet',
+    title: 'Gank Magnet',
+    category: 'negative',
+    // Its own group rather than 'deaths': being repeatedly collapsed on in lane
+    // is a different problem from dying a lot overall, and the fix is different
+    // too, so it should be able to appear alongside a raw death-count tile.
+    group: 'gank_pressure',
+    priority: 70,
+    icon: 'target',
+    isEstimate: true,
+    condition: (f, t) => f.gankDeaths !== null && f.gankDeaths >= t.ganks.manyGankDeaths,
+    describe: (f) =>
+      `${f.gankDeaths} of your early deaths came from enemies collapsing on your lane. Worth checking your ward timings on the rewatch.`
   },
   {
     id: 'time_dead',

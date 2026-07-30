@@ -1,5 +1,6 @@
 import type {
   EarlyPhaseStats,
+  GankStats,
   ItemPurchaseGroup,
   MatchStats,
   MatchStatsResult,
@@ -12,6 +13,7 @@ import type {
 } from '../../shared/types'
 import { getCachedApiValue } from '../db/repository'
 import { matchRegionForPlatform } from './client'
+import { analyzeGanks } from './gankAnalyzer'
 import { analyzeAllParticipants } from './teamfightAnalyzer'
 import type {
   MatchDto,
@@ -245,6 +247,33 @@ function extractEarlyPhase(
   return result
 }
 
+/**
+ * Gank stats, but only where they mean something.
+ *
+ * The lane corridors in laneGeometry.ts are Summoner's Rift geometry, so any
+ * other map has to be skipped rather than measured against the wrong shape --
+ * ARAM in particular is a single lane where "a third party in your lane" is
+ * simply the game. An empty record makes the renderer show these as
+ * unavailable, which is the honest answer for those modes.
+ */
+function computeGankStats(
+  match: MatchDto,
+  frames: TimelineFrameDto[],
+  hasTimeline: boolean
+): Record<number, GankStats> {
+  if (!hasTimeline) return {}
+  if (match.info.gameMode !== 'CLASSIC') return {}
+
+  return analyzeGanks(
+    frames,
+    (match.info.participants ?? []).map((p) => ({
+      participantId: p.participantId,
+      teamId: p.teamId,
+      role: p.teamPosition || p.individualPosition || ''
+    }))
+  )
+}
+
 function extractFrames(timeline: MatchTimelineDto): TimelineFrameStats[] {
   return (timeline.info?.frames ?? []).map((frame) => {
     const participantFrames = frame.participantFrames ?? {}
@@ -447,6 +476,7 @@ export function getMatchStatsBulkLite(args: GetMatchStatsBulkArgs): Record<numbe
       teams: buildTeams(participants),
       // Empty frames, so the per-participant timeline extractions are skipped.
       participants: participants.map((p) => toStatsParticipant(p, [])),
+      gankByParticipant: {},
       frames: [],
       heuristicsByParticipant: {},
       earlyPhaseByParticipant: {},
@@ -495,6 +525,7 @@ export function getMatchStats(args: GetMatchStatsArgs): MatchStatsResult {
           participants.map((p) => p.participantId)
         )
       : {},
+    gankByParticipant: computeGankStats(match, frames, hasTimeline),
     objectives: hasTimeline ? extractObjectives(frames, focusParticipantId) : []
   }
 

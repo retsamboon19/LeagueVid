@@ -199,9 +199,10 @@ function buildStats(match: MatchDto, timeline: MatchTimelineDto | null, ownerPuu
           }))
         }))
       : [],
-    // Heuristics need the timeline analyzer, which imports cleanly. Filled in
-    // by the caller so this function stays dependency-light.
+    // Heuristics and gank stats need the timeline analyzers, which import
+    // cleanly. Filled in by the caller so this function stays dependency-light.
     heuristicsByParticipant: {},
+    gankByParticipant: {},
     earlyPhaseByParticipant: hasTimeline ? earlyPhaseFromFrames(frames, statsParticipants.map((p) => p.participantId)) : {},
     objectives
   }
@@ -295,8 +296,13 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
-  // The teamfight analyzer is pure and importable, unlike matchStats.ts.
+  // The teamfight and gank analyzers are pure and importable, unlike
+  // matchStats.ts. Anything this harness forgets to populate shows up as a
+  // rule firing in 0% of games, so new payload fields must be wired in here
+  // too -- scripts/ is outside tsconfig.node.json, so the compiler will not
+  // catch the omission.
   const { analyzeAllParticipants } = await import('../src/main/riot/teamfightAnalyzer')
+  const { analyzeGanks } = await import('../src/main/riot/gankAnalyzer')
 
   const fired = new Map<string, number>()
   const factsList: MatchFacts[] = []
@@ -347,6 +353,18 @@ async function main(): Promise<void> {
         timeline.info.frames,
         stats.participants.map((p) => p.participantId)
       )
+      // Gank stats are Summoner's Rift only, matching computeGankStats in
+      // main/riot/matchStats.ts.
+      if (match.info.gameMode === 'CLASSIC') {
+        stats.gankByParticipant = analyzeGanks(
+          timeline.info.frames,
+          match.info.participants.map((p) => ({
+            participantId: p.participantId,
+            teamId: p.teamId,
+            role: p.teamPosition || p.individualPosition || ''
+          }))
+        )
+      }
     }
 
     const focus = stats.participants.find((p) => p.puuid === ownerPuuid)
