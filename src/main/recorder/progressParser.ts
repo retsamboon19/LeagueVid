@@ -110,27 +110,59 @@ function floatOf(value: string | undefined): number {
 export const DROP_RATIO_WARNING = 0.01
 export const SPEED_WARNING = 0.95
 
+/**
+ * Fraction of duplicated frames above which the capture is stuttering.
+ *
+ * Set well clear of the harmless cases. Some duplication is normal and means
+ * nothing is wrong: ddagrab only produces a frame when the desktop changes, so
+ * a menu, a loading screen or an alt-tab legitimately repeats frames, and
+ * capturing above the panel's refresh rate duplicates by definition. Sustained
+ * duplication *during gameplay* is a different thing entirely, and 25% is high
+ * enough that a game running normally cannot reach it.
+ */
+export const DUP_RATIO_WARNING = 0.25
+
 export interface CaptureHealth {
   healthy: boolean
   dropRatio: number
+  dupRatio: number
   reasons: string[]
 }
 
 /**
  * Judges a progress sample.
  *
- * Both thresholds matter for different failures: dropped frames mean the
- * capture couldn't keep up and the footage has gaps, while speed under real
- * time means the encoder is behind and the buffer is growing -- which ends in
- * dropped frames later even if none have been dropped yet.
+ * Three separate failures, and they are genuinely distinct:
+ *
+ * Dropped frames mean the capture couldn't keep up and the footage has gaps.
+ * Speed under real time means the encoder is behind and the buffer is growing,
+ * which ends in dropped frames later even if none have been dropped yet.
+ *
+ * Duplicated frames mean the *source* had nothing new to give. This one was
+ * missing, and its absence is why a recording could be reported as healthy while
+ * being unwatchable: with `-fps_mode cfr` ffmpeg pads the output back up to the
+ * target rate, so a capture receiving 6 new frames a second still writes a
+ * well-formed 30fps file, at full size, at 1.00x speed, with zero drops. Every
+ * number the recorder looked at said the session was fine. What the user saw was
+ * a slideshow. Duplication is the only signal that separates those two cases.
  */
 export function assessCaptureHealth(sample: RecorderProgress): CaptureHealth {
   const reasons: string[] = []
   const dropRatio = sample.frame > 0 ? sample.dropFrames / sample.frame : 0
+  const dupRatio = sample.frame > 0 ? sample.dupFrames / sample.frame : 0
 
   if (dropRatio > DROP_RATIO_WARNING) {
     reasons.push(
       `Dropping frames (${sample.dropFrames} of ${sample.frame}, ${(dropRatio * 100).toFixed(1)}%).`
+    )
+  }
+  if (dupRatio > DUP_RATIO_WARNING) {
+    // Phrased as what it looks like rather than as a statistic, because
+    // "duplicate frames" does not obviously mean "your recording stutters".
+    reasons.push(
+      `Only ${((1 - dupRatio) * 100).toFixed(0)}% of frames are new — the recording will ` +
+        `look choppy even though it reports ${sample.fps.toFixed(0)} fps. ` +
+        `${sample.dupFrames} of ${sample.frame} frames are repeats of the previous one.`
     )
   }
   // Only meaningful once encoding has actually started; speed reads 0 before
@@ -139,5 +171,5 @@ export function assessCaptureHealth(sample: RecorderProgress): CaptureHealth {
     reasons.push(`Encoding slower than real time (${sample.speed.toFixed(2)}x).`)
   }
 
-  return { healthy: reasons.length === 0, dropRatio, reasons }
+  return { healthy: reasons.length === 0, dropRatio, dupRatio, reasons }
 }

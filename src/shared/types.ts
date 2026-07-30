@@ -508,6 +508,14 @@ export const BITRATE_OPTIONS = [
 ]
 
 export interface RecordingSettings {
+  /**
+   * Schema version of the stored row, so a one-time correction can be applied
+   * to settings written by an older build and then left alone.
+   *
+   * Absent on rows written before versioning existed, which is exactly the
+   * set of rows that needs migrating.
+   */
+  settingsVersion?: number
   /** Master switch for automatic recording. Off until the user opts in. */
   enabled: boolean
   /** null = the default folder (a 'recordings' folder beside the app). */
@@ -590,7 +598,16 @@ export interface RecordingSettings {
   retentionMaxAgeDays: number | null
 }
 
+/**
+ * Current settings schema version.
+ *
+ * 2 retires the scaled, sub-60fps capture configuration that earlier builds
+ * wrote. See migrateRecordingSettings for why that configuration had to go.
+ */
+export const RECORDING_SETTINGS_VERSION = 2
+
 export const DEFAULT_RECORDING_SETTINGS: RecordingSettings = {
+  settingsVersion: RECORDING_SETTINGS_VERSION,
   enabled: false,
   outputDir: null,
 
@@ -657,9 +674,75 @@ export function parseRecordingSettings(stored: string | null | undefined): Recor
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
       return { ...DEFAULT_RECORDING_SETTINGS }
     }
-    return { ...DEFAULT_RECORDING_SETTINGS, ...parsed }
+    // The version has to be read off the stored row *before* the defaults are
+    // merged in. Merging first would supply the current version to a row that
+    // never had one, and every legacy row would then claim to be up to date --
+    // which silently disables the migration below for exactly the rows that
+    // need it.
+    const storedVersion =
+      typeof parsed.settingsVersion === 'number' ? parsed.settingsVersion : 1
+
+    return migrateRecordingSettings({
+      ...DEFAULT_RECORDING_SETTINGS,
+      ...parsed,
+      settingsVersion: storedVersion
+    })
   } catch {
     return { ...DEFAULT_RECORDING_SETTINGS }
+  }
+}
+
+/** The lowest framerate that still reads as motion rather than as stills. */
+export const MIN_SANE_FRAMERATE: RecordingFramerate = 60
+
+/**
+ * Bitrate floor when moving a stored row to native capture.
+ *
+ * This is recommendedBitrateKbps(1920, 1080, 60) -- the advice module's own
+ * figure for 1080p60 -- written out rather than imported to keep this file free
+ * of intra-shared dependencies. Deliberately the conservative reference size
+ * rather than the settings default of 40 Mbps: the migration should stop 3 Mbps
+ * from starving a native capture, not silently commit someone to 18 GB an hour.
+ */
+export const NATIVE_CAPTURE_FLOOR_KBPS = 10_000
+
+/**
+ * One-time correction of settings written before the capture pipeline's costs
+ * were understood.
+ *
+ * Older builds shipped presets that scaled the capture and recorded at 30fps,
+ * and those values were persisted. Raising the preset floor afterwards fixed
+ * nothing for anyone who had already recorded a game, because presets are only
+ * consulted when the user clicks one -- the stored row kept feeding 720p30 to
+ * ffmpeg indefinitely. This is that row being retired.
+ *
+ * Both changes address the same measured failure. Scaling forces
+ * ddagrab -> hwdownload -> swscale on every frame, a full readback out of GPU
+ * memory that has to wait behind whatever the game has queued on the GPU; the
+ * result is a capture that stalls for a few hundred milliseconds at a time
+ * while the game itself stays smooth. A recording made this way was measured at
+ * 6 unique frames per second inside a well-formed 30fps file, with 385 separate
+ * freezes in 193 seconds -- the rest of the file being frames ddagrab repeated
+ * because the desktop had not changed, which `-fps_mode cfr` then padded out.
+ *
+ * Versioned rather than clamped on every read, so someone who genuinely wants
+ * 720p30 can set it after the migration and have it stick.
+ */
+export function migrateRecordingSettings(settings: RecordingSettings): RecordingSettings {
+  if ((settings.settingsVersion ?? 1) >= RECORDING_SETTINGS_VERSION) return settings
+
+  return {
+    ...settings,
+    // Native is both faster and sharper here. There is no tier where scaling
+    // is the cheaper option, which is why this resets rather than steps down.
+    resolutionScale: 'native',
+    framerate:
+      settings.framerate < MIN_SANE_FRAMERATE ? MIN_SANE_FRAMERATE : settings.framerate,
+    // A bitrate chosen for 720p starves a native-resolution capture, and the
+    // symptom (a blocky mess in teamfights) would read as a new bug. Only
+    // raised, never lowered, so a deliberately generous value survives.
+    bitrateKbps: Math.max(settings.bitrateKbps, NATIVE_CAPTURE_FLOOR_KBPS),
+    settingsVersion: RECORDING_SETTINGS_VERSION
   }
 }
 

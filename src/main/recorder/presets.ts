@@ -1,7 +1,7 @@
 import type { RecorderProgress, RecordingFramerate, RecordingSettings } from '../../shared/types'
 import { FRAMERATE_OPTIONS } from '../../shared/types'
 import { ADVICE_FLOOR_KBPS, outputHeightFor, recommendedBitrateKbps } from '../../shared/bitrateAdvice'
-import { assessCaptureHealth } from './progressParser'
+import { DUP_RATIO_WARNING, assessCaptureHealth } from './progressParser'
 
 // Quality presets, and the logic that reads a preflight result.
 //
@@ -255,6 +255,14 @@ export interface PreflightMeasurement {
   frames: number
   /** Frames the pipeline threw away. */
   droppedFrames: number
+  /**
+   * Frames ffmpeg repeated to hold the output at the target rate.
+   *
+   * The measurement this report is least able to do without: a scaled capture
+   * that stalls produces a file at exactly the requested framerate and size
+   * with no drops, and duplication is the only field that shows it.
+   */
+  duplicateFrames: number
   /** Average encode rate over the test. */
   averageFps: number
   /** Processing speed against real time. */
@@ -343,7 +351,7 @@ export function assessPreflight(measurement: PreflightMeasurement): PreflightVer
     totalSizeBytes: measurement.sizeBytes,
     outTimeMs: measurement.durationSeconds * 1000,
     dropFrames: measurement.droppedFrames,
-    dupFrames: 0,
+    dupFrames: measurement.duplicateFrames,
     speed: measurement.speed,
     ended: true
   })
@@ -367,17 +375,25 @@ export function assessPreflight(measurement: PreflightMeasurement): PreflightVer
     )
   }
 
+  const stuttering = health.dupRatio > DUP_RATIO_WARNING
+
   return {
     ok: false,
-    headline: 'These settings are more than this machine can sustain.',
+    // A stuttering capture is not an overloaded machine, and saying so sends
+    // the user to lower every setting -- which does not help, because the
+    // encoder was never the constraint.
+    headline: stuttering
+      ? 'The capture is running, but most frames are repeats.'
+      : 'These settings are more than this machine can sustain.',
     details,
-    ...suggestion(measurement, dropRatio),
+    ...suggestion(measurement, dropRatio, health.dupRatio),
   }
 }
 
 function suggestion(
   measurement: PreflightMeasurement,
-  dropRatio: number
+  dropRatio: number,
+  dupRatio: number
 ): { recommendation: string; suggestedPreset: QualityPresetName | null } {
   // Scaling first, and upwards, because it is the one change that costs nothing
   // to make and gets both faster and sharper. Any resolution other than Native
@@ -388,6 +404,20 @@ function suggestion(
     return {
       recommendation:
         'Set the resolution to Native. Scaling copies every frame out of the GPU and back, which costs more than the extra pixels do -- Native is both faster here and sharper.',
+      suggestedPreset: null
+    }
+  }
+
+  // Native and still duplicating means the display is not handing over frames,
+  // which no quality setting affects. Lowering the framerate here would even
+  // look like it helped -- fewer frames requested means fewer padded -- while
+  // the footage stayed exactly as choppy.
+  if (dupRatio > DUP_RATIO_WARNING) {
+    return {
+      recommendation:
+        'The encoder is keeping up; the display is not producing new frames. Run the game in ' +
+        'Borderless rather than Fullscreen, check that the monitor selected here is the one the ' +
+        'game is on, and if Hardware-accelerated GPU scheduling is on in Windows, try turning it off.',
       suggestedPreset: null
     }
   }
@@ -434,6 +464,7 @@ export function measurementFromProgress(
   return {
     frames: sample?.frame ?? 0,
     droppedFrames: sample?.dropFrames ?? 0,
+    duplicateFrames: sample?.dupFrames ?? 0,
     // ffmpeg's fps field is instantaneous; over a short test the average is
     // better derived from frames over elapsed output time.
     averageFps: durationSeconds > 0 ? (sample?.frame ?? 0) / durationSeconds : 0,

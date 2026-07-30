@@ -18,6 +18,7 @@ function measurement(overrides: Partial<PreflightMeasurement> = {}): PreflightMe
   return {
     frames: 600,
     droppedFrames: 0,
+    duplicateFrames: 0,
     averageFps: 60,
     speed: 1.0,
     sizeBytes: 50 * 1024 ** 2,

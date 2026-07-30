@@ -13,7 +13,11 @@ import type {
   VideoRow,
   VideoSource
 } from '../../shared/types'
-import { DEFAULT_PLAYER_PREFERENCES, parseRecordingSettings } from '../../shared/types'
+import {
+  DEFAULT_PLAYER_PREFERENCES,
+  RECORDING_SETTINGS_VERSION,
+  parseRecordingSettings
+} from '../../shared/types'
 import {
   clampBitrateKbps,
   clampMinKeepMinutes,
@@ -141,7 +145,12 @@ export function saveRecordingSettings(settings: RecordingSettings): void {
   const safe: RecordingSettings = {
     ...settings,
     bitrateKbps: clampBitrateKbps(settings.bitrateKbps).value,
-    minKeepDurationMs: minutesToMs(clampMinKeepMinutes(msToMinutes(settings.minKeepDurationMs)).value)
+    minKeepDurationMs: minutesToMs(clampMinKeepMinutes(msToMinutes(settings.minKeepDurationMs)).value),
+    // Anything written from here is current by definition, so it must carry the
+    // version. Without this a row saved by a build that predates versioning
+    // would be re-migrated on every read, and a user who deliberately picks a
+    // scaled or low framerate would find it reset each time.
+    settingsVersion: RECORDING_SETTINGS_VERSION
   }
 
   run(

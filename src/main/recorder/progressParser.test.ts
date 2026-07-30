@@ -178,6 +178,42 @@ describe('assessCaptureHealth', () => {
     expect(health.reasons).toHaveLength(2)
   })
 
+  // The failure this check was added for. Reproduced from a real 193-second
+  // session: 5777 frames written at a steady 30fps, nothing dropped, 1.00x
+  // speed, full file size -- and only 1186 of those frames carried new content,
+  // so it played as a slideshow. Every other signal here reads as healthy.
+  it('catches a capture whose frames are nearly all repeats', () => {
+    const health = assessCaptureHealth({
+      ...sample,
+      frame: 5777,
+      fps: 30,
+      dupFrames: 5777 - 1186,
+      dropFrames: 0,
+      speed: 1.0
+    })
+
+    expect(health.healthy).toBe(false)
+    expect(health.dupRatio).toBeCloseTo(0.795, 2)
+    expect(health.reasons[0]).toContain('look choppy')
+  })
+
+  // Duplication is normal in the cases the recorder cannot avoid: a loading
+  // screen has nothing to hand over, and capturing above the panel's refresh
+  // duplicates by definition. Warning on those would train the user to ignore
+  // the warning that matters.
+  it('tolerates the duplication a still screen legitimately produces', () => {
+    expect(assessCaptureHealth({ ...sample, dupFrames: 150 }).healthy).toBe(true)
+  })
+
+  it('separates a stuttering source from an overloaded encoder', () => {
+    const stuttering = assessCaptureHealth({ ...sample, dupFrames: 800 })
+    const overloaded = assessCaptureHealth({ ...sample, dropFrames: 100, speed: 0.6 })
+
+    expect(stuttering.reasons).toHaveLength(1)
+    expect(stuttering.reasons[0]).toContain('look choppy')
+    expect(overloaded.reasons.every((r) => !r.includes('look choppy'))).toBe(true)
+  })
+
   // Before the first frame lands, speed reads 0 and nothing has been dropped.
   // Warning there would fire on every single recording at startup.
   it('does not warn before the first frame', () => {
