@@ -460,6 +460,42 @@ const api = {
       shouldWarn: boolean
       message: string | null
     }> => ipcRenderer.invoke('recorder:getGraphicsScheduling'),
+
+    // --- Capture backend ---
+    // Which capture technology records, and why the other one cannot. Game
+    // capture reads the game's own frames; screen capture scrapes the desktop
+    // and cannot see a game in exclusive fullscreen at all.
+    getCaptureBackends: (): Promise<
+      Array<{
+        id: string
+        label: string
+        availability: { available: boolean; reason?: string; version?: string }
+        active: boolean
+      }>
+    > => ipcRenderer.invoke('recorder:getCaptureBackends'),
+
+    // Downloads OBS, which is not shipped with LeagueVid because it is larger
+    // than everything else here combined.
+    installObs: (): Promise<{ alreadyPresent: boolean; root: string; origin: string }> =>
+      ipcRenderer.invoke('recorder:installObs'),
+
+    isInstallingObs: (): Promise<boolean> => ipcRenderer.invoke('recorder:isInstallingObs'),
+
+    // Progress for the install above. A 179 MB download with no feedback is
+    // indistinguishable from a button that does nothing.
+    onObsInstallProgress: (
+      handler: (progress: {
+        phase: string
+        receivedBytes: number
+        totalBytes: number | null
+        fraction: number | null
+      }) => void
+    ): (() => void) => {
+      const listener = (_e: unknown, progress: Parameters<typeof handler>[0]): void =>
+        handler(progress)
+      ipcRenderer.on('recorder:obsInstallProgress', listener)
+      return () => ipcRenderer.removeListener('recorder:obsInstallProgress', listener)
+    },
     applyPreset: (preset: string): Promise<RecordingSettings> =>
       ipcRenderer.invoke('recorder:applyPreset', preset),
 

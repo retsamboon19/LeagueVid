@@ -532,6 +532,16 @@ export interface RecordingSettings {
   framerate: RecordingFramerate
   drawMouse: boolean
 
+  /**
+   * Which capture technology to record with, or null to pick automatically.
+   *
+   * Automatic prefers game capture, which reads the game's own frames, and falls
+   * back to screen capture when OBS is not installed. Pinning exists because the
+   * two fail in different ways and someone debugging a bad recording needs to be
+   * able to take one out of the picture.
+   */
+  captureBackend?: 'ffmpeg-ddagrab' | 'obs' | null
+
   /** null = whichever encoder capability probing ranked highest. */
   encoder: string | null
   rateControl: RateControlMode
@@ -612,6 +622,7 @@ export const DEFAULT_RECORDING_SETTINGS: RecordingSettings = {
   outputDir: null,
 
   displayId: null,
+  captureBackend: null,
   resolutionScale: 'native',
   framerate: 60,
   drawMouse: false,

@@ -12,7 +12,7 @@ import {
 import type { AudioInputSpec, CaptureTarget } from './ffmpegArgs'
 import { ffmpegBinaryPath } from './ffmpegBinary'
 import type { CaptureHandle } from './ffmpegProcess'
-import { activeCaptureBackend } from './backendSelection'
+import { activeCaptureBackend, pinBackend } from './backendSelection'
 import type { CaptureBackend } from './captureBackend'
 import { spawn } from 'child_process'
 import { buildSessionPath } from './outputPaths'
@@ -147,6 +147,9 @@ export function onRecorderStateChange(
 export function initRecorderService(): void {
   const settings = getRecordingSettings()
   state = initialRecorderState(settings.enabled)
+  // Applied at startup as well as on save, or a pinned backend would quietly
+  // revert to automatic selection on every launch.
+  pinBackend(settings.captureBackend ?? null)
 }
 
 export function setRecordingEnabled(enabled: boolean): RecorderStateSnapshot {

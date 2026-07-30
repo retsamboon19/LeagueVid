@@ -24,6 +24,8 @@ import { resolveAudioInputs } from './autoRecorderHost'
 import { probeEncoders } from './encoderCapabilities'
 import { estimateTotalBitrateKbps, formatStorageEstimate, gigabytesPerHour } from './estimates'
 import { readGraphicsScheduling } from './graphicsScheduling'
+import { clearBackendCache, pinBackend, reportBackends } from './backendSelection'
+import { installManagedObs, isInstalling } from './obsInstaller'
 import type { CaptureTarget } from './ffmpegArgs'
 import { defaultRecordingsDir, recordingsDir } from './outputPaths'
 import { runPreflightTest } from './preflight'
@@ -82,11 +84,43 @@ export function registerRecorderHandlers(): void {
     // Applied here rather than at startup so the OS registration always matches
     // what the user last chose, including after they turn it off.
     applyLaunchAtLogin(settings.launchAtLogin)
+    // Selection is cached, so a change to which backend is pinned has to be
+    // pushed through or it would not take effect until the next launch.
+    pinBackend(settings.captureBackend ?? null)
     // Echoed back rather than returning void: the stored row is merged over
     // the current defaults on read, so what the renderer gets back is the
     // configuration that will actually be used, not just what it sent.
     return getRecordingSettings()
   })
+
+  // --- Capture backend ---
+  // Which capture technology will record, and why the other one will not. Worth
+  // surfacing because the difference is the whole reason recordings went from a
+  // slideshow to smooth, and because an unavailable backend needs to say what to
+  // do about it rather than just being absent.
+
+  ipcMain.handle('recorder:getCaptureBackends', () => reportBackends())
+
+  // Fetches OBS. Progress is pushed while it runs, because it is a 179 MB
+  // download and a button that appears to do nothing for two minutes is
+  // indistinguishable from a broken one.
+  ipcMain.handle('recorder:installObs', async (event) => {
+    const result = await installManagedObs((progress) => {
+      if (!event.sender.isDestroyed()) {
+        event.sender.send('recorder:obsInstallProgress', progress)
+      }
+    })
+    // The previous probe said unavailable and is cached; without this the newly
+    // installed OBS would not be used until restart.
+    clearBackendCache()
+    return {
+      alreadyPresent: result.alreadyPresent,
+      root: result.install.root,
+      origin: result.install.origin
+    }
+  })
+
+  ipcMain.handle('recorder:isInstallingObs', () => isInstalling())
 
   // Cached result if there is one, otherwise probe now. First call after
   // install pays the cost; every later launch reads the row.

@@ -57,6 +57,14 @@ function formatSeconds(ms: number): string {
   return rest === 0 ? `${minutes}m` : `${minutes}m ${rest}s`
 }
 
+/** One capture backend and whether it can be used, as reported by the main process. */
+interface CaptureBackendInfo {
+  id: string
+  label: string
+  availability: { available: boolean; reason?: string; version?: string }
+  active: boolean
+}
+
 function RecordingSettingsSection(): JSX.Element {
   const [settings, setSettings] = useState<RecordingSettings | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -77,6 +85,10 @@ function RecordingSettingsSection(): JSX.Element {
   const [sweepResult, setSweepResult] = useState<RetentionSweepInfo | null>(null)
   const [sweeping, setSweeping] = useState(false)
   const [gpuWarning, setGpuWarning] = useState<string | null>(null)
+  const [backends, setBackends] = useState<CaptureBackendInfo[]>([])
+  const [installingObs, setInstallingObs] = useState(false)
+  const [installProgress, setInstallProgress] = useState<number | null>(null)
+  const [installError, setInstallError] = useState<string | null>(null)
   const [showVideoAdvanced, setShowVideoAdvanced] = useState(false)
   const [showAudioAdvanced, setShowAudioAdvanced] = useState(false)
   const [outputDir, setOutputDir] = useState<{
@@ -121,10 +133,55 @@ function RecordingSettingsSection(): JSX.Element {
       .then((report) => setGpuWarning(report.shouldWarn ? report.message : null))
       .catch(() => setGpuWarning(null))
 
+    refreshBackends()
+
+    // An install started from another window, or before this one mounted, is
+    // still running -- so the button has to come back disabled rather than
+    // inviting a second 179 MB download.
+    window.api.recorder.isInstallingObs().then(setInstallingObs).catch(() => undefined)
+
     refreshQuality().catch(() => {
       // Presets and the estimate are additive; everything else still renders.
     })
   }, [])
+
+  // Install progress arrives on a push channel; the listener is removed on
+  // unmount so a closed Settings screen does not keep receiving it.
+  useEffect(() => {
+    return window.api.recorder.onObsInstallProgress((progress) => {
+      setInstallProgress(progress.fraction)
+      if (progress.phase === 'done') {
+        setInstallProgress(null)
+        setInstallingObs(false)
+        refreshBackends()
+      }
+    })
+  }, [])
+
+  function refreshBackends(): void {
+    window.api.recorder
+      .getCaptureBackends()
+      .then((list) => setBackends(list as CaptureBackendInfo[]))
+      .catch(() => setBackends([]))
+  }
+
+  async function handleInstallObs(): Promise<void> {
+    setInstallingObs(true)
+    setInstallError(null)
+    setInstallProgress(0)
+    try {
+      await window.api.recorder.installObs()
+      refreshBackends()
+      // The chosen encoder and the presets both depend on what is available, and
+      // game capture changes the answer.
+      await refreshQuality().catch(() => undefined)
+    } catch (err) {
+      setInstallError((err as Error).message)
+    } finally {
+      setInstallingObs(false)
+      setInstallProgress(null)
+    }
+  }
 
   // Drafts follow the saved settings, including when a preset changes them.
   useEffect(() => {
@@ -302,6 +359,9 @@ function RecordingSettingsSection(): JSX.Element {
     settings.resolutionScale !== 'native' &&
     (findCandidate(chosenEncoder ?? '')?.hardware ?? false)
 
+  const activeBackend = backends.find((backend) => backend.active)
+  const obsBackend = backends.find((backend) => backend.id === 'obs')
+
   return (
     <>
       <div className="recorder-master-row">
@@ -315,6 +375,68 @@ function RecordingSettingsSection(): JSX.Element {
           the window closed, so nothing is missed.
         </p>
       </div>
+
+      <h3 className="recorder-subheading">Capture method</h3>
+      <p className="subtitle">
+        How LeagueVid gets the picture. Game capture reads the frames the game itself draws; screen
+        capture copies the desktop, which cannot see a game running in exclusive fullscreen and
+        competes with it for the graphics card.
+      </p>
+
+      <div className="recorder-field">
+        <label htmlFor="rec-backend">Method</label>
+        <select
+          id="rec-backend"
+          value={settings.captureBackend ?? 'auto'}
+          onChange={(e) =>
+            update({
+              captureBackend:
+                e.target.value === 'auto'
+                  ? null
+                  : (e.target.value as NonNullable<RecordingSettings['captureBackend']>)
+            })
+          }
+        >
+          <option value="auto">Automatic (recommended)</option>
+          {backends.map((backend) => (
+            <option key={backend.id} value={backend.id}>
+              {backend.label}
+              {backend.availability.available ? '' : ' — not available'}
+            </option>
+          ))}
+        </select>
+        <p className="settings-row-hint">
+          {activeBackend
+            ? `Recording with ${activeBackend.label}.`
+            : 'Automatic picks game capture when it is available.'}
+        </p>
+      </div>
+
+      {obsBackend && !obsBackend.availability.available && (
+        <div className="recorder-warning" role="status">
+          <AlertTriangle size={16} aria-hidden="true" />
+          <span>
+            {obsBackend.availability.reason}
+            {installError ? ` ${installError}` : ''}
+          </span>
+        </div>
+      )}
+
+      {obsBackend && !obsBackend.availability.available && (
+        <div className="recorder-field">
+          <button type="button" onClick={handleInstallObs} disabled={installingObs}>
+            {installingObs
+              ? installProgress != null
+                ? `Downloading OBS… ${Math.round(installProgress * 100)}%`
+                : 'Installing OBS…'
+              : 'Download OBS for LeagueVid'}
+          </button>
+          <p className="settings-row-hint">
+            About 180 MB to download and 470 MB on disk. It is kept separate from any OBS you
+            already use, so your own scenes and settings are left alone.
+          </p>
+        </div>
+      )}
 
       <h3 className="recorder-subheading">Video</h3>
       <p className="subtitle">Control your video resolution and frame rate.</p>
