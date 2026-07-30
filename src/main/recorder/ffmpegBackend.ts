@@ -32,6 +32,10 @@ export class FfmpegDdagrabBackend implements CaptureBackend {
   readonly sessionContainer = 'matroska' as const
   // The buffer is a tee'd segment ring on disk, assembled by the service.
   readonly ownsReplayBuffer = false
+  // The bundled ffmpeg has no WASAPI loopback input at all -- its only Windows
+  // audio input is DirectShow. Desktop sound therefore needs the loopback bridge
+  // unless the user has installed a virtual cable.
+  readonly capturesDesktopAudioNatively = false
 
   async probe(): Promise<BackendAvailability> {
     try {

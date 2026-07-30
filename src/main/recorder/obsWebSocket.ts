@@ -428,6 +428,35 @@ export class ObsWebSocketClient {
       }))
   }
 
+  /**
+   * The audio devices an input can use, as OBS enumerates them.
+   *
+   * Names map to Windows endpoint ids here. Needed because a WASAPI source's
+   * device_id is an opaque endpoint string, not the friendly name the user picked
+   * from a list -- passing the name fails with 80070057 and the device never
+   * starts.
+   */
+  async audioDeviceOptions(inputName: string): Promise<Array<{ name: string; value: string }>> {
+    const data = await this.request('GetInputPropertiesListPropertyItems', {
+      inputName,
+      propertyName: 'device_id'
+    })
+
+    const items = Array.isArray(data.propertyItems) ? data.propertyItems : []
+    return items
+      .map((item) => item as Record<string, unknown>)
+      .filter((item) => item.itemEnabled !== false)
+      .map((item) => ({ name: String(item.itemName ?? ''), value: String(item.itemValue ?? '') }))
+  }
+
+  async setInputSettings(
+    inputName: string,
+    inputSettings: Record<string, unknown>,
+    overlay = true
+  ): Promise<void> {
+    await this.request('SetInputSettings', { inputName, inputSettings, overlay })
+  }
+
   async startReplayBuffer(): Promise<void> {
     await this.request('StartReplayBuffer')
   }

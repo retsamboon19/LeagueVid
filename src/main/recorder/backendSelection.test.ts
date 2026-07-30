@@ -31,6 +31,7 @@ function fakeBackend(
     label: `fake ${id}`,
     sessionContainer: 'matroska',
     ownsReplayBuffer: false,
+    capturesDesktopAudioNatively: false,
     probe: typeof availability === 'function' ? availability : async () => availability,
     start: async (_request: CaptureRequest, _hooks: CaptureHooks) =>
       ({}) as unknown as CaptureHandle,

@@ -17,6 +17,9 @@ import {
   type ObsInstall
 } from './obsBinary'
 import { GAME_CAPTURE_SOURCE_NAME, LEAGUE_CAPTURE_TARGET } from './obsConfig'
+
+/** Name OBS gives the microphone input in a default scene collection. */
+const MIC_SOURCE_NAME = 'Mic/Aux'
 import { writeObsConfig } from './obsConfigFiles'
 import { ObsWebSocketClient } from './obsWebSocket'
 
@@ -79,6 +82,11 @@ export class ObsGameCaptureBackend implements CaptureBackend {
   // OBS keeps its replay buffer in memory and writes a file on request, rather
   // than the service assembling one from a segment ring on disk.
   readonly ownsReplayBuffer = true
+  // win-wasapi does loopback natively, so the Chromium audio bridge is not just
+  // unnecessary here, it is a failure mode with nothing to gain. Its timeout is
+  // what produced "System audio couldn't be captured" on a backend that records
+  // desktop sound perfectly well by itself.
+  readonly capturesDesktopAudioNatively = true
 
   /** Set while a session is in flight, so saveReplay can reach the same OBS. */
   private session: ObsSession | null = null
@@ -225,6 +233,10 @@ class ObsSession implements CaptureHandle {
       await this.teardown(true)
       throw err
     }
+
+    // Best effort, and after recording has started: getting the specific
+    // microphone is worth having but not worth failing a session over.
+    await this.applyMicrophoneChoice()
 
     this.watchProcess()
     this.startPolling()
@@ -379,6 +391,48 @@ class ObsSession implements CaptureHandle {
     } catch {
       // A failed poll is not a failed recording. OBS is still writing; the next
       // sample will either succeed or the process will close and settle this.
+    }
+  }
+
+  /**
+   * Points the microphone input at the device the user actually chose.
+   *
+   * Has to happen after OBS is running, because the scene collection can only
+   * name a device by its Windows endpoint id and LeagueVid stores the friendly
+   * name -- the two are only relatable through OBS's own enumeration. The
+   * collection therefore starts on the default device (a working microphone) and
+   * this narrows it to the right one.
+   *
+   * Silent on failure. A recording with the default microphone is a good
+   * outcome; refusing to record because the named device is unplugged is not.
+   */
+  private async applyMicrophoneChoice(): Promise<void> {
+    const client = this.client
+    const wanted = this.request.audioInputs.find((input) => input.role === 'mic')?.source
+    if (!client?.isConnected || !wanted) return
+
+    try {
+      const devices = await client.audioDeviceOptions(MIC_SOURCE_NAME)
+      // Matched loosely because the two lists come from different APIs and
+      // Windows truncates friendly names differently in each.
+      const match =
+        devices.find((device) => device.name === wanted) ??
+        devices.find(
+          (device) =>
+            device.name.toLowerCase().includes(wanted.toLowerCase()) ||
+            wanted.toLowerCase().includes(device.name.toLowerCase())
+        )
+
+      if (!match) {
+        this.hooks.onStderr?.(
+          `The microphone "${wanted}" was not found, so the system default is being recorded instead.`
+        )
+        return
+      }
+
+      await client.setInputSettings(MIC_SOURCE_NAME, { device_id: match.value })
+    } catch (err) {
+      this.hooks.onStderr?.(`Could not select the microphone: ${(err as Error).message}`)
     }
   }
 

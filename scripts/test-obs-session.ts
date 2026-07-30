@@ -40,8 +40,18 @@ const OBS_ROOT = join(
   'obs-studio-32.2.1'
 )
 const CONFIG_ROOT = join(OBS_ROOT, 'config', 'obs-studio')
-const OUT_DIR = join(process.env.TEMP ?? '.', 'leaguevid-obs-test')
 const PORT = 4455
+
+/**
+ * Where OBS writes.
+ *
+ * Overridable because the default temp path hid a real bug: paths under
+ * ...\AppData\Local\Temp\... contain no character that forms an ini escape
+ * sequence, so they round-tripped intact while H:\LeagueVid\recordings did not.
+ * Pointing this at the actual recordings folder is what reproduces it.
+ */
+const OUT_DIR =
+  flag('out') ?? join(process.env.TEMP ?? '.', 'leaguevid-obs-test')
 
 async function main(): Promise<void> {
   const executable = join(OBS_ROOT, 'bin', '64bit', 'obs64.exe')

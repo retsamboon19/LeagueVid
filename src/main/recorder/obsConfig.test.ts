@@ -9,6 +9,7 @@ import {
   buildSceneCollection,
   buildUserIni,
   buildWebSocketConfig,
+  escapeIniValue,
   obsEncoderId,
   obsOutputSize,
   recordTracksMask,
@@ -62,6 +63,41 @@ describe('obsEncoderId', () => {
   })
 })
 
+describe('escapeIniValue', () => {
+  // The bug this was written for. OBS treats backslash as an escape character in
+  // ini values, so 'H:\LeagueVid\recordings' was read with \r as a carriage
+  // return and recording failed with "Recording stopped because of bad output
+  // path".
+  it('escapes backslashes in a Windows path', () => {
+    expect(escapeIniValue('H:\\LeagueVid\\recordings')).toBe('H:\\\\LeagueVid\\\\recordings')
+  })
+
+  // The specific sequence that broke it: \r in \recordings.
+  it('does not leave a path segment that reads as a control character', () => {
+    const escaped = escapeIniValue('H:\\recordings')
+    // After escaping, the backslash stands for itself and 'r' is just a letter.
+    expect(escaped).toBe('H:\\\\recordings')
+    expect(escaped).not.toBe('H:\\recordings')
+  })
+
+  it('leaves a value with nothing to escape alone', () => {
+    expect(escapeIniValue('League of Legends Draven 2026-07-30 20-43-44')).toBe(
+      'League of Legends Draven 2026-07-30 20-43-44'
+    )
+  })
+
+  it('escapes real control characters too', () => {
+    expect(escapeIniValue('a\rb\nc\td')).toBe('a\\rb\\nc\\td')
+  })
+
+  // Why the fault survived development: temp paths contain no character that
+  // forms an escape sequence, so they round-tripped intact.
+  it('is a no-op for the temp path that hid the bug', () => {
+    const temp = 'C:/Users/Admin/AppData/Local/Temp/leaguevid-obs-test'
+    expect(escapeIniValue(temp)).toBe(temp)
+  })
+})
+
 describe('buildProfileIni', () => {
   it('uses advanced output mode, so the encoder choice is honoured', () => {
     expect(profile()).toContain('Mode=Advanced')
@@ -103,6 +139,22 @@ describe('buildProfileIni', () => {
     const ini = profile({ resolutionScale: '1080p' })
     expect(ini).toContain('OutputCX=1920')
     expect(ini).toContain('OutputCY=1080')
+  })
+
+  // The regression test for "bad output path": the recording directory has to
+  // reach OBS with its backslashes escaped, or the ini parser mangles it.
+  it('writes the recording path escaped for the ini parser', () => {
+    const ini = buildProfileIni({
+      settings: settings(),
+      target: TARGET_1440,
+      recordingDirectory: 'H:\\LeagueVid\\recordings',
+      fileBasename: 'League of Legends 2026-07-30 23-59-41',
+      audioTrackCount: 1
+    })
+
+    expect(ini).toContain('RecFilePath=H:\\\\LeagueVid\\\\recordings')
+    // The unescaped form is what OBS misread.
+    expect(ini).not.toContain('RecFilePath=H:\\LeagueVid\\recordings\n')
   })
 })
 
@@ -260,11 +312,14 @@ describe('buildSceneCollection', () => {
     expect(audio.id).toBe('wasapi_output_capture')
   })
 
-  it('captures the microphone the user chose, not the system default', () => {
+  // Deliberately the default rather than the chosen name. wasapi_input_capture's
+  // device_id is a Windows endpoint id, not a friendly name; passing the name
+  // failed with "Failed to enumerate device: 80070057" and the microphone never
+  // started. The specific device is applied after OBS starts, once its own
+  // enumeration can map the name to an id.
+  it('starts the microphone on the default device, not the friendly name', () => {
     const audio = collection().AuxAudioDevice1 as Record<string, unknown>
-    expect((audio.settings as Record<string, unknown>).device_id).toBe(
-      'Microphone (HyperX QuadCast)'
-    )
+    expect((audio.settings as Record<string, unknown>).device_id).toBe('default')
   })
 
   it('omits audio devices that were not requested', () => {

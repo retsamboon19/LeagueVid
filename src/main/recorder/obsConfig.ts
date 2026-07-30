@@ -39,6 +39,29 @@ const ENCODER_IDS: Record<string, string> = {
 const FALLBACK_ENCODER_ID = 'obs_x264'
 
 /**
+ * Escapes a value for OBS's ini parser.
+ *
+ * OBS treats backslash as an escape character in ini values, so a Windows path
+ * written literally is silently misread. Not theoretical: recording failed with
+ * "Recording stopped because of bad output path" because
+ * `H:\LeagueVid\recordings` was parsed with `\r` as a carriage return, giving
+ * `H:LeagueVid<CR>ecordings`. OBS then rewrote the file as
+ * `H:\\LeagueVid\recordings`, which is how the escaping became visible.
+ *
+ * It also explains why this survived testing. The paths used during development
+ * -- under `...\AppData\Local\Temp\...` -- contain no character that forms an
+ * escape sequence, so they round-tripped intact and the fault only appeared
+ * against a real recordings folder.
+ */
+export function escapeIniValue(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n')
+    .replace(/\t/g, '\\t')
+}
+
+/**
  * Translates a LeagueVid encoder choice into an OBS encoder id.
  *
  * Falls back to x264 rather than guessing, because an unknown encoder id makes
@@ -118,7 +141,7 @@ export function buildProfileIni(input: ObsProfileInput): string {
     // output modes -- putting it under [SimpleOutput] does nothing in Advanced
     // mode, and OBS then names the file with its own timestamp instead. Observed
     // doing precisely that before this moved.
-    `FilenameFormatting=${fileBasename}`,
+    `FilenameFormatting=${escapeIniValue(fileBasename)}`,
     // Off, so the name above is used verbatim rather than having a counter or a
     // second timestamp appended.
     'OverwriteIfExists=true',
@@ -130,7 +153,7 @@ export function buildProfileIni(input: ObsProfileInput): string {
     // and will not play at all. Converted to MP4 afterwards.
     'RecFormat2=mkv',
     `RecEncoder=${encoderId}`,
-    `RecFilePath=${recordingDirectory}`,
+    `RecFilePath=${escapeIniValue(recordingDirectory)}`,
     `RecTracks=${recordTracksMask(input.audioTrackCount)}`,
     // Off: LeagueVid supplies the exact filename and does its own retention.
     'RecRBSuffix=Replay',
@@ -316,9 +339,21 @@ export function buildSceneCollection(input: ObsSceneInput): Record<string, unkno
       uuid: nextUuid(),
       name: 'Mic/Aux',
       id: 'wasapi_input_capture',
-      // A named device, because 'default' is whatever Windows last decided and
-      // the user picked a specific microphone in Settings.
-      deviceId: mic.source || 'default',
+      // Deliberately the Windows default rather than the name the user picked.
+      //
+      // wasapi_input_capture's device_id is a Windows endpoint id -- an opaque
+      // string like '{0.0.1.00000000}.{guid}' -- not a friendly name. Passing the
+      // friendly name fails: observed as
+      //   [WASAPISource::TryInitialize]:[Microphone (HyperX QuadCast)]
+      //   Failed to enumerate device: 80070057
+      // followed by "Device failed to start", i.e. a recording with no
+      // microphone at all.
+      //
+      // The default device is right for almost everyone and is a working
+      // microphone rather than a broken one. The specific device the user chose
+      // is applied after OBS starts, once its own enumeration can map the name
+      // to an id -- see ObsSession.applyMicrophoneChoice.
+      deviceId: 'default',
       volume: volumeScalar(mic.volume),
       mixers: separate ? 2 : 255
     })

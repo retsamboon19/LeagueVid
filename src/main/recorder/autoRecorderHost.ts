@@ -7,6 +7,7 @@ import { checkFreeSpaceForStart, checkFreeSpaceWhileRecording, DISK_CHECK_INTERV
 import { mapDisplaysToOutputs, resolveCaptureDisplay } from './displays'
 import type { AudioInputSpec, CaptureTarget } from './ffmpegArgs'
 import { startLoopbackBridge, stopLoopbackBridge } from './loopbackAudio'
+import { activeCaptureBackend } from './backendSelection'
 import { recordingsDir } from './outputPaths'
 import {
   hasActiveCapture,
@@ -98,6 +99,22 @@ export async function resolveAudioInputs(): Promise<AudioInputSpec[]> {
     inputs.push({
       kind: 'dshow',
       source: settings.desktopAudioDeviceName,
+      role: 'desktop',
+      volume: settings.systemAudioVolume
+    })
+    return inputs
+  }
+
+  // A backend that captures loopback itself needs the intent, not a plumbing
+  // detail. Starting the bridge for it would spin up a hidden window and a
+  // socket whose url is then ignored -- and when that bridge timed out it
+  // reported "System audio couldn't be captured" against a backend perfectly
+  // capable of recording desktop sound, which is how this was noticed.
+  const backend = await activeCaptureBackend()
+  if (backend.capturesDesktopAudioNatively) {
+    inputs.push({
+      kind: 'dshow',
+      source: 'default',
       role: 'desktop',
       volume: settings.systemAudioVolume
     })

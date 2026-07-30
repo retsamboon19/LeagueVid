@@ -92,6 +92,17 @@ export interface CaptureBackend {
    */
   readonly sessionContainer: 'matroska' | 'mp4'
   /**
+   * True when the backend can record system sound by itself.
+   *
+   * This exists to stop work being done that is not only unnecessary but
+   * actively harmful. The ffmpeg path has no WASAPI loopback input on Windows, so
+   * desktop audio has to travel through a hidden Chromium window and a localhost
+   * socket -- a bridge that can fail, and did, producing "System audio couldn't
+   * be captured" on a backend that never needed it. OBS ships win-wasapi and
+   * captures loopback natively.
+   */
+  readonly capturesDesktopAudioNatively: boolean
+  /**
    * True when the backend implements the replay buffer itself.
    *
    * The two approaches are not compatible: the ffmpeg path tees the encode into
