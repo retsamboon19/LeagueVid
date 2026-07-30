@@ -1,6 +1,6 @@
 import type { RecorderProgress, RecordingFramerate, RecordingSettings } from '../../shared/types'
 import { FRAMERATE_OPTIONS } from '../../shared/types'
-import { outputHeightFor, recommendedBitrateKbps } from '../../shared/bitrateAdvice'
+import { ADVICE_FLOOR_KBPS, outputHeightFor, recommendedBitrateKbps } from '../../shared/bitrateAdvice'
 import { assessCaptureHealth } from './progressParser'
 
 // Quality presets, and the logic that reads a preflight result.
@@ -44,6 +44,21 @@ export interface PresetContext {
 }
 
 /**
+ * Bitrate as a fraction of the recommendation for the output size.
+ *
+ * On a hardware encoder every tier records at the same resolution and a
+ * playable framerate (see buildQualityPresets), so bitrate is what separates
+ * them. That is deliberate: it is the only axis where "smaller" is actually
+ * cheaper to produce here, and the only one a viewer can trade away without
+ * the footage becoming useless for review.
+ */
+const BITRATE_FACTOR: Record<Exclude<QualityPresetName, 'custom'>, number> = {
+  low: 0.5,
+  medium: 0.75,
+  high: 1
+}
+
+/**
  * Presets built for the machine they'll run on.
  *
  * Fixed tiers were the wrong idea. "High = 1080p60 at 8 Mbps" is generous on a
@@ -52,40 +67,60 @@ export interface PresetContext {
  * it earned. Resolution, framerate and bitrate are now derived from the display
  * and from whether a hardware encoder actually works here.
  *
- * The other correction: on capable hardware the presets prefer *native*
- * resolution. Scaling is not free in this pipeline -- the bundled ffmpeg has no
- * working CUDA device, so scaling means a hwdownload round trip through system
- * memory. Measured on a 1440p display, native capture dropped 0 frames while the
- * scaled path dropped 1 and duplicated 35. Native is both faster and sharper;
- * bitrate is the right lever for file size.
+ * Two corrections after a round of real recordings came back choppy:
+ *
+ * Scaling is not a saving, it is the most expensive thing this pipeline can do.
+ * The bundled ffmpeg has no working CUDA filters -- scale_cuda fails outright
+ * with "Function not implemented" -- so any resolutionScale other than 'native'
+ * means ddagrab -> hwdownload -> swscale -> encoder, a full GPU-to-system-memory
+ * round trip on every single frame. A 720p tier therefore *drops more frames*
+ * than a native one, which is the exact opposite of what a preset called "Low"
+ * promises. Measured on real sessions at 720p30: 4% of frames dropped on one and
+ * 18% on another, against 0 for native capture. So every tier stays native
+ * wherever a hardware encoder is available.
+ *
+ * And 30fps is not a "modest" setting, it is a broken one. Recording a game
+ * running at 240fps down to 30 reads as a slideshow on playback -- it was
+ * reported as looking like roughly one frame per second. Framerate is also the
+ * one axis that cannot be recovered later: bitrate buys sharpness back, nothing
+ * buys back motion that was never sampled. 60 is the floor wherever the panel
+ * and the encoder allow it.
  */
 export function buildQualityPresets(context: PresetContext): QualityPreset[] {
   const { displayHeight, refreshHz, hasHardwareEncoder } = context
 
   // Software encoding is the one case that genuinely needs modest settings: it
-  // spends CPU the game also wants.
-  const topScale: RecordingSettings['resolutionScale'] = hasHardwareEncoder ? 'native' : '1080p'
+  // spends CPU the game also wants, so it eats the scaling round trip to keep
+  // the pixel count down.
+  const scale: RecordingSettings['resolutionScale'] = hasHardwareEncoder
+    ? 'native'
+    : displayHeight <= 1080
+      ? '720p'
+      : '1080p'
+
   const cap = hasHardwareEncoder ? 240 : 60
   const refreshCap = refreshHz && refreshHz > 0 ? Math.min(refreshHz, cap) : cap
 
   const highFps = pickFramerate(Math.min(120, refreshCap))
   const mediumFps = pickFramerate(Math.min(60, refreshCap))
-  const lowFps = pickFramerate(Math.min(30, refreshCap))
+  // Also 60 on hardware: the cheapest tier should still produce watchable
+  // motion. Only software encoding, which cannot sustain it, falls to 30.
+  const lowFps = pickFramerate(Math.min(hasHardwareEncoder ? 60 : 30, refreshCap))
 
   return [
     buildPreset({
       name: 'low',
       label: 'Low',
-      scale: displayHeight <= 1080 ? '720p' : '1080p',
+      scale,
       fps: lowFps,
       quality: 26,
       context,
-      note: 'Smallest files and the least load. Enough to review positioning and decisions.'
+      note: 'Smallest files. Softer in teamfights, but the motion is all there.'
     }),
     buildPreset({
       name: 'medium',
       label: 'Medium',
-      scale: hasHardwareEncoder && displayHeight <= 1440 ? 'native' : '1080p',
+      scale,
       fps: mediumFps,
       quality: 23,
       context,
@@ -94,7 +129,7 @@ export function buildQualityPresets(context: PresetContext): QualityPreset[] {
     buildPreset({
       name: 'high',
       label: 'High',
-      scale: topScale,
+      scale,
       fps: highFps,
       quality: 21,
       context,
@@ -106,7 +141,7 @@ export function buildQualityPresets(context: PresetContext): QualityPreset[] {
 }
 
 function buildPreset(input: {
-  name: QualityPresetName
+  name: Exclude<QualityPresetName, 'custom'>
   label: string
   scale: RecordingSettings['resolutionScale']
   fps: RecordingFramerate
@@ -117,12 +152,15 @@ function buildPreset(input: {
   const height = outputHeightFor(input.scale, input.context.displayHeight)
   const aspect = input.context.displayWidth / input.context.displayHeight
   const width = Math.round((height * aspect) / 2) * 2
-  const bitrate = recommendedBitrateKbps(width, height, input.fps)
+  const bitrate = tierBitrateKbps(
+    recommendedBitrateKbps(width, height, input.fps),
+    BITRATE_FACTOR[input.name]
+  )
 
   return {
     name: input.name,
     label: input.label,
-    summary: `${height}p ${input.fps}fps · ${Math.round(bitrate / 1000)} Mbps`,
+    summary: `${height}p ${input.fps}fps · ${formatMbps(bitrate)} Mbps`,
     description: input.note,
     values: {
       resolutionScale: input.scale,
@@ -133,6 +171,27 @@ function buildPreset(input: {
       keyframeIntervalSeconds: 1
     }
   }
+}
+
+/**
+ * kbps as Mbps for the card, keeping the half-step when there is one. Rounding
+ * 9500 to "10 Mbps" would have the three cards claim bitrates the recorder does
+ * not use, which is how a picker stops being trustworthy.
+ */
+function formatMbps(kbps: number): string {
+  const mbps = kbps / 1000
+  return Number.isInteger(mbps) ? String(mbps) : mbps.toFixed(1)
+}
+
+/**
+ * Scales the recommended bitrate down for a tier, rounded to something a
+ * settings screen can show without implying false precision, and never below
+ * the floor where the recording stops being worth keeping.
+ */
+function tierBitrateKbps(recommended: number, factor: number): number {
+  const scaled = recommended * factor
+  const rounded = scaled >= 10_000 ? Math.round(scaled / 1000) * 1000 : Math.round(scaled / 500) * 500
+  return Math.max(ADVICE_FLOOR_KBPS, rounded)
 }
 
 /** Nearest offered framerate at or below a ceiling. */
@@ -205,6 +264,14 @@ export interface PreflightMeasurement {
   durationSeconds: number
   /** Target framerate, for comparison. */
   targetFps: number
+  /**
+   * Whether the tested configuration scaled, i.e. resolutionScale != 'native'.
+   *
+   * Needed because the advice changes sign on it: in this pipeline scaling adds
+   * a per-frame GPU-to-system-memory round trip, so a scaled capture that is
+   * dropping frames should be told to go *up* to native, not further down.
+   */
+  scaled: boolean
   /** Set when ffmpeg failed rather than produced a poor result. */
   error: string | null
 }
@@ -312,26 +379,40 @@ function suggestion(
   measurement: PreflightMeasurement,
   dropRatio: number
 ): { recommendation: string; suggestedPreset: QualityPresetName | null } {
-  // Framerate first: a sharp 30fps VOD reviews better than a soft 60fps one,
-  // and halving the framerate roughly halves the load.
-  if (measurement.targetFps > 30) {
+  // Scaling first, and upwards, because it is the one change that costs nothing
+  // to make and gets both faster and sharper. Any resolution other than Native
+  // downloads every frame out of the GPU into system memory before the encoder
+  // can touch it, so a scaled capture that drops frames is usually being limited
+  // by the scaling rather than by the pixel count.
+  if (measurement.scaled) {
     return {
-      recommendation: `Try 30 fps instead of ${measurement.targetFps}. That roughly halves the work with no loss of sharpness.`,
-      suggestedPreset: 'low'
+      recommendation:
+        'Set the resolution to Native. Scaling copies every frame out of the GPU and back, which costs more than the extra pixels do -- Native is both faster here and sharper.',
+      suggestedPreset: null
+    }
+  }
+
+  // Only then framerate, and not below 60: 30fps footage of a game running far
+  // above it is a slideshow, and no amount of sharpness makes up for motion that
+  // was never sampled.
+  if (measurement.targetFps > 60) {
+    return {
+      recommendation: `Try 60 fps instead of ${measurement.targetFps}. That is still smooth to review, and roughly halves the work.`,
+      suggestedPreset: 'medium'
     }
   }
 
   if (dropRatio > 0.1) {
     return {
       recommendation:
-        'Try a lower resolution. At 30 fps and still dropping this many frames, the pixel count is the constraint.',
+        'Lower the bitrate, or pick the Low preset. At native resolution and 60 fps the encoder is the constraint, not the capture.',
       suggestedPreset: 'low'
     }
   }
 
   return {
     recommendation:
-      'Try the Low preset, or a lower quality value -- this configuration is close to the limit here.',
+      'Try the Low preset -- this configuration is close to what this machine will sustain.',
     suggestedPreset: 'low'
   }
 }
@@ -346,7 +427,8 @@ function estimateGbPerHour(measurement: PreflightMeasurement): number {
 export function measurementFromProgress(
   sample: RecorderProgress | null,
   targetFps: number,
-  error: string | null = null
+  error: string | null = null,
+  scaled = false
 ): PreflightMeasurement {
   const durationSeconds = (sample?.outTimeMs ?? 0) / 1000
   return {
@@ -359,6 +441,7 @@ export function measurementFromProgress(
     sizeBytes: sample?.totalSizeBytes ?? 0,
     durationSeconds,
     targetFps,
+    scaled,
     error
   }
 }

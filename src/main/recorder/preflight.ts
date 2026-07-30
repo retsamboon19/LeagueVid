@@ -68,7 +68,8 @@ export async function runPreflightTest(input: {
     const measurement = measurementFromProgress(
       exit.lastProgress,
       input.settings.framerate,
-      error
+      error,
+      input.settings.resolutionScale !== 'native'
     )
 
     return {
@@ -84,7 +85,8 @@ export async function runPreflightTest(input: {
     const measurement = measurementFromProgress(
       null,
       input.settings.framerate,
-      (err as Error).message
+      (err as Error).message,
+      input.settings.resolutionScale !== 'native'
     )
     return {
       verdict: assessPreflight(measurement),

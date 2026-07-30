@@ -23,7 +23,7 @@ import type {
   RetentionSweepInfo
 } from '../../../shared/types'
 import { BITRATE_OPTIONS, FRAMERATE_OPTIONS, RESOLUTION_OPTIONS } from '../../../shared/types'
-import { describeEncoder } from '../../../shared/encoders'
+import { describeEncoder, findCandidate } from '../../../shared/encoders'
 import {
   exceedsRefreshRate,
   outputHeightFor,
@@ -294,6 +294,14 @@ function RecordingSettingsSection(): JSX.Element {
     settings.framerate
   )
 
+  // Scaling is only the wrong choice when there is a hardware encoder to keep
+  // frames on the GPU for. Software encoding genuinely benefits from fewer
+  // pixels, so it should not be told off for asking.
+  const chosenEncoder = settings.encoder ?? capabilities?.chosen ?? null
+  const scalingIsCostly =
+    settings.resolutionScale !== 'native' &&
+    (findCandidate(chosenEncoder ?? '')?.hardware ?? false)
+
   return (
     <>
       <div className="recorder-master-row">
@@ -365,6 +373,26 @@ function RecordingSettingsSection(): JSX.Element {
           ))}
         </select>
       </div>
+
+      {/* Counter-intuitive enough to be worth saying out loud, because picking a
+          smaller resolution to "go easy on the machine" does the opposite here:
+          the bundled ffmpeg has no GPU scaler, so anything but Native copies
+          every frame out of the GPU into system memory before encoding. */}
+      {scalingIsCostly && (
+        <p className="settings-row-hint">
+          Native is the cheapest option, not the most expensive. Scaling to{' '}
+          {activeOutputHeight}p copies every frame out of your GPU and back, which drops more
+          frames than the extra pixels ever would.{' '}
+          <button
+            type="button"
+            className="link-button"
+            style={{ padding: 0 }}
+            onClick={() => update({ resolutionScale: 'native' })}
+          >
+            use Native
+          </button>
+        </p>
+      )}
 
       <div className="recorder-field">
         <label htmlFor="rec-bitrate">Bitrate (kbps)</label>

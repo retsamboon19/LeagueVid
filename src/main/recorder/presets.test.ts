@@ -23,6 +23,7 @@ function measurement(overrides: Partial<PreflightMeasurement> = {}): PreflightMe
     sizeBytes: 50 * 1024 ** 2,
     durationSeconds: 10,
     targetFps: 60,
+    scaled: false,
     error: null,
     ...overrides
   }
@@ -64,14 +65,33 @@ describe('presets', () => {
       expect(high.values.framerate).toBe(120)
     })
 
-    // Scaling is not free here: the bundled ffmpeg has no working CUDA device,
-    // so it means a hwdownload round trip through system memory. Measured on
-    // this display, native dropped 0 frames where the scaled path dropped 1 and
-    // duplicated 35. Native is faster *and* sharper.
-    it('prefers no scaling at all when the encoder is hardware', () => {
-      const [, medium, high] = buildQualityPresets(HIGH_END)
-      expect(medium.values.resolutionScale).toBe('native')
-      expect(high.values.resolutionScale).toBe('native')
+    // Scaling is not free here: the bundled ffmpeg has no working CUDA device
+    // (scale_cuda fails with "Function not implemented"), so it means a
+    // hwdownload round trip through system memory on every frame. Real sessions
+    // recorded at 720p30 dropped 4% and 18% of their frames where native capture
+    // drops none. A scaled "Low" tier is therefore heavier than a native "High"
+    // one, so no tier scales when the encoder is hardware.
+    it('never scales when the encoder is hardware, not even on the cheapest tier', () => {
+      for (const preset of buildQualityPresets(HIGH_END)) {
+        expect(preset.values.resolutionScale, preset.name).toBe('native')
+      }
+    })
+
+    // 30fps of a game running at 240 was reported as looking like roughly one
+    // frame per second. Framerate is the one axis nothing recovers later, so the
+    // cheap tier gives up bitrate instead.
+    it('keeps a watchable framerate on the low tier', () => {
+      const [low] = buildQualityPresets(HIGH_END)
+      expect(low.values.framerate).toBe(60)
+    })
+
+    // With resolution and framerate no longer varying on capable hardware,
+    // bitrate is what separates the tiers -- and it has to actually differ, or
+    // the picker offers three identical buttons.
+    it('separates the tiers by bitrate when they share a resolution', () => {
+      const [low, medium, high] = buildQualityPresets(HIGH_END)
+      expect(low.values.bitrateKbps).toBeLessThan(medium.values.bitrateKbps)
+      expect(medium.values.bitrateKbps).toBeLessThan(high.values.bitrateKbps)
     })
 
     it('gives a 1440p 240Hz display a bitrate that suits it', () => {
@@ -143,9 +163,11 @@ describe('presets', () => {
     })
     const after = applyPreset(before, 'low')
 
-    // The fallback presets assume a 1080p60 display, so Low is 720p30 there.
-    expect(after.framerate).toBe(30)
-    expect(after.resolutionScale).toBe('720p')
+    // The fallback presets assume a hardware encoder on a 1080p60 display, so
+    // even Low records natively at the panel's own rate and saves size on
+    // bitrate instead.
+    expect(after.framerate).toBe(60)
+    expect(after.resolutionScale).toBe('native')
     // A quality preset must not quietly reset someone's audio or output folder.
     expect(after.micDeviceName).toBe('HyperX')
     expect(after.micVolume).toBe(60)
@@ -223,19 +245,35 @@ describe('assessPreflight', () => {
     expect(verdict.details.join(' ')).toContain('% of the target framerate')
   })
 
-  // "Try lower settings" is not actionable. Framerate is reduced before
-  // resolution because a sharp 30fps VOD reviews better than a soft 60fps one.
-  it('recommends dropping framerate first', () => {
-    const verdict = assessPreflight(measurement({ targetFps: 60, droppedFrames: 100 }))
-    expect(verdict.recommendation).toContain('30 fps')
-    expect(verdict.suggestedPreset).toBe('low')
+  // "Try lower settings" is not actionable, and in this pipeline the obvious
+  // lower setting is the wrong one: scaling adds a GPU-to-system-memory round
+  // trip per frame, so a scaled capture that drops frames should go *up* to
+  // native rather than further down.
+  it('recommends going up to native resolution when the test was scaled', () => {
+    const verdict = assessPreflight(
+      measurement({ scaled: true, targetFps: 60, droppedFrames: 100 })
+    )
+    expect(verdict.recommendation).toContain('Native')
+    // Not a preset: every preset is already native on hardware, and dropping a
+    // tier would not address the scaling.
+    expect(verdict.suggestedPreset).toBeNull()
   })
 
-  it('recommends dropping resolution once framerate is already low', () => {
+  it('recommends dropping framerate only above 60', () => {
     const verdict = assessPreflight(
-      measurement({ targetFps: 30, averageFps: 30, droppedFrames: 200 })
+      measurement({ targetFps: 120, averageFps: 120, frames: 1200, droppedFrames: 100 })
     )
-    expect(verdict.recommendation).toContain('lower resolution')
+    expect(verdict.recommendation).toContain('60 fps')
+    expect(verdict.suggestedPreset).toBe('medium')
+  })
+
+  // Never 30: a slideshow is not a fix for a stutter.
+  it('reaches for bitrate rather than framerate at 60', () => {
+    const verdict = assessPreflight(
+      measurement({ targetFps: 60, averageFps: 60, droppedFrames: 200 })
+    )
+    expect(verdict.recommendation).toContain('bitrate')
+    expect(verdict.recommendation).not.toContain('30 fps')
   })
 
   it('tolerates a small shortfall rather than nagging', () => {

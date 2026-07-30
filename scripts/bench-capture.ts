@@ -49,7 +49,7 @@ const variants: Variant[] = [
   },
   {
     name: 'cpu-scaled-1080p60',
-    note: 'hwdownload + CPU scale. What every preset currently does on a 1440p display.',
+    note: 'hwdownload + CPU scale. What any resolution other than Native costs.',
     fps: 60,
     filter:
       'ddagrab=output_idx=0:framerate=60:draw_mouse=0:allow_fallback=1,' +
