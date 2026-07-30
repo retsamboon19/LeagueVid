@@ -318,6 +318,37 @@ export interface HeuristicStats {
 }
 
 /**
+ * What became of one detected gank.
+ *
+ * 'turned_around' implies survival too -- it is the stronger reading of the same
+ * moment, so the review list shows one row rather than both.
+ */
+export type GankOutcome = 'died' | 'survived' | 'turned_around'
+
+/** The user's verdict on whether a detected gank was real, for later tuning. */
+export type GankVerdict = 'accurate' | 'wrong'
+
+/**
+ * One detected gank, for the reviewable "Gank source" list.
+ *
+ * Exists so the numbers are auditable: a count the user cannot check is a count
+ * they have to take on faith, and this detection is a heuristic.
+ */
+export interface GankEvent {
+  /** Game time in ms, for seeking playback. */
+  timestampMs: number
+  outcome: GankOutcome
+  /** participantIds of the third parties involved. */
+  gankerParticipantIds: number[]
+  /**
+   * True when the timestamp came from a once-a-minute position sample rather
+   * than an exact kill event, so it marks roughly when the gank happened rather
+   * than the moment itself. The UI says so, and seeking allows for it.
+   */
+  approximateTime: boolean
+}
+
+/**
  * Early-game gank pressure, computed by LeagueVid (see main/riot/gankAnalyzer.ts).
  * Riot provides nothing equivalent, so this is an estimate and must carry the
  * UI's "est." marker.
@@ -339,6 +370,15 @@ export interface GankStats {
   ganksSurvived: number
   /** Third parties who died in the player's lane, with the player's help, without trading the player's life. */
   ganksTurnedAround: number
+  /**
+   * The individual ganks behind the counts above, oldest first, so the user can
+   * jump to each one and judge it.
+   *
+   * Row counts do not always equal the counters. A survived gank the player also
+   * won appears once, as 'turned_around', while still counting toward
+   * ganksSurvived -- surviving and punishing the same gank are both true.
+   */
+  gankEvents: GankEvent[]
 }
 
 export interface StatsParticipant {

@@ -1,4 +1,4 @@
-import type { GankStats } from '../../shared/types'
+import type { GankEvent, GankStats } from '../../shared/types'
 import {
   LANE_HALF_WIDTH,
   type Pt,
@@ -178,18 +178,26 @@ export function analyzeGanks(
       .filter((id) => isThirdParty(id))
 
     // --- Deaths to ganks: a third party helped kill me inside my own lane ---
-    const gankDeathTimes = kills
-      .filter(
-        (k) =>
-          k.victimId === me.participantId &&
-          distanceToLane(k.position, lane) <= LANE_HALF_WIDTH &&
-          k.enemyIds.some(isThirdParty)
-      )
-      .map((k) => k.timestampMs)
+    const gankDeaths = kills.filter(
+      (k) =>
+        k.victimId === me.participantId &&
+        distanceToLane(k.position, lane) <= LANE_HALF_WIDTH &&
+        k.enemyIds.some(isThirdParty)
+    )
+    const gankDeathTimes = gankDeaths.map((k) => k.timestampMs)
 
     const myDeathTimes = kills
       .filter((k) => k.victimId === me.participantId)
       .map((k) => k.timestampMs)
+
+    // Each detected gank is also emitted as a reviewable row, so the counts can
+    // be checked against the video rather than taken on trust.
+    const events: GankEvent[] = gankDeaths.map((k) => ({
+      timestampMs: k.timestampMs,
+      outcome: 'died' as const,
+      gankerParticipantIds: k.enemyIds.filter(isThirdParty),
+      approximateTime: false
+    }))
 
     // --- Attempts: a third party crossed into my lane while I was there ---
     //
@@ -200,6 +208,9 @@ export function analyzeGanks(
     let attempts = 0
     let survived = 0
     let firedOnPreviousFrame = false
+    // Survived attempts, held aside so a turnaround can absorb the one it
+    // belongs to instead of the list showing the same gank twice.
+    const survivedEvents: GankEvent[] = []
 
     for (const frame of earlyFrames) {
       const myPos = frame.positions.get(me.participantId)
@@ -209,22 +220,32 @@ export function analyzeGanks(
         continue
       }
 
-      let fired = false
+      let gankersHere: number[] = []
       if (distanceToLane(myPos, lane) <= LANE_HALF_WIDTH) {
-        fired = thirdPartyIds.some((id) => {
+        gankersHere = thirdPartyIds.filter((id) => {
           const theirPos = frame.positions.get(id)
           if (!theirPos) return false
           if (distanceToLane(theirPos, lane) > LANE_HALF_WIDTH) return false
           return distance(theirPos, myPos) <= GANK_PROXIMITY
         })
       }
+      const fired = gankersHere.length > 0
 
       if (fired && !firedOnPreviousFrame) {
         attempts++
         const fatal = gankDeathTimes.some(
           (t) => Math.abs(t - frame.timestampMs) <= ATTEMPT_DEATH_WINDOW_MS
         )
-        if (!fatal) survived++
+        if (!fatal) {
+          survived++
+          survivedEvents.push({
+            timestampMs: frame.timestampMs,
+            outcome: 'survived',
+            gankerParticipantIds: gankersHere,
+            // A frame boundary, not the gank itself.
+            approximateTime: true
+          })
+        }
       }
       firedOnPreviousFrame = fired
     }
@@ -239,14 +260,36 @@ export function analyzeGanks(
       const tradedMyLife = myDeathTimes.some(
         (t) => Math.abs(t - k.timestampMs) <= TRADE_WINDOW_MS
       )
-      if (!tradedMyLife) turnedAround++
+      if (tradedMyLife) continue
+
+      turnedAround++
+
+      // If a sampled attempt covers this same moment, upgrade that row rather
+      // than adding a second one: "you survived it" and "you killed them" are
+      // the same gank, and the kill has the exact timestamp of the two.
+      const coveringIndex = survivedEvents.findIndex(
+        (e) => Math.abs(e.timestampMs - k.timestampMs) <= ATTEMPT_DEATH_WINDOW_MS
+      )
+      if (coveringIndex >= 0) {
+        survivedEvents.splice(coveringIndex, 1)
+      }
+      events.push({
+        timestampMs: k.timestampMs,
+        outcome: 'turned_around',
+        gankerParticipantIds: [k.victimId],
+        approximateTime: false
+      })
     }
+
+    events.push(...survivedEvents)
+    events.sort((a, b) => a.timestampMs - b.timestampMs)
 
     result[me.participantId] = {
       gankDeaths: gankDeathTimes.length,
       gankAttempts: attempts,
       ganksSurvived: survived,
-      ganksTurnedAround: turnedAround
+      ganksTurnedAround: turnedAround,
+      gankEvents: events
     }
   }
 

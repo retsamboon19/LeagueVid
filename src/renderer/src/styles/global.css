@@ -3207,6 +3207,123 @@ select:focus {
   color: #7ed6a5;
 }
 
+/* --- Gank source list (Insights > Ganks) --- */
+
+.gank-source {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  border-top: 1px solid #2f333f;
+  padding-top: 0.55rem;
+  margin-top: 0.6rem;
+}
+
+.gank-source-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.gank-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #1c1f28;
+  border: 1px solid #2f333f;
+  border-radius: 5px;
+  padding: 0.25rem 0.35rem;
+  font-size: 0.68rem;
+}
+
+/* Outcome is carried by the label text as well as this border, so the meaning
+   never depends on colour alone. */
+.gank-row--died {
+  border-left: 3px solid #d9534f;
+}
+
+.gank-row--survived {
+  border-left: 3px solid #d8b45a;
+}
+
+.gank-row--turned_around {
+  border-left: 3px solid #4caf7d;
+}
+
+.gank-row-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  padding: 0.1rem 0.25rem;
+  color: #c4c8d1;
+  cursor: pointer;
+  font-size: 0.68rem;
+}
+
+.gank-row-jump:hover {
+  background: #262a35;
+}
+
+.gank-row-time {
+  font-variant-numeric: tabular-nums;
+  color: #a0a4ae;
+}
+
+.gank-row-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.gank-row-outcome {
+  font-weight: 600;
+  color: #c4c8d1;
+}
+
+.gank-row-gankers {
+  color: #7d818c;
+  font-size: 0.62rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gank-row-verdict {
+  display: inline-flex;
+  gap: 0.2rem;
+  flex-shrink: 0;
+}
+
+.gank-verdict-btn {
+  background: #22252f;
+  border: 1px solid #2f333f;
+  border-radius: 4px;
+  padding: 0.12rem 0.35rem;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #7d818c;
+  cursor: pointer;
+}
+
+.gank-verdict-btn:hover {
+  color: #c4c8d1;
+  border-color: #454a58;
+}
+
+.gank-verdict-btn--on {
+  background: rgba(126, 214, 165, 0.18);
+  border-color: #4caf7d;
+  color: #7ed6a5;
+}
+
 /* --- Multikill badges + bookmark colours --- */
 
 .multikill-badge {

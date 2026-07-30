@@ -259,7 +259,9 @@ function MatchStatsPanel({
             ddragon={ddragon}
           />
         )}
-        {activeTab === 'insights' && <InsightsTab stats={stats} focus={focus} />}
+        {activeTab === 'insights' && (
+        <InsightsTab stats={stats} focus={focus} onSeekGameTime={onSeekGameTime} />
+      )}
       </div>
 
       {stats.hasTimeline && (

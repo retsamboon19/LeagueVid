@@ -671,6 +671,103 @@ export function setCachedVideoDuration(filePath: string, sizeBytes: number, dura
   )
 }
 
+// --- Gank detection feedback ---
+//
+// Gank detection is a heuristic, so the panel lets the user mark each detected
+// gank accurate or wrong. That judgment is stored here and is the only source of
+// ground truth available for retuning the thresholds later -- see the
+// gank_feedback table comment in db/index.ts.
+
+export interface GankFeedbackRow {
+  id: number
+  match_id: string
+  participant_id: number
+  timestamp_ms: number
+  outcome: string
+  ganker_ids: string | null
+  verdict: string
+  created_at: number
+}
+
+/**
+ * Records or replaces the verdict on one detected gank. Upsert rather than
+ * insert, so changing your mind corrects the row instead of adding a second,
+ * contradictory one.
+ */
+export function setGankFeedback(input: {
+  matchId: string
+  participantId: number
+  timestampMs: number
+  outcome: string
+  gankerParticipantIds: number[]
+  verdict: 'accurate' | 'wrong'
+}): void {
+  run(
+    `INSERT INTO gank_feedback
+       (match_id, participant_id, timestamp_ms, outcome, ganker_ids, verdict, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(match_id, participant_id, timestamp_ms) DO UPDATE SET
+       outcome = excluded.outcome,
+       ganker_ids = excluded.ganker_ids,
+       verdict = excluded.verdict,
+       created_at = excluded.created_at`,
+    [
+      input.matchId,
+      input.participantId,
+      Math.round(input.timestampMs),
+      input.outcome,
+      JSON.stringify(input.gankerParticipantIds),
+      input.verdict,
+      Date.now()
+    ]
+  )
+}
+
+/** Clears a verdict, so the row returns to unjudged rather than storing a guess. */
+export function clearGankFeedback(input: {
+  matchId: string
+  participantId: number
+  timestampMs: number
+}): void {
+  run(
+    `DELETE FROM gank_feedback
+     WHERE match_id = ? AND participant_id = ? AND timestamp_ms = ?`,
+    [input.matchId, input.participantId, Math.round(input.timestampMs)]
+  )
+}
+
+export function listGankFeedback(matchId: string, participantId: number): GankFeedbackRow[] {
+  return queryAll<GankFeedbackRow>(
+    `SELECT * FROM gank_feedback
+     WHERE match_id = ? AND participant_id = ?
+     ORDER BY timestamp_ms ASC`,
+    [matchId, participantId]
+  )
+}
+
+/**
+ * Every verdict collected so far, plus a tally. Feeds the tuning workflow in
+ * scripts/tune-gank-detection.ts rather than any UI.
+ */
+export function getGankFeedbackSummary(): {
+  accurate: number
+  wrong: number
+  byOutcome: Array<{ outcome: string; verdict: string; count: number }>
+  rows: GankFeedbackRow[]
+} {
+  const rows = queryAll<GankFeedbackRow>(`SELECT * FROM gank_feedback ORDER BY created_at ASC`)
+  const byOutcome = queryAll<{ outcome: string; verdict: string; count: number }>(
+    `SELECT outcome, verdict, COUNT(*) AS count
+     FROM gank_feedback GROUP BY outcome, verdict ORDER BY outcome, verdict`
+  )
+  return {
+    accurate: rows.filter((r) => r.verdict === 'accurate').length,
+    wrong: rows.filter((r) => r.verdict === 'wrong').length,
+    byOutcome,
+    rows
+  }
+}
+
 export interface LinkedFolderRow {
   id: number
   folder_path: string

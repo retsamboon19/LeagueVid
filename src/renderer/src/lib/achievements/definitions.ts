@@ -456,6 +456,44 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
       f.ganksTurnedAround !== null && f.ganksTurnedAround >= t.ganks.turnedAroundOne,
     describe: () => 'Someone rotated into your lane to kill you and died there instead.'
   },
+  {
+    id: 'held_under_pressure',
+    title: 'Held the Lane',
+    category: 'positive',
+    // Its own group: this is about the lane's economy surviving the ganks, not
+    // about the ganks themselves, so it can stand next to a gank_survival tile.
+    group: 'lane_economy',
+    priority: 82,
+    icon: 'shield',
+    isEstimate: true,
+    condition: (f, t) =>
+      f.gankDeaths !== null &&
+      f.goldDiffVsLaneOpponent !== null &&
+      f.gankDeaths >= t.ganks.heldUnderPressureDeaths &&
+      f.goldDiffVsLaneOpponent > 0,
+    describe: (f) =>
+      `They ganked you ${f.gankDeaths} times and you still finished ahead of your laner.`
+  },
+  {
+    id: 'untouched_laning',
+    title: 'Clean Laning Phase',
+    category: 'positive',
+    group: 'gank_survival',
+    priority: 80,
+    icon: 'sparkles',
+    isEstimate: true,
+    // Requires a witnessed attempt: without it this would reward any quiet
+    // laning phase where nobody ever came, which is not the same achievement.
+    condition: (f) =>
+      f.gankAttempts !== null &&
+      f.gankDeaths !== null &&
+      f.earlyDeaths !== null &&
+      f.gankAttempts >= 1 &&
+      f.gankDeaths === 0 &&
+      f.earlyDeaths === 0,
+    describe: () =>
+      'Someone came for your lane and you reached 15 minutes without dying once.'
+  },
 
   // --- Support and utility --------------------------------------------------
   {
@@ -761,6 +799,38 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     condition: (f, t) => f.gankDeaths !== null && f.gankDeaths >= t.ganks.manyGankDeaths,
     describe: (f) =>
       `${f.gankDeaths} of your early deaths came from enemies collapsing on your lane. Worth checking your ward timings on the rewatch.`
+  },
+  {
+    id: 'camped',
+    title: 'Camped',
+    category: 'negative',
+    group: 'gank_pressure',
+    // Below gank_magnet, so when a camped lane also cost several deaths the
+    // group shows the death count rather than the visit count.
+    priority: 58,
+    icon: 'target',
+    isEstimate: true,
+    condition: (f, t) => f.gankAttempts !== null && f.gankAttempts >= t.ganks.campedAttempts,
+    describe: (f) =>
+      `Your lane was visited ${f.gankAttempts} separate times before 15 minutes. That is where their jungler spent the game.`
+  },
+  {
+    id: 'only_died_to_ganks',
+    title: 'Never Lost the 1v1',
+    category: 'negative',
+    // Sits in gank_pressure so it can't stack with Gank Magnet, which is the
+    // same observation stated more bluntly.
+    group: 'gank_pressure',
+    priority: 50,
+    icon: 'users',
+    isEstimate: true,
+    condition: (f, t) =>
+      f.gankDeaths !== null &&
+      f.earlyDeaths !== null &&
+      f.gankDeaths >= t.ganks.allEarlyDeathsFromGanks &&
+      f.earlyDeaths === f.gankDeaths,
+    describe: (f) =>
+      `All ${f.earlyDeaths} of your laning deaths came from collapses, none from your actual matchup.`
   },
   {
     id: 'time_dead',

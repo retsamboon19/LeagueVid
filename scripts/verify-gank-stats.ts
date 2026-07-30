@@ -122,6 +122,68 @@ async function main(): Promise<void> {
   console.log(`\nCORRECTNESS CHECK -- ganksSurvived > gankAttempts: ${inconsistent} (must be 0)`)
   console.log(`  ${inconsistent === 0 ? 'PASS' : 'FAIL'}`)
 
+  // --- The reviewable event list must line up with the counters it explains ---
+  const countBy = (s: GankStats, outcome: string): number =>
+    s.gankEvents.filter((e) => e.outcome === outcome).length
+
+  const diedMismatch = all.filter((s) => countBy(s, 'died') !== s.gankDeaths).length
+  const turnedMismatch = all.filter(
+    (s) => countBy(s, 'turned_around') !== s.ganksTurnedAround
+  ).length
+  // Survived rows may be FEWER than the counter: a survived gank the player also
+  // won is shown once as turned_around while still counting as survived. More
+  // rows than the counter would be a real bug.
+  const survivedTooMany = all.filter((s) => countBy(s, 'survived') > s.ganksSurvived).length
+
+  console.log(`\nCORRECTNESS CHECK -- 'died' rows vs gankDeaths mismatches: ${diedMismatch} (must be 0)`)
+  console.log(`  ${diedMismatch === 0 ? 'PASS' : 'FAIL'}`)
+  console.log(
+    `CORRECTNESS CHECK -- 'turned_around' rows vs counter mismatches: ${turnedMismatch} (must be 0)`
+  )
+  console.log(`  ${turnedMismatch === 0 ? 'PASS' : 'FAIL'}`)
+  console.log(`CORRECTNESS CHECK -- 'survived' rows exceeding counter: ${survivedTooMany} (must be 0)`)
+  console.log(`  ${survivedTooMany === 0 ? 'PASS' : 'FAIL'}`)
+
+  // Feedback rows are keyed on (match, participant, timestamp), so two events
+  // sharing a timestamp would make one verdict silently overwrite the other.
+  const dupTimestamps = all.filter((s) => {
+    const seen = new Set<number>()
+    return s.gankEvents.some((e) => {
+      const key = Math.round(e.timestampMs)
+      if (seen.has(key)) return true
+      seen.add(key)
+      return false
+    })
+  }).length
+  console.log(
+    `\nCORRECTNESS CHECK -- players with two ganks on the same ms: ${dupTimestamps} (must be 0)`
+  )
+  console.log(
+    `  ${dupTimestamps === 0 ? 'PASS: every row has a unique feedback key.' : 'FAIL: verdicts would collide in gank_feedback.'}`
+  )
+
+  const lateEvents = all.reduce(
+    (n, s) => n + s.gankEvents.filter((e) => e.timestampMs > 15 * 60 * 1000).length,
+    0
+  )
+  console.log(`\nCORRECTNESS CHECK -- events after 15:00: ${lateEvents} (must be 0)`)
+  console.log(`  ${lateEvents === 0 ? 'PASS' : 'FAIL'}`)
+
+  const noGankers = all.reduce(
+    (n, s) => n + s.gankEvents.filter((e) => e.gankerParticipantIds.length === 0).length,
+    0
+  )
+  const totalEvents = all.reduce((n, s) => n + s.gankEvents.length, 0)
+  const approx = all.reduce(
+    (n, s) => n + s.gankEvents.filter((e) => e.approximateTime).length,
+    0
+  )
+  console.log(`\n--- event list shape ---`)
+  console.log(`total reviewable rows            : ${totalEvents}`)
+  console.log(`  with an approximate timestamp  : ${approx}  ${pct(approx, totalEvents)}`)
+  console.log(`  with no ganker identified      : ${noGankers}  ${pct(noGankers, totalEvents)}`)
+  console.log(`rows per laner-game (mean)       : ${(totalEvents / (all.length || 1)).toFixed(2)}`)
+
   console.log('\n--- distributions across all lane roles ---')
   tail(
     all.map((s) => s.gankDeaths),

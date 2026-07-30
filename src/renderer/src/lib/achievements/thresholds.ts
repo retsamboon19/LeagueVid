@@ -223,7 +223,31 @@ export const THRESHOLDS = {
      * nothing happened; pairing it with witnessed pressure drops it to 2.2%,
      * which is what makes it an achievement rather than a quiet game.
      */
-    pressureWitnessed: 2
+    pressureWitnessed: 2,
+    /**
+     * Gank deaths that still count as holding the lane, when the player finished
+     * laning ahead of their opponent anyway. Being ganked twice and still up on
+     * gold is a different story from being ganked twice and falling behind.
+     */
+    heldUnderPressureDeaths: 2,
+    /**
+     * Sampled attempts that mark a lane as the enemy's focus.
+     *
+     * Two rather than three because attempts are sampled once a minute against a
+     * ~10s gank, so the figure is a floor: a lane caught twice was almost
+     * certainly visited more often than that. At 3 this fired in 0.7% of the
+     * calibration player's games -- effectively dead, since top is the most
+     * isolated lane (mean 0.47 attempts, against 0.71 for mid). At 2 it fires in
+     * 12.3% of laner-games population-wide, inside the band the other negatives
+     * aim for.
+     */
+    campedAttempts: 2,
+    /**
+     * Gank deaths needed before "every early death was a gank" is worth saying.
+     * At 1 it would fire on any single early death that happened to be a gank,
+     * which describes nothing.
+     */
+    allEarlyDeathsFromGanks: 2
   },
 
   // --- Damage ---

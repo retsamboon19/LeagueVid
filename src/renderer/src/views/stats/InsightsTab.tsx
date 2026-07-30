@@ -1,10 +1,13 @@
 import { memo, useState } from 'react'
 import type { HeuristicStats, MatchStats, StatsParticipant } from '../../../../shared/types'
+import GankSourceList from './GankSourceList'
 import { challenge, csPerMinute, formatCompactNumber, formatPercent } from './statsFormat'
 
 interface InsightsTabProps {
   stats: MatchStats
   focus: StatsParticipant
+  /** Seeks video playback to a game time, for the gank list's timestamps. */
+  onSeekGameTime: (gameTimeMs: number) => void
 }
 
 type GroupKey = 'fighting' | 'ganks' | 'farming' | 'objectives' | 'vision'
@@ -194,7 +197,7 @@ const GROUPS: Array<{ key: GroupKey; label: string }> = [
   { key: 'vision', label: 'Vision' }
 ]
 
-function InsightsTab({ stats, focus }: InsightsTabProps): JSX.Element {
+function InsightsTab({ stats, focus, onSeekGameTime }: InsightsTabProps): JSX.Element {
   const [group, setGroup] = useState<GroupKey>('fighting')
   const heuristics = stats.heuristicsByParticipant[focus.participantId]
   const gank = stats.gankByParticipant[focus.participantId]
@@ -236,6 +239,16 @@ function InsightsTab({ stats, focus }: InsightsTabProps): JSX.Element {
           <GaugeRing key={gauge.name} gauge={gauge} />
         ))}
       </div>
+
+      {group === 'ganks' && gank && (
+        <GankSourceList
+          events={gank.gankEvents}
+          participants={stats.participants}
+          matchId={stats.matchId}
+          participantId={focus.participantId}
+          onSeekGameTime={onSeekGameTime}
+        />
+      )}
 
       {showsEstimates && group === 'ganks' && (
         <p className="settings-row-hint">

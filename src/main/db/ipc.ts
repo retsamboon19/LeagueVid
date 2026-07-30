@@ -92,6 +92,23 @@ export function registerDbHandlers(): void {
     ) => repo.insertManualTag(input)
   )
 
+  // Per-gank accuracy verdicts from the stats panel's "Gank source" list. The
+  // detection is a heuristic, and these are the ground truth for retuning it.
+  ipcMain.handle('db:setGankFeedback', (_e, input: Parameters<typeof repo.setGankFeedback>[0]) =>
+    repo.setGankFeedback(input)
+  )
+
+  ipcMain.handle(
+    'db:clearGankFeedback',
+    (_e, input: Parameters<typeof repo.clearGankFeedback>[0]) => repo.clearGankFeedback(input)
+  )
+
+  ipcMain.handle('db:listGankFeedback', (_e, input: { matchId: string; participantId: number }) =>
+    repo.listGankFeedback(input.matchId, input.participantId)
+  )
+
+  ipcMain.handle('db:getGankFeedbackSummary', () => repo.getGankFeedbackSummary())
+
   ipcMain.handle('db:addLinkedFolder', (_e, folderPath: string) => repo.addLinkedFolder(folderPath))
 
   ipcMain.handle('db:listLinkedFolders', () => repo.listLinkedFolders())

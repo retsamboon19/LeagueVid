@@ -419,6 +419,38 @@ function migrate(database: SqlJsDatabase): void {
       updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
     );
 
+    -- The user's verdict on individual detected ganks, collected from the
+    -- "Gank source" list in the stats panel.
+    --
+    -- Gank detection is a heuristic built on lane-corridor geometry and Riot's
+    -- once-a-minute position samples, so it will be wrong sometimes. This table
+    -- is the record of WHERE it was wrong, which is the only way to retune the
+    -- thresholds against real judgment instead of guessing.
+    --
+    -- Keyed on the match, the player within it, and the gank's game time rather
+    -- than on a row id, because gank stats are recomputed from cached timelines
+    -- on every panel open and never persisted -- there is no stable id to
+    -- reference. Kill timestamps are exact and sampled ones land on 60s frame
+    -- boundaries, so both survive recomputation.
+    --
+    -- outcome and ganker_ids are denormalised copies kept for later analysis: if
+    -- retuning makes a gank stop being detected, its verdict is still evidence,
+    -- and by then the row would otherwise have lost all context.
+    CREATE TABLE IF NOT EXISTS gank_feedback (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      match_id TEXT NOT NULL,
+      participant_id INTEGER NOT NULL,  -- 1-10, within the match
+      timestamp_ms INTEGER NOT NULL,    -- GAME time, not video time
+      outcome TEXT NOT NULL,            -- died|survived|turned_around, as detected
+      ganker_ids TEXT,                  -- JSON array of participantIds
+      verdict TEXT NOT NULL,            -- 'accurate' | 'wrong'
+      created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
+      UNIQUE(match_id, participant_id, timestamp_ms)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_gank_feedback_match
+      ON gank_feedback(match_id, participant_id);
+
     -- One row per recording LeagueVid made itself, from the moment capture
     -- starts. Written before the file is finished on purpose: if the app is
     -- killed mid-game, this row is what the next launch uses to find the

@@ -8,6 +8,7 @@ import type {
   DDragonBundle,
   DiskUsageInfo,
   EncoderCapabilities,
+  GankVerdict,
   LeadSwingResult,
   MatchActionTimelineResult,
   MatchPickerSummary,
@@ -77,6 +78,20 @@ export interface LinkedFolderRow {
   last_scanned_at: number | null
   last_scan_imported: number
   last_scan_skipped: number
+}
+
+/** A stored verdict on one detected gank. Mirrors the gank_feedback table. */
+export interface GankFeedbackRow {
+  id: number
+  match_id: string
+  participant_id: number
+  /** GAME time, not video time. */
+  timestamp_ms: number
+  outcome: string
+  /** JSON array of participantIds. */
+  ganker_ids: string | null
+  verdict: string
+  created_at: number
 }
 
 /** What the main process sends when a recording lands in the library. */
@@ -254,6 +269,36 @@ const api = {
       label: string
       detail?: string
     }): Promise<TagRow> => ipcRenderer.invoke('db:insertManualTag', input),
+
+    // Per-gank accuracy verdicts. Gank detection is a heuristic, so the stats
+    // panel lets the user mark each detected gank right or wrong; these verdicts
+    // are what later retuning is measured against.
+    setGankFeedback: (input: {
+      matchId: string
+      participantId: number
+      timestampMs: number
+      outcome: string
+      gankerParticipantIds: number[]
+      verdict: GankVerdict
+    }): Promise<void> => ipcRenderer.invoke('db:setGankFeedback', input),
+
+    clearGankFeedback: (input: {
+      matchId: string
+      participantId: number
+      timestampMs: number
+    }): Promise<void> => ipcRenderer.invoke('db:clearGankFeedback', input),
+
+    listGankFeedback: (input: {
+      matchId: string
+      participantId: number
+    }): Promise<GankFeedbackRow[]> => ipcRenderer.invoke('db:listGankFeedback', input),
+
+    getGankFeedbackSummary: (): Promise<{
+      accurate: number
+      wrong: number
+      byOutcome: Array<{ outcome: string; verdict: string; count: number }>
+      rows: GankFeedbackRow[]
+    }> => ipcRenderer.invoke('db:getGankFeedbackSummary'),
 
     addLinkedFolder: (folderPath: string): Promise<LinkedFolderRow> =>
       ipcRenderer.invoke('db:addLinkedFolder', folderPath),
