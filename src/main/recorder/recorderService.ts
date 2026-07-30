@@ -9,9 +9,11 @@ import {
   insertVideo,
   updateRecording
 } from '../db/repository'
-import { buildCaptureArgs, type AudioInputSpec, type CaptureTarget } from './ffmpegArgs'
+import type { AudioInputSpec, CaptureTarget } from './ffmpegArgs'
 import { ffmpegBinaryPath } from './ffmpegBinary'
-import { startCapture, type CaptureHandle } from './ffmpegProcess'
+import type { CaptureHandle } from './ffmpegProcess'
+import { activeCaptureBackend } from './backendSelection'
+import type { CaptureBackend } from './captureBackend'
 import { spawn } from 'child_process'
 import { buildSessionPath } from './outputPaths'
 import { assessCaptureHealth } from './progressParser'
@@ -57,6 +59,16 @@ export interface RecordingSavedPayload {
 let state: RecorderStateSnapshot = initialRecorderState(false)
 let handle: CaptureHandle | null = null
 let currentSettings: RecordingSettings | null = null
+
+/**
+ * The backend recording the session in flight.
+ *
+ * Held for the whole session rather than re-resolved, because the post-capture
+ * steps depend on which one wrote the file -- whether it needs remuxing, and
+ * where a replay comes from. Re-asking after selection changed mid-game would
+ * remux a file the other backend never wrote.
+ */
+let currentBackend: CaptureBackend | null = null
 
 /**
  * Notified when frames start arriving.
@@ -187,30 +199,21 @@ export async function startRecording(
     championName: options.championName
   })
 
+  const backend = await activeCaptureBackend()
+  currentBackend = backend
+
   // The replay ring is written by the same encode as the session file, so it
   // has to be decided before the child is spawned -- it cannot be switched on
   // mid-recording.
-  activeRing = settings.replayBufferEnabled
-    ? ringFor(join(dirname(outputPath), 'replay-buffer'), settings.replayBufferSeconds)
-    : null
+  //
+  // Skipped entirely for a backend that owns its replay buffer: preparing a ring
+  // it will never write into would create an empty directory and, worse, make
+  // isReplayBufferActive() claim a buffer that nothing is filling.
+  activeRing =
+    settings.replayBufferEnabled && !backend.ownsReplayBuffer
+      ? ringFor(join(dirname(outputPath), 'replay-buffer'), settings.replayBufferSeconds)
+      : null
   if (activeRing) prepareRing(activeRing)
-
-  const args = buildCaptureArgs(
-    {
-      settings,
-      target: options.target,
-      outputPath,
-      audioInputs: options.audioInputs ?? [],
-      replay: activeRing
-        ? {
-            segmentPattern: activeRing.pattern,
-            segmentSeconds: activeRing.segmentSeconds,
-            segmentCount: activeRing.segmentCount
-          }
-        : undefined
-    },
-    options.fallbackEncoder
-  )
 
   // Created before the child so the quit path can never observe a capture with
   // no completion promise attached to it.
@@ -219,25 +222,43 @@ export async function startRecording(
   })
 
   try {
-    handle = startCapture({
-      ffmpegPath: ffmpegBinaryPath(),
-      args,
-      onProgress: (sample) => {
-        dispatch({ type: 'progress', sample })
-        broadcast(RECORDER_CHANNELS.progress, sample)
-        reportHealth(sample)
+    handle = await backend.start(
+      {
+        settings,
+        target: options.target,
+        outputPath,
+        audioInputs: options.audioInputs ?? [],
+        // Only described for a backend that implements the buffer with a segment
+        // ring. One that owns its own must not be handed a ring to write into as
+        // well, or the footage would be captured twice.
+        replay:
+          activeRing && !backend.ownsReplayBuffer
+            ? {
+                segmentPattern: activeRing.pattern,
+                segmentSeconds: activeRing.segmentSeconds,
+                segmentCount: activeRing.segmentCount
+              }
+            : undefined,
+        fallbackEncoder: options.fallbackEncoder
       },
-      onFirstFrames: () => {
-        const at = Date.now()
-        dispatch({ type: 'frames-flowing', at })
-        // Persisted because this is the timestamp the sync offset is computed
-        // from when the recording is linked to its match.
-        updateRecording(row.id, { firstFrameMs: at })
-        // Cancels the readiness timeout: frames are arriving, so this capture
-        // is real rather than a pipeline that opened a display and stalled.
-        framesFlowingListener?.()
+      {
+        onProgress: (sample) => {
+          dispatch({ type: 'progress', sample })
+          broadcast(RECORDER_CHANNELS.progress, sample)
+          reportHealth(sample)
+        },
+        onFirstFrames: () => {
+          const at = Date.now()
+          dispatch({ type: 'frames-flowing', at })
+          // Persisted because this is the timestamp the sync offset is computed
+          // from when the recording is linked to its match.
+          updateRecording(row.id, { firstFrameMs: at })
+          // Cancels the readiness timeout: frames are arriving, so this capture
+          // is real rather than a pipeline that opened a display and stalled.
+          framesFlowingListener?.()
+        }
       }
-    })
+    )
   } catch (err) {
     const message = (err as Error).message
     updateRecording(row.id, { state: 'failed', endedAt: Date.now(), ffmpegError: message })
@@ -325,7 +346,13 @@ async function finishSession(
     return
   }
 
-  const remux = await remuxToMp4({ ffmpegPath: ffmpegBinaryPath(), sourcePath: tempPath })
+  // Only Matroska needs converting. A backend that already writes a playable
+  // MP4 must not be re-containerised: it would cost a full copy of a
+  // multi-gigabyte file for no change in what plays.
+  const remux =
+    (currentBackend?.sessionContainer ?? 'matroska') === 'mp4'
+      ? { ok: true, importPath: tempPath, sizeBytes: sizeOf(tempPath), error: null }
+      : await remuxToMp4({ ffmpegPath: ffmpegBinaryPath(), sourcePath: tempPath })
   dispatch({ type: 'remux-finished', ok: remux.ok, error: remux.error })
 
   // On failure remuxToMp4 hands back the Matroska file, so the footage is
@@ -361,6 +388,7 @@ function finishSessionCompletion(): void {
   resolveSessionCompletion?.()
   resolveSessionCompletion = null
   sessionCompletion = null
+  currentBackend = null
   // The ring belongs to the session that just ended. Left in place, a later
   // replay save would reach back into the previous game's footage.
   activeRing = null
@@ -378,13 +406,17 @@ function recordedAtFor(recordingId: number): number {
   return row?.game_start_ms ?? row?.started_at ?? Date.now()
 }
 
-function discard(recordingId: number, tempPath: string): void {
-  let size = 0
+/** Size on disk, or 0 when the file is not there. */
+function sizeOf(path: string): number {
   try {
-    size = statSync(tempPath).size
+    return statSync(path).size
   } catch {
-    // Already gone.
+    return 0
   }
+}
+
+function discard(recordingId: number, tempPath: string): void {
+  const size = sizeOf(tempPath)
   try {
     unlinkSync(tempPath)
   } catch {
@@ -444,11 +476,36 @@ export interface SaveReplayResult {
  * the rest of the game.
  */
 export async function saveReplay(): Promise<SaveReplayResult> {
+  const settings = currentSettings ?? getRecordingSettings()
+
+  // A backend with its own replay buffer keeps the footage in memory and writes
+  // it on request, so there are no segments to concatenate. Its file still has
+  // to reach the library, which is the part that is the service's job either way.
+  if (currentBackend?.ownsReplayBuffer && currentBackend.saveReplay) {
+    const saved = await currentBackend.saveReplay()
+    const video = insertVideo({
+      filePath: saved.outputPath,
+      fileName: basename(saved.outputPath),
+      recordedAt: Date.now() - saved.durationSeconds * 1000,
+      durationMs: saved.durationSeconds * 1000,
+      source: 'recorded'
+    })
+    broadcast(RECORDER_CHANNELS.recordingSaved, {
+      recordingId: -1,
+      video,
+      converted: true
+    } satisfies RecordingSavedPayload)
+    return {
+      outputPath: saved.outputPath,
+      durationSeconds: saved.durationSeconds,
+      sizeBytes: sizeOf(saved.outputPath)
+    }
+  }
+
   if (!activeRing) {
     throw new Error('The replay buffer is not running. Turn it on in Settings before recording.')
   }
 
-  const settings = currentSettings ?? getRecordingSettings()
   const segments = selectRecentSegments(
     listSegments(activeRing.directory),
     settings.replayBufferSeconds,
@@ -522,7 +579,15 @@ export async function saveReplay(): Promise<SaveReplayResult> {
 }
 
 export function isReplayBufferActive(): boolean {
-  return activeRing !== null
+  // Either the service is filling a segment ring, or the backend is holding a
+  // buffer of its own. The hotkey has to work in both cases.
+  if (activeRing !== null) return true
+  return Boolean(handle && currentBackend?.ownsReplayBuffer && currentSettings?.replayBufferEnabled)
+}
+
+/** Which capture technology is recording, or would. For Settings and logs. */
+export function currentBackendId(): string | null {
+  return currentBackend?.id ?? null
 }
 
 /**

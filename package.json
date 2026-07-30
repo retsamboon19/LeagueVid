@@ -4,6 +4,7 @@
   "description": "Tag key moments in your League of Legends recordings, auto-synced from Riot match data",
   "main": "./out/main/index.js",
   "author": "LeagueVid",
+  "license": "GPL-2.0-or-later",
   "private": true,
   "scripts": {
     "dev": "electron-vite dev",
