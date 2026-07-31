@@ -122,6 +122,8 @@ export class RiotClient {
       count?: number
       startTime?: number // epoch seconds, inclusive
       endTime?: number // epoch seconds, exclusive
+      /** Riot queue id filter (e.g. 420 for ranked solo/duo). Omit for all queues. */
+      queue?: number
       priority?: RequestPriority
     } = {}
   ): Promise<string[]> {
@@ -131,6 +133,7 @@ export class RiotClient {
     })
     if (opts.startTime !== undefined) params.set('startTime', String(opts.startTime))
     if (opts.endTime !== undefined) params.set('endTime', String(opts.endTime))
+    if (opts.queue !== undefined) params.set('queue', String(opts.queue))
 
     const url = `https://${region}.api.riotgames.com/lol/match/v5/matches/by-puuid/${puuid}/ids?${params.toString()}`
     return this.request<string[]>(url, opts.priority ?? 'foreground')

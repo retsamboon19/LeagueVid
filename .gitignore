@@ -38,3 +38,9 @@ clips/
 # Recordings the app makes itself land here by default (see outputPaths.ts),
 # including the replay buffer's segment ring. Same reasoning as clips/.
 recordings/
+
+# Calibration dataset for the achievement system (see scripts/build-dataset.ts,
+# scripts/tune-achievements.ts). Hundreds/thousands of match+timeline bodies
+# from many players -- dev-only, never read by the shipped app, and not
+# something to commit wholesale. Revisit before publishing any of it.
+dataset/
