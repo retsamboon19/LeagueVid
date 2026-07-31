@@ -79,6 +79,10 @@ describe('analyzeGanks', () => {
       ROSTER
     )
     expect(result[1].gankDeaths).toBe(1)
+    // Exact fatal evidence also establishes the attempt even though no
+    // once-a-minute participant frame happened to sample the ganker.
+    expect(result[1].gankAttempts).toBe(1)
+    expect(result[1].ganksSurvived).toBe(0)
     expect(result[1].gankEvents).toHaveLength(1)
     expect(result[1].gankEvents[0].outcome).toBe('died')
     // The enemy top laner assisted but is the expected matchup; only the
@@ -196,6 +200,39 @@ describe('analyzeGanks', () => {
     expect(result[1].gankEvents[0].outcome).toBe('died')
   })
 
+  it('counts a sampled survival and a later unsampled fatal gank as two attempts', () => {
+    const result = analyzeGanks(
+      [
+        frame(4 * MINUTE, { 1: TOP_SPOT, 7: TOP_SPOT }),
+        frame(5 * MINUTE, { 1: TOP_SPOT, 7: OFF_LANE }),
+        frame(8 * MINUTE, {}, [kill(8 * MINUTE + 10_000, 7, 1, TOP_SPOT)])
+      ],
+      ROSTER
+    )
+
+    expect(result[1].gankAttempts).toBe(2)
+    expect(result[1].ganksSurvived).toBe(1)
+    expect(result[1].gankDeaths).toBe(1)
+    expect(result[1].gankEvents.map((event) => event.outcome)).toEqual(['survived', 'died'])
+  })
+
+  it('keeps attempts at least as large as deaths for every laner', () => {
+    const result = analyzeGanks(
+      [
+        frame(3 * MINUTE, {}, [
+          kill(3 * MINUTE + 5_000, 7, 1, TOP_SPOT),
+          kill(3 * MINUTE + 10_000, 2, 6, TOP_SPOT)
+        ]),
+        frame(7 * MINUTE, {}, [kill(7 * MINUTE, 8, 4, BOT_SPOT)])
+      ],
+      ROSTER
+    )
+
+    for (const stats of Object.values(result)) {
+      expect(stats.gankAttempts).toBeGreaterThanOrEqual(stats.gankDeaths)
+    }
+  })
+
   it('counts killing the ganker in your own lane as turning it around', () => {
     const result = analyzeGanks(
       [frame(5 * MINUTE, {}, [kill(5 * MINUTE, 1, 7, TOP_SPOT)])],
@@ -248,6 +285,27 @@ describe('analyzeGanks', () => {
     // The kill's exact time is preferred over the frame's approximate one.
     expect(result[3].gankEvents[0].approximateTime).toBe(false)
     expect(result[3].gankEvents[0].timestampMs).toBe(5 * MINUTE + 6_000)
+  })
+
+  it('includes Riot’s slightly late nominal 15:00 position frame', () => {
+    const result = analyzeGanks(
+      [frame(15 * MINUTE + 283, { 1: TOP_SPOT, 7: TOP_SPOT })],
+      ROSTER
+    )
+
+    expect(result[1].gankAttempts).toBe(1)
+    expect(result[1].ganksSurvived).toBe(1)
+    expect(result[1].gankEvents[0].timestampMs).toBe(15 * MINUTE)
+  })
+
+  it('does not extend frame sampling materially beyond 15:00', () => {
+    const result = analyzeGanks(
+      [frame(15 * MINUTE + 5_001, { 1: TOP_SPOT, 7: TOP_SPOT })],
+      ROSTER
+    )
+
+    expect(result[1].gankAttempts).toBe(0)
+    expect(result[1].gankEvents).toHaveLength(0)
   })
 
   it('ignores everything after the laning phase ends', () => {

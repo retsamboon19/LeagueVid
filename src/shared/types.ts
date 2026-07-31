@@ -361,12 +361,12 @@ export interface GankStats {
   /** Deaths before 15 min, in own lane, with a third party involved. */
   gankDeaths: number
   /**
-   * Times a third party was seen in the player's lane next to them. Sampled at
-   * the 60s frame interval, so this is a floor on what really happened, not a
-   * complete count.
+   * Early gank attempts: every exact fatal gank, plus nonfatal pressure seen
+   * in the 60s position samples. Nonfatal attempts remain a sampled floor;
+   * fatal attempts are complete because kill events have exact timestamps.
    */
   gankAttempts: number
-  /** Sampled attempts that were not followed by a gank death. */
+  /** Sampled nonfatal attempts; exact fatal attempts are never included. */
   ganksSurvived: number
   /** Third parties who died in the player's lane, with the player's help, without trading the player's life. */
   ganksTurnedAround: number

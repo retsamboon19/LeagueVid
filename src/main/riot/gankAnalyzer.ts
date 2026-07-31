@@ -37,6 +37,14 @@ import type { TimelineFrameDto } from './types'
 const EARLY_PHASE_END_MS = 15 * 60 * 1000
 
 /**
+ * Riot's nominal minute frames drift a few milliseconds on every sample. In
+ * almost every calibration timeline the frame representing 15:00 therefore
+ * arrives just after 900,000ms. Admit only a small bounded overrun, then clamp
+ * that approximate sample back to 15:00 so the laning window is not extended.
+ */
+const EARLY_FRAME_DRIFT_TOLERANCE_MS = 5_000
+
+/**
  * How close a third party has to be to the player to count as ganking them,
  * rather than merely standing somewhere in the same long corridor.
  *
@@ -123,7 +131,7 @@ function collectEarlyFrames(frames: TimelineFrameDto[]): FramePositions[] {
   const out: FramePositions[] = []
 
   for (const frame of frames) {
-    if (frame.timestamp > EARLY_PHASE_END_MS) continue
+    if (frame.timestamp > EARLY_PHASE_END_MS + EARLY_FRAME_DRIFT_TOLERANCE_MS) continue
     // The frame at 0ms has everyone stood in the fountain, which would read as
     // ten players sharing a lane.
     if (frame.timestamp === 0) continue
@@ -132,7 +140,14 @@ function collectEarlyFrames(frames: TimelineFrameDto[]): FramePositions[] {
     for (const pf of Object.values(frame.participantFrames ?? {})) {
       if (pf.position) positions.set(pf.participantId, pf.position)
     }
-    if (positions.size > 0) out.push({ timestampMs: frame.timestamp, positions })
+    if (positions.size > 0) {
+      out.push({
+        // A slightly late frame is still Riot's nominal 15:00 sample. Keep its
+        // public event time inside the early-phase boundary too.
+        timestampMs: Math.min(frame.timestamp, EARLY_PHASE_END_MS),
+        positions
+      })
+    }
   }
 
   return out.sort((a, b) => a.timestampMs - b.timestampMs)
@@ -199,15 +214,17 @@ export function analyzeGanks(
       approximateTime: false
     }))
 
-    // --- Attempts: a third party crossed into my lane while I was there ---
+    // --- Attempts: exact fatal ganks plus sampled nonfatal pressure ---
     //
-    // Frames are 60s apart and a gank lasts ~10s, so this SAMPLES pressure
-    // rather than observing every attempt. Consecutive firing frames are
-    // merged into one attempt, otherwise a support parked in the lane for
-    // three minutes would read as three separate ganks.
-    let attempts = 0
+    // Every fatal gank is definitionally an attempt, even when it begins and
+    // ends between Riot's 60s position samples. Seed the count from exact kill
+    // events, then add sampled attempts only when they do not cover one of
+    // those deaths. Consecutive firing frames are still merged into one attempt,
+    // otherwise a support parked in lane for three minutes would read as three.
+    let attempts = gankDeaths.length
     let survived = 0
     let firedOnPreviousFrame = false
+    const matchedDeathIndexes = new Set<number>()
     // Survived attempts, held aside so a turnaround can absorb the one it
     // belongs to instead of the list showing the same gank twice.
     const survivedEvents: GankEvent[] = []
@@ -232,11 +249,27 @@ export function analyzeGanks(
       const fired = gankersHere.length > 0
 
       if (fired && !firedOnPreviousFrame) {
-        attempts++
-        const fatal = gankDeathTimes.some(
-          (t) => Math.abs(t - frame.timestampMs) <= ATTEMPT_DEATH_WINDOW_MS
-        )
-        if (!fatal) {
+        // Match at most one exact death to this sampled presence. The death has
+        // already seeded attempts, so counting the frame too would report one
+        // fatal gank twice. Nearest wins if a rare window contains two deaths.
+        let fatalIndex = -1
+        let nearestDeathDistance = Number.POSITIVE_INFINITY
+        for (let i = 0; i < gankDeathTimes.length; i++) {
+          if (matchedDeathIndexes.has(i)) continue
+          const deathDistance = Math.abs(gankDeathTimes[i] - frame.timestampMs)
+          if (
+            deathDistance <= ATTEMPT_DEATH_WINDOW_MS &&
+            deathDistance < nearestDeathDistance
+          ) {
+            fatalIndex = i
+            nearestDeathDistance = deathDistance
+          }
+        }
+
+        if (fatalIndex >= 0) {
+          matchedDeathIndexes.add(fatalIndex)
+        } else {
+          attempts++
           survived++
           survivedEvents.push({
             timestampMs: frame.timestampMs,
