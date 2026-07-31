@@ -8,35 +8,49 @@
 //
 // Read-only, no Riot API calls.
 //
-// Usage: npx tsx scripts/verify-gank-stats.ts [matchLimit] [--role TOP]
+// Usage:
+//   npx tsx scripts/verify-gank-stats.ts [matchLimit] [--role TOP]
+//   npx tsx scripts/verify-gank-stats.ts --dataset [matchLimit] [--role TOP]
 
 import { existsSync, readFileSync, readdirSync } from 'fs'
-import { join } from 'path'
+import { join, sep } from 'path'
 import { analyzeGanks } from '../src/main/riot/gankAnalyzer'
 import type { GankStats } from '../src/shared/types'
 
-const cacheRoot = join(process.env.APPDATA ?? '', 'leaguevid', 'riot-api-cache')
+const appCacheRoot = join(process.env.APPDATA ?? '', 'leaguevid', 'riot-api-cache')
+const datasetRoot = join(__dirname, '..', 'dataset')
 
-function readKind<T>(kind: string, limit: number): Map<string, T> {
-  const out = new Map<string, T>()
-  const root = join(cacheRoot, kind)
+/**
+ * Lists match files without parsing them.
+ *
+ * Deliberately paths-only: the calibration dataset holds thousands of
+ * timelines of several megabytes each, so parsing them all up front exhausts
+ * memory. The caller reads one match/timeline pair at a time and lets each go
+ * out of scope, which is what makes this usable on the full corpus as well as
+ * on the app's much smaller cache.
+ */
+function listMatchFiles(sourceRoot: string, limit: number): string[] {
+  const out: string[] = []
+  const root = join(sourceRoot, 'match')
   if (!existsSync(root)) return out
   const walk = (dir: string): void => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (out.size >= limit) return
+      if (out.length >= limit) return
       const full = join(dir, entry.name)
       if (entry.isDirectory()) walk(full)
-      else if (entry.name.endsWith('.json')) {
-        try {
-          out.set(entry.name.replace(/\.json$/, ''), JSON.parse(readFileSync(full, 'utf8')) as T)
-        } catch {
-          continue
-        }
-      }
+      else if (entry.name.endsWith('.json')) out.push(full)
     }
   }
   walk(root)
   return out
+}
+
+function readJson<T>(path: string): T | null {
+  try {
+    return JSON.parse(readFileSync(path, 'utf8')) as T
+  } catch {
+    return null
+  }
 }
 
 function pct(n: number, d: number): string {
@@ -59,19 +73,25 @@ async function main(): Promise<void> {
   const limit = Number(args.find((a) => /^\d+$/.test(a)) ?? 1000)
   const roleFilterIndex = args.indexOf('--role')
   const roleFilter = roleFilterIndex >= 0 ? args[roleFilterIndex + 1] : null
+  const sourceRoot = args.includes('--dataset') ? datasetRoot : appCacheRoot
 
-  const matches = readKind<any>('match', limit)
-  const timelines = readKind<any>('timeline', limit)
+  const matchPaths = listMatchFiles(sourceRoot, limit)
 
   let matchesUsed = 0
   let skippedNonClassic = 0
+  let missingTimeline = 0
   let junglerEntries = 0
   const byRole = new Map<string, GankStats[]>()
   const all: GankStats[] = []
 
-  for (const [matchId, match] of matches) {
-    const timeline = timelines.get(matchId)
-    if (!timeline) continue
+  for (const matchPath of matchPaths) {
+    const match = readJson<any>(matchPath)
+    if (!match) continue
+    const timeline = readJson<any>(matchPath.replace(`${sep}match${sep}`, `${sep}timeline${sep}`))
+    if (!timeline) {
+      missingTimeline++
+      continue
+    }
     const participants = match.info?.participants ?? []
     if (participants.length !== 10) continue
     if (match.info?.gameMode !== 'CLASSIC') {
@@ -105,6 +125,9 @@ async function main(): Promise<void> {
     }
   }
 
+  console.log(`source                                   : ${sourceRoot}`)
+  console.log(`match files found                        : ${matchPaths.length}`)
+  console.log(`matches without a timeline               : ${missingTimeline}`)
   console.log(`matches analysed (CLASSIC, 10p, timeline): ${matchesUsed}`)
   console.log(`non-Summoner's-Rift matches skipped       : ${skippedNonClassic}`)
   console.log(`laner-games with gank stats               : ${all.length}`)
@@ -116,6 +139,13 @@ async function main(): Promise<void> {
   console.log(
     `  ${junglerEntries === 0 ? 'PASS: junglers are omitted, so the UI shows them as unavailable.' : 'FAIL: junglers are being given lane stats.'}`
   )
+
+  // Every fatal gank is an attempt, even when it fell between position frames.
+  const deathAttemptContradictions = all.filter((s) => s.gankDeaths > s.gankAttempts).length
+  console.log(
+    `\nCORRECTNESS CHECK -- gankDeaths > gankAttempts: ${deathAttemptContradictions} (must be 0)`
+  )
+  console.log(`  ${deathAttemptContradictions === 0 ? 'PASS' : 'FAIL'}`)
 
   // A survived attempt must never coexist with more survived than attempted.
   const inconsistent = all.filter((s) => s.ganksSurvived > s.gankAttempts).length
@@ -191,7 +221,7 @@ async function main(): Promise<void> {
   )
   tail(
     all.map((s) => s.gankAttempts),
-    'gank attempts (sampled)'
+    'gank attempts (exact fatal + sampled nonfatal)'
   )
   tail(
     all.map((s) => s.ganksSurvived),
@@ -224,6 +254,21 @@ async function main(): Promise<void> {
     console.log(
       `  ${role.padEnd(9)}  ${String(list.length).padStart(5)}   ${mean((s) => s.gankAttempts).padStart(8)}   ${mean((s) => s.gankDeaths).padStart(6)}   ${mean((s) => s.ganksSurvived).padStart(8)}   ${mean((s) => s.ganksTurnedAround).padStart(6)}`
     )
+  }
+
+  const failedChecks = [
+    junglerEntries,
+    deathAttemptContradictions,
+    inconsistent,
+    diedMismatch,
+    turnedMismatch,
+    survivedTooMany,
+    dupTimestamps,
+    lateEvents
+  ].filter((count) => count !== 0).length
+  if (failedChecks > 0) {
+    console.error(`\nFAILED: ${failedChecks} correctness check(s) reported contradictions.`)
+    process.exitCode = 1
   }
 }
 

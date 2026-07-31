@@ -209,18 +209,25 @@ export const THRESHOLDS = {
   // That sample is all ten players in each game rather than one player's
   // history, so it describes the population rather than any one account.
   //
-  // Re-checked against the larger scripts/build-dataset.ts corpus (~67,000
-  // participant-games): firing rates held up (unfindable 1.9%, gank_turnaround
-  // 4.0%, ganks_survived 4.0%, gank_punisher 19.2%, held_under_pressure 8.8%,
-  // untouched_laning 2.7%, gank_magnet 5.9%, camped 10.8%, only_died_to_ganks
-  // 4.6%) -- all inside their intended bands, so these values are unchanged.
+  // Historical, before the attempt fix below: re-checked against the larger
+  // scripts/build-dataset.ts corpus (~67,000 participant-games) and firing
+  // rates held up (unfindable 1.9%, gank_turnaround 4.0%, ganks_survived 4.0%,
+  // gank_punisher 19.2%, held_under_pressure 8.8%, untouched_laning 2.7%,
+  // gank_magnet 5.9%, camped 10.8%, only_died_to_ganks 4.6%). Those camped and
+  // ganks_survived figures no longer describe the shipped analyzer.
   //
-  // Caveat on flat values: gank exposure is not uniform by role. Mean sampled
-  // attempts run 0.71 for MIDDLE and 0.66 for BOTTOM but only 0.47 for TOP,
-  // which is the most isolated lane. The counts are small integers, so role
-  // scaling would mostly move rules between "never fires" and "fires often"
-  // with nothing in between; these are flat until there is a per-role sample
-  // worth tuning against.
+  // Re-measured after gankAttempts was reconciled with gankDeaths (see
+  // main/riot/gankAnalyzer.ts): a fatal gank now counts as an attempt even when
+  // it happened entirely between two position samples, which it previously did
+  // not. Attempts therefore rose across the board and only campedAttempts, the
+  // one negative rule keyed directly on the raw attempt count, moved as a
+  // result. Sample: 9,597 laner-games from 1,200 dataset matches.
+  //
+  // Caveat on flat values: gank exposure is not uniform by role. Mean attempts
+  // run 1.49 for MIDDLE and 1.30 for BOTTOM but 1.21 for TOP and 1.18 for
+  // UTILITY. The counts are small integers, so role scaling would mostly move
+  // rules between "never fires" and "fires often" with nothing in between;
+  // these are flat until there is a per-role sample worth tuning against.
   ganks: {
     /**
      * Deaths to early ganks that mark a lane as hunted. Measured: 3+ fires in
@@ -230,18 +237,24 @@ export const THRESHOLDS = {
      */
     manyGankDeaths: 3,
     /**
-     * Sampled attempts survived without dying. Measured: 2+ fires in 4.5%.
+     * Sampled nonfatal attempts survived without dying. Measured: 2+ fires in
+     * 6.1%. Fatal ganks are excluded by construction, so this stays a
+     * sampled-only figure and remains a floor.
      */
     ganksSurvived: 2,
-    /** Gankers killed in your own lane. Measured: 2+ fires in 4.0%. */
+    /** Gankers killed in your own lane. Measured: 2+ fires in 4.6%. */
     turnedAround: 2,
-    /** A single turnaround, for the lower tier. Measured: fires in 22.0%. */
+    /** A single turnaround, for the lower tier. Measured: fires in 22.3%. */
     turnedAroundOne: 1,
     /**
-     * Attempts that must have been sampled before "never died to a gank" means
-     * anything. Zero gank deaths alone is 42.9% of games and usually just means
-     * nothing happened; pairing it with witnessed pressure drops it to 2.2%,
-     * which is what makes it an achievement rather than a quiet game.
+     * Attempts that must have been witnessed before "never died to a gank"
+     * means anything. Zero gank deaths alone is 43.2% of games and usually just
+     * means nothing happened; pairing it with witnessed pressure drops it to
+     * 2.9%, which is what makes it an achievement rather than a quiet game.
+     *
+     * Unaffected by the attempt reconciliation: the rules using this also
+     * require gankDeaths === 0, and attempts only gain from fatal ganks, so
+     * every qualifying game is still sampled-pressure-only.
      */
     pressureWitnessed: 2,
     /**
@@ -251,17 +264,17 @@ export const THRESHOLDS = {
      */
     heldUnderPressureDeaths: 2,
     /**
-     * Sampled attempts that mark a lane as the enemy's focus.
+     * Attempts that mark a lane as the enemy's focus.
      *
-     * Two rather than three because attempts are sampled once a minute against a
-     * ~10s gank, so the figure is a floor: a lane caught twice was almost
-     * certainly visited more often than that. At 3 this fired in 0.7% of the
-     * calibration player's games -- effectively dead, since top is the most
-     * isolated lane (mean 0.47 attempts, against 0.71 for mid). At 2 it fires in
-     * 12.3% of laner-games population-wide, inside the band the other negatives
-     * aim for.
+     * Raised from 2 to 3 when fatal ganks began counting as attempts. This is
+     * the same bar in substance, not a loosening: previously a gank that killed
+     * the player often contributed nothing to this count, so 2 was really "2
+     * visits the sampler happened to catch". Now that every fatal gank counts,
+     * 2 fires in 37.5% of laner-games -- routine, and far too loose for a
+     * criticism. 3 fires in 14.4%, back inside the 10-15% band the other
+     * negatives target, with 4 at 4.1% being too rare.
      */
-    campedAttempts: 2,
+    campedAttempts: 3,
     /**
      * Gank deaths needed before "every early death was a gank" is worth saying.
      * At 1 it would fire on any single early death that happened to be a gank,
