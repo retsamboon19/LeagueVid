@@ -4487,3 +4487,560 @@ select:focus {
   content: '·';
   margin-left: 0.15rem;
 }
+
+/* =========================================================================
+   Achievement rarity tiers (R / S / SSR)
+   =========================================================================
+
+   Rarity is expressed as escalating visual cost: R is flat, S adds a gold
+   gradient and a soft glow, SSR adds an animated border and a shine sweep.
+
+   The escalation only works if the common case looks ordinary, so R is
+   deliberately plain -- if every tier glowed, none of them would read as rare.
+
+   Declared at the end of the sheet on purpose: these rules layer on top of the
+   base .achievement / .match-chip styling defined earlier rather than replacing
+   it, so specificity ties resolve in the tier's favour.
+   ------------------------------------------------------------------------- */
+
+.achv-tier {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.85rem;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.28rem;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1.55;
+  cursor: help;
+  vertical-align: middle;
+}
+
+.achv-tier--r {
+  background: #2a2e3a;
+  border-color: #3b4150;
+  color: #98a0b0;
+}
+
+.achv-tier--s {
+  background: linear-gradient(135deg, #6b4f14, #b8912f);
+  border-color: #f0c85a;
+  color: #ffe9ac;
+  box-shadow: 0 0 6px rgba(240, 200, 90, 0.35);
+}
+
+/* The background is three times wider than the badge and slides, which is what
+   gives the iridescent shift without needing a canvas or an SVG. */
+.achv-tier--ssr {
+  background: linear-gradient(100deg, #7b3fe4, #2fb8d9, #e04ec0, #7b3fe4);
+  background-size: 300% 100%;
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 0 8px rgba(160, 90, 230, 0.55);
+  animation: achv-tier-shift 5s linear infinite;
+}
+
+@keyframes achv-tier-shift {
+  to {
+    background-position: 300% 0;
+  }
+}
+
+@keyframes achv-shine {
+  0%,
+  62% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* --- Tiered achievement rows --- */
+
+/* Title has to be a flex line now that it carries badges alongside the text. */
+.achievement-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.achievement--positive.achievement--tier-s,
+.achievement--positive.achievement--tier-ssr {
+  position: relative;
+  overflow: hidden;
+}
+
+.achievement--positive.achievement--tier-s {
+  background: linear-gradient(90deg, rgba(240, 200, 90, 0.1), rgba(240, 200, 90, 0));
+  box-shadow: inset 2px 0 0 #f0c85a;
+}
+
+.achievement--positive.achievement--tier-s:hover {
+  background: linear-gradient(90deg, rgba(240, 200, 90, 0.18), rgba(240, 200, 90, 0.03));
+}
+
+.achievement--positive.achievement--tier-ssr {
+  background: linear-gradient(
+    90deg,
+    rgba(123, 63, 228, 0.22),
+    rgba(47, 184, 217, 0.1) 45%,
+    rgba(224, 78, 192, 0.06)
+  );
+  box-shadow:
+    inset 2px 0 0 #c07bff,
+    0 0 12px rgba(123, 63, 228, 0.18);
+}
+
+.achievement--positive.achievement--tier-ssr:hover {
+  background: linear-gradient(
+    90deg,
+    rgba(123, 63, 228, 0.32),
+    rgba(47, 184, 217, 0.16) 45%,
+    rgba(224, 78, 192, 0.1)
+  );
+}
+
+/* Shine sweep, SSR only. Sits above the row's own background but below nothing
+   interactive, so pointer-events has to be off or it would eat the hover. */
+.achievement--positive.achievement--tier-ssr::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.14) 50%,
+    transparent 65%
+  );
+  transform: translateX(-100%);
+  animation: achv-shine 5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.achievement--positive.achievement--tier-s .achievement-icon {
+  background: radial-gradient(circle at 35% 30%, #55461d, #2a2d38);
+  box-shadow: 0 0 0 1px rgba(240, 200, 90, 0.45);
+  color: #f3d488;
+}
+
+.achievement--positive.achievement--tier-ssr .achievement-icon {
+  background: radial-gradient(circle at 35% 30%, #4a2a7a, #241a38);
+  box-shadow:
+    0 0 0 1px rgba(192, 123, 255, 0.6),
+    0 0 10px rgba(123, 63, 228, 0.4);
+  color: #e0c8ff;
+}
+
+/* Rarity decoration is reserved for positives. A rare criticism is still a
+   criticism -- dressing "Slipped Away" in SSR gold would read as congratulating
+   someone for throwing the game -- so negatives keep their own palette and get
+   the badge only, muted to match. */
+.achievement--negative .achv-tier--s,
+.achievement--negative .achv-tier--ssr {
+  background: #33212c;
+  border-color: #6b3450;
+  color: #f095b9;
+  box-shadow: none;
+  animation: none;
+}
+
+/* Filler rows describe a routine game rather than an accomplishment, so they sit
+   a shade quieter even inside their tier. */
+.achievement--filler .achievement-title {
+  color: #b9bec9;
+}
+
+.achievement--filler .achievement-icon {
+  opacity: 0.7;
+}
+
+/* Marks a row in "Everything earned" that also made the trimmed Highlights set,
+   so the two tabs visibly reconcile instead of looking like separate lists. */
+.achievement-flag {
+  margin-left: 0.4rem;
+  padding: 0 0.25rem;
+  border: 1px solid #3b6ea5;
+  border-radius: 3px;
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #7fb3e0;
+}
+
+/* --- Tier section headings --- */
+
+.achievement-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.achievement-heading--tier {
+  color: #c4c8d1;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.76rem;
+}
+
+.achievement-heading-count {
+  margin-left: auto;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #7d818c;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Count pill on the sub-tab buttons. */
+.achv-tab-count {
+  margin-left: 0.35rem;
+  padding: 0 0.28rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 0.62rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Tiered chips on library tiles --- */
+
+.match-chip--positive.match-chip--tier-s {
+  border-color: #8a6b1f;
+  background: linear-gradient(135deg, rgba(240, 200, 90, 0.2), rgba(240, 200, 90, 0.06));
+  color: #f3d488;
+}
+
+.match-chip--positive.match-chip--tier-ssr {
+  border-color: #8d5fd6;
+  background: linear-gradient(
+    100deg,
+    rgba(123, 63, 228, 0.34),
+    rgba(47, 184, 217, 0.2),
+    rgba(224, 78, 192, 0.28),
+    rgba(123, 63, 228, 0.34)
+  );
+  background-size: 300% 100%;
+  color: #f0e2ff;
+  animation: achv-tier-shift 7s linear infinite;
+}
+
+/* =========================================================================
+   Browse-all achievement catalog
+   ========================================================================= */
+
+.achv-catalog-panel {
+  background: #1c1f28;
+  border: 1px solid #2f333f;
+  border-radius: 10px;
+  width: 820px;
+  max-width: calc(100vw - 3rem);
+  /* Bounded, with the list scrolling inside: the catalog is far too long to let
+     the panel grow to fit it, which would push the footer off screen. */
+  max-height: calc(100vh - 4rem);
+  min-height: 0;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.achv-catalog-intro {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.achv-catalog-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.achv-catalog-search {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 0.55rem;
+  background: #14161d;
+  border: 1px solid #2f333f;
+  border-radius: 6px;
+  color: #7d818c;
+}
+
+.achv-catalog-search input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.5rem 0;
+  background: none;
+  border: none;
+  color: #e6e6e6;
+}
+
+/* The input has no border of its own -- the wrapper draws it -- so the focus
+   ring has to move to the wrapper rather than simply being removed. */
+.achv-catalog-search input:focus {
+  outline: none;
+}
+
+.achv-catalog-search:focus-within {
+  border-color: #4a90d9;
+  box-shadow: 0 0 0 1px #4a90d9;
+}
+
+.achv-tier-btn--r.graph-metric-btn--active {
+  background: #3b4150;
+  border-color: #7d8798;
+  color: #dfe3ea;
+}
+
+.achv-tier-btn--s.graph-metric-btn--active {
+  background: linear-gradient(135deg, #6b4f14, #b8912f);
+  border-color: #f0c85a;
+  color: #ffe9ac;
+}
+
+.achv-tier-btn--ssr.graph-metric-btn--active {
+  background: linear-gradient(100deg, #7b3fe4, #2fb8d9, #e04ec0, #7b3fe4);
+  background-size: 300% 100%;
+  border-color: #c07bff;
+  color: #fff;
+  animation: achv-tier-shift 5s linear infinite;
+}
+
+.achv-catalog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.achv-catalog-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.achv-catalog-blurb {
+  margin: 0;
+  font-size: 0.7rem;
+  color: #7d818c;
+}
+
+.achv-catalog-list {
+  list-style: none;
+  margin: 0.1rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 0.4rem;
+}
+
+/* Seventy-odd cards, most of them scrolled out of view. Letting the browser skip
+   laying out the ones it isn't showing is the difference between the catalog
+   opening instantly and opening with a visible hitch. */
+.achv-catalog-list > li {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 64px;
+}
+
+.achv-catalog-card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.55rem 0.6rem;
+  background: #171a22;
+  border: 1px solid #2f333f;
+  border-radius: 8px;
+  color: inherit;
+  text-align: left;
+  overflow: hidden;
+}
+
+.achv-catalog-card:hover {
+  background: #22252f;
+  border-color: #3b6ea5;
+}
+
+.achv-catalog-card-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.achv-catalog-card-check {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #3b4150;
+  border-radius: 4px;
+  color: #7fb3e0;
+}
+
+.achv-catalog-card--selected {
+  border-color: #4a90d9;
+  background: rgba(74, 144, 217, 0.12);
+}
+
+.achv-catalog-card--selected .achv-catalog-card-check {
+  border-color: #4a90d9;
+  background: rgba(74, 144, 217, 0.2);
+}
+
+.achv-catalog-card--positive .achievement-icon {
+  color: #4ecfa0;
+}
+
+.achv-catalog-card--negative .achievement-icon {
+  color: #e8629b;
+}
+
+/* Tier decoration on cards is gated on the category for the same reason the
+   panel rows are: a rare criticism sits in the SSR section too, and giving
+   "Slipped Away" the celebratory purple card would read as praise for throwing
+   a game. Negatives keep the plain card and carry the badge alone. */
+.achv-catalog-card--positive.achv-catalog-card--tier-s {
+  border-color: #55461d;
+}
+
+.achv-catalog-card--positive.achv-catalog-card--tier-s .achievement-icon {
+  background: radial-gradient(circle at 35% 30%, #55461d, #2a2d38);
+  box-shadow: 0 0 0 1px rgba(240, 200, 90, 0.4);
+  color: #f3d488;
+}
+
+.achv-catalog-card--positive.achv-catalog-card--tier-ssr {
+  border-color: #4a2a7a;
+  background: linear-gradient(135deg, rgba(123, 63, 228, 0.14), rgba(23, 26, 34, 0.9));
+}
+
+.achv-catalog-card--positive.achv-catalog-card--tier-ssr .achievement-icon {
+  background: radial-gradient(circle at 35% 30%, #4a2a7a, #241a38);
+  box-shadow: 0 0 0 1px rgba(192, 123, 255, 0.55);
+  color: #e0c8ff;
+}
+
+/* Not earned in this library yet: readable, but visibly not one of yours. */
+.achv-catalog-card--unearned .achievement-icon,
+.achv-catalog-card--unearned .achievement-title {
+  opacity: 0.72;
+}
+
+.achv-catalog-count {
+  margin-left: 0.4rem;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: #7fb3e0;
+  font-variant-numeric: tabular-nums;
+}
+
+.achv-catalog-count--zero {
+  color: #6b6f7a;
+  font-weight: 500;
+}
+
+.achv-catalog-note {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.achv-catalog-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.achv-catalog-footer .subtitle {
+  margin: 0;
+  font-size: 0.78rem;
+}
+
+.achv-catalog-footer-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* --- Achievement filter row (sidebar) --- */
+
+.filter-browse-achievements {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  margin-top: 0.35rem;
+}
+
+.filter-chip--achievement {
+  background: rgba(126, 214, 165, 0.12);
+  border-color: #4a7f66;
+  color: #a9dec6;
+}
+
+.filter-chip--achievement.filter-chip--negative {
+  background: rgba(232, 98, 155, 0.12);
+  border-color: #6b3450;
+  color: #f095b9;
+}
+
+.filter-chip--achievement.filter-chip--positive.filter-chip--tier-s {
+  background: rgba(240, 200, 90, 0.14);
+  border-color: #8a6b1f;
+  color: #f3d488;
+}
+
+.filter-chip--achievement.filter-chip--positive.filter-chip--tier-ssr {
+  background: linear-gradient(100deg, rgba(123, 63, 228, 0.3), rgba(224, 78, 192, 0.22));
+  border-color: #8d5fd6;
+  color: #efe0ff;
+}
+
+/* =========================================================================
+   Recordings list rendering cost
+   =========================================================================
+
+   A tile is expensive: nested container-query regions, two scoreboard columns
+   and around twenty icon images each.
+
+   Note for anyone reaching for content-visibility on .match-tile -- it was tried
+   and deliberately reverted. It conflicts with the scroll restore in Library:
+   the tile list unmounts while the player is open, and on remount no tile has a
+   remembered height yet, so every one above the restore point contributes a
+   placeholder size instead of its real height and `scrollTop = savedScrollTop`
+   lands somewhere else entirely. Restoring by tile index rather than by pixel
+   offset would decouple the two and make it viable.
+
+   What's here instead is layout-neutral: the tile images are lazy and decode off
+   the main thread (see MatchTile), and the expensive part -- re-rendering every
+   tile on every library state change, plus re-running the achievement rules per
+   tile -- is solved in JS by memo() and one cached evaluation pass.
+   ------------------------------------------------------------------------- */
+
+/* Rarity still reads through colour and border weight with animation off --
+   only the moving parts are dropped. */
+@media (prefers-reduced-motion: reduce) {
+  .achv-tier--ssr,
+  .achv-tier-btn--ssr.graph-metric-btn--active,
+  .match-chip--positive.match-chip--tier-ssr,
+  .achievement--positive.achievement--tier-ssr::after {
+    animation: none;
+  }
+}

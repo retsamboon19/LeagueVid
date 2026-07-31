@@ -1,5 +1,6 @@
 import { ACHIEVEMENTS } from './definitions'
 import { THRESHOLDS } from './thresholds'
+import { tierForDefinition } from './tiers'
 import type {
   AchievementCategory,
   AchievementDefinition,
@@ -23,7 +24,11 @@ import type {
 // A rule throwing would break the whole tab, so each condition is evaluated
 // defensively -- a buggy rule loses its tile instead of the panel.
 
-function toEarned(def: AchievementDefinition, facts: MatchFacts): EarnedAchievement {
+function toEarned(
+  def: AchievementDefinition,
+  facts: MatchFacts,
+  thresholds: Thresholds
+): EarnedAchievement {
   return {
     id: def.id,
     title: def.title,
@@ -31,6 +36,7 @@ function toEarned(def: AchievementDefinition, facts: MatchFacts): EarnedAchievem
     category: def.category,
     group: def.group,
     priority: def.priority,
+    tier: tierForDefinition(def, thresholds),
     icon: def.icon,
     isEstimate: def.isEstimate ?? false,
     isFiller: def.isFiller ?? false
@@ -47,7 +53,7 @@ export function evaluateAchievements(
 
   for (const def of definitions) {
     try {
-      if (def.condition(facts, thresholds)) earned.push(toEarned(def, facts))
+      if (def.condition(facts, thresholds)) earned.push(toEarned(def, facts, thresholds))
     } catch {
       // A rule reading a fact shape it didn't expect shouldn't take the tab
       // down with it. Skip it silently and carry on.
@@ -66,6 +72,29 @@ function dedupeByGroup(list: EarnedAchievement[]): EarnedAchievement[] {
     if (!existing || item.priority > existing.priority) best.set(item.group, item)
   }
   return [...best.values()]
+}
+
+/**
+ * Group suppression for a list that isn't being trimmed to a display cap.
+ *
+ * Backs the "everything earned" view, which shows no cap but still shouldn't
+ * show a group four times over: a deathless game satisfies Flawless, Survivor,
+ * Untouchable and Held On, which are one observation stated four ways. Groups
+ * exist precisely to collapse that, so an uncapped list needs them just as much
+ * as a capped one does.
+ *
+ * Deduped per category, so a group carrying both a good and a bad rule (e.g.
+ * `farming`) can still contribute to each side. Fillers are not held separate
+ * here -- unlike in the capped selection, where they're a reserve tier that must
+ * not displace anything, in an uncapped list "Farm Machine" and "Kept Farming"
+ * side by side just looks like padding. Real rules always outrank fillers on
+ * priority, so the meaningful one wins.
+ */
+export function dedupeEarnedByGroup(list: EarnedAchievement[]): EarnedAchievement[] {
+  return [
+    ...dedupeByGroup(list.filter((a) => a.category === 'positive')),
+    ...dedupeByGroup(list.filter((a) => a.category === 'negative'))
+  ]
 }
 
 function byPriorityDesc(a: EarnedAchievement, b: EarnedAchievement): number {
@@ -98,8 +127,32 @@ export function selectAchievements(
   definitions: AchievementDefinition[] = ACHIEVEMENTS,
   options: SelectOptions = {}
 ): SelectedAchievements {
+  return selectFromEarned(
+    evaluateAchievements(facts, thresholds, definitions),
+    facts,
+    thresholds,
+    options
+  )
+}
+
+/**
+ * The trimming half of selectAchievements, over an already-evaluated list.
+ *
+ * Exists because two callers need both halves of the result: the achievements
+ * panel shows the trimmed highlights *and* everything that qualified behind
+ * them, and the library evaluates once per recording to back both the tile
+ * chips and the achievement filter. Running the rule set twice to get both
+ * views of it is pure waste -- roughly sixty conditions per match, times a
+ * whole library of them.
+ */
+export function selectFromEarned(
+  earned: EarnedAchievement[],
+  facts: MatchFacts,
+  thresholds: Thresholds = THRESHOLDS,
+  options: SelectOptions = {}
+): SelectedAchievements {
   const { includeFillers = true } = options
-  const all = evaluateAchievements(facts, thresholds, definitions)
+  const all = earned
 
   const byCategory = (category: AchievementCategory, filler: boolean): EarnedAchievement[] =>
     dedupeByGroup(all.filter((a) => a.category === category && a.isFiller === filler)).sort(

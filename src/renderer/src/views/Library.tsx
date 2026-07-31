@@ -1,11 +1,22 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, CheckSquare, DatabaseBackup, Link2, Plus, Trash2, Wrench } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  AlertTriangle,
+  CheckSquare,
+  DatabaseBackup,
+  Link2,
+  Plus,
+  Trash2,
+  Trophy,
+  Wrench
+} from 'lucide-react'
 import type { AppSettings, LeadSwingResult, MatchStats, VideoRow } from '../../../shared/types'
 import BackfillStatusBanner from './BackfillStatusBanner'
 import MatchLinker from './MatchLinker'
 import VideoPlayer from './VideoPlayer'
 import MatchTile from './MatchTile'
 import AddMediaPopup from './AddMediaPopup'
+import AchievementCatalogPopup from './AchievementCatalogPopup'
+import { buildAchievementsByVideo } from '../lib/libraryAchievements'
 import FilterPanel, {
   EMPTY_FILTERS,
   isFilterActive,
@@ -91,6 +102,7 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
   const [linkingVideoId, setLinkingVideoId] = useState<number | null>(null)
   const [playingVideoId, setPlayingVideoId] = useState<number | null>(null)
   const [showAddPopup, setShowAddPopup] = useState(false)
+  const [showAchievementCatalog, setShowAchievementCatalog] = useState(false)
   const [filters, setFilters] = useState<MatchFilters>(EMPTY_FILTERS)
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest')
   const [bulkLinking, setBulkLinking] = useState(false)
@@ -109,6 +121,9 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
   // Timeline-free match stats per videoId, feeding the tiles' achievement
   // chips. Cached here rather than per tile so the whole list costs one call.
   const [statsByVideo, setStatsByVideo] = useState<Map<number, MatchStats>>(new Map())
+  // Whether a bulk stats fetch is in flight. Only surfaced to explain that the
+  // achievement filter may still be sharpening -- the list itself never waits.
+  const [bulkStatsLoading, setBulkStatsLoading] = useState(false)
   const [lastViewedVideoId, setLastViewedVideoId] = useState<number | null>(loadLastViewedVideoId)
   const [showRemoveAllConfirm, setShowRemoveAllConfirm] = useState(false)
   const [removingAll, setRemovingAll] = useState(false)
@@ -154,7 +169,11 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
     }
   }
 
-  async function handleRemove(videoId: number): Promise<void> {
+  // The tile-facing callbacks below are all useCallback'd with no dependencies,
+  // which is what makes MatchTile's memo() worth having: they only ever touch
+  // state through updater functions, so one identity can serve every tile for
+  // the life of the view instead of a fresh closure per tile per render.
+  const handleRemove = useCallback(async (videoId: number): Promise<void> => {
     await window.api.db.deleteVideo(videoId)
     setVideos((prev) => prev.filter((v) => v.id !== videoId))
     setSelectedIds((prev) => {
@@ -163,16 +182,19 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
       next.delete(videoId)
       return next
     })
-  }
+  }, [])
 
-  async function handleToggleFavorite(videoId: number, next: boolean): Promise<void> {
-    // Optimistic update: the star should feel instant, and this is a purely
-    // local marker with no risk of drifting from a computed value.
-    setVideos((prev) =>
-      prev.map((v) => (v.id === videoId ? { ...v, is_favorite: next ? 1 : 0 } : v))
-    )
-    await window.api.db.setFavorite({ videoId, isFavorite: next })
-  }
+  const handleToggleFavorite = useCallback(
+    async (videoId: number, next: boolean): Promise<void> => {
+      // Optimistic update: the star should feel instant, and this is a purely
+      // local marker with no risk of drifting from a computed value.
+      setVideos((prev) =>
+        prev.map((v) => (v.id === videoId ? { ...v, is_favorite: next ? 1 : 0 } : v))
+      )
+      await window.api.db.setFavorite({ videoId, isFavorite: next })
+    },
+    []
+  )
 
   function videosForScope(scope: LinkScope): VideoRow[] {
     if (scope === 'unlinked') return videos.filter((v) => v.match_id === null)
@@ -288,14 +310,14 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
     }
   }
 
-  function toggleSelected(videoId: number): void {
+  const toggleSelected = useCallback((videoId: number): void => {
     setSelectedIds((prev) => {
       const next = new Set(prev)
       if (next.has(videoId)) next.delete(videoId)
       else next.add(videoId)
       return next
     })
-  }
+  }, [])
 
   function exitSelectMode(): void {
     setSelectMode(false)
@@ -408,10 +430,11 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
   // Loads timeline-free stats for every linked video, so the tiles can show
   // achievement chips backed by the real rule engine.
   //
-  // Deliberately fire-and-forget with no loading state: the tiles render chips
-  // from their own row data first and sharpen once this lands, so the list is
-  // never blocked on it. Videos already covered are skipped, so linking a new
-  // video only fetches that one.
+  // The list never waits on this: tiles render chips from their own row data
+  // first and sharpen once it lands. The one flag it does set is whether a fetch
+  // is in flight, which the achievement filter uses to say it might still be
+  // working from partial data. Videos already covered are skipped, so linking a
+  // new video only fetches that one.
   useEffect(() => {
     if (settings.accounts.length === 0) return
     const uncovered = videos.filter(
@@ -420,6 +443,7 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
     if (uncovered.length === 0) return
 
     let cancelled = false
+    setBulkStatsLoading(true)
     window.api.riot
       .getMatchStatsBulkLite({
         matches: uncovered.map((v) => ({ videoId: v.id, matchId: v.match_id as string })),
@@ -439,6 +463,9 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
         // Chips are a nice-to-have; a failure here just means the tiles keep
         // using their own row data.
       })
+      .finally(() => {
+        if (!cancelled) setBulkStatsLoading(false)
+      })
 
     return () => {
       cancelled = true
@@ -456,6 +483,7 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
     setLinkingVideoId(null)
     setBulkProgress(null)
     setShowLinkScope(false)
+    setShowAchievementCatalog(false)
     exitSelectMode()
   }, [homeSignal])
 
@@ -480,11 +508,26 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
     if (tilesScrollRef.current) savedScrollTop.current = tilesScrollRef.current.scrollTop
   }
 
-  function openVideo(videoId: number): void {
+  const openVideo = useCallback((videoId: number): void => {
     setLastViewedVideoId(videoId)
     window.localStorage.setItem(LAST_VIEWED_KEY, String(videoId))
     setPlayingVideoId(videoId)
-  }
+  }, [])
+
+  // Clicking a tile body means "select" in select mode and "play" otherwise, so
+  // this is the one tile callback that has to change identity -- but only when
+  // the mode flips, which re-renders every tile regardless.
+  const handleTileOpen = useCallback(
+    (videoId: number): void => {
+      if (selectMode) toggleSelected(videoId)
+      else openVideo(videoId)
+    },
+    [selectMode, toggleSelected, openVideo]
+  )
+
+  const handleTileLink = useCallback((videoId: number): void => {
+    setLinkingVideoId(videoId)
+  }, [])
 
   const unlinkedCount = useMemo(
     () => videos.filter((v) => v.match_id === null).length,
@@ -492,6 +535,42 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
   )
 
   const hasAnyFilter = useMemo(() => isFilterActive(filters), [filters])
+
+  // One rule pass per recording, feeding both the tiles' chips and the
+  // achievement filter.
+  //
+  // Keyed on the recordings and the bulk stats only -- deliberately not on the
+  // filters, so typing in the filter panel never re-runs the rule set. It
+  // recomputes twice in practice: once from the row data alone, then again when
+  // getMatchStatsBulkLite lands and the chips can sharpen.
+  const achievementsByVideo = useMemo(
+    () => buildAchievementsByVideo(videos, statsByVideo),
+    [videos, statsByVideo]
+  )
+
+  // How many recordings earned each achievement, for the catalog. Derived from
+  // the same single evaluation pass, so it costs a walk over the results rather
+  // than a second run of the rules.
+  const achievementCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const { earnedIds } of achievementsByVideo.values()) {
+      for (const id of earnedIds) counts.set(id, (counts.get(id) ?? 0) + 1)
+    }
+    return counts
+  }, [achievementsByVideo])
+
+  const toggleAchievementFilter = useCallback((achievementId: string): void => {
+    setFilters((prev) => ({
+      ...prev,
+      achievementIds: prev.achievementIds.includes(achievementId)
+        ? prev.achievementIds.filter((a) => a !== achievementId)
+        : [...prev.achievementIds, achievementId]
+    }))
+  }, [])
+
+  const clearAchievementFilter = useCallback((): void => {
+    setFilters((prev) => ({ ...prev, achievementIds: [] }))
+  }, [])
 
   const filteredVideos = useMemo(() => {
     const filtered = videos.filter((video) => {
@@ -507,6 +586,15 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
         return false
       }
       if (filters.enemyLaner && video.enemy_champion_name !== filters.enemyLaner) return false
+
+      // Achievements are OR'd like championsPlayed: a recording matches if it
+      // earned ANY of the picked ones. An unlinked recording has no entry here
+      // and so never matches -- correct, since there's nothing to have earned.
+      if (filters.achievementIds.length > 0) {
+        const earned = achievementsByVideo.get(video.id)?.earnedIds
+        if (!earned) return false
+        if (!filters.achievementIds.some((id) => earned.has(id))) return false
+      }
 
       if (filters.winLoss !== 'any') {
         const wantWin = filters.winLoss === 'win'
@@ -584,7 +672,8 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
     showOnlySuspicious,
     suspiciousVideoIds,
     multikillByVideo,
-    leadSwingByVideo
+    leadSwingByVideo,
+    achievementsByVideo
   ])
 
   if (linkingVideo) {
@@ -630,6 +719,17 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
               <option value="newest">Newest first</option>
               <option value="oldest">Oldest first</option>
             </select>
+            {/* Sits in the header rather than only in the filter sidebar
+                because "what achievements are there?" is a browsing question,
+                not a filtering one -- even if the same panel answers both. */}
+            <button
+              className={`secondary ${filters.achievementIds.length > 0 ? 'filter-toggle--active' : ''}`}
+              onClick={() => setShowAchievementCatalog(true)}
+              title="Browse every achievement, and filter recordings by them"
+            >
+              <Trophy size={15} /> Achievements
+              {filters.achievementIds.length > 0 && ` (${filters.achievementIds.length})`}
+            </button>
             <button
               className="secondary"
               onClick={() => setShowLinkScope(true)}
@@ -740,15 +840,16 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
                 key={video.id}
                 video={video}
                 stats={statsByVideo.get(video.id)}
+                chips={achievementsByVideo.get(video.id)?.chips}
                 suspiciousLink={suspiciousVideoIds.has(video.id)}
                 lastViewed={video.id === lastViewedVideoId}
                 selectMode={selectMode}
                 selected={selectedIds.has(video.id)}
-                onOpen={() => (selectMode ? toggleSelected(video.id) : openVideo(video.id))}
-                onLink={() => setLinkingVideoId(video.id)}
-                onRemove={() => handleRemove(video.id)}
-                onToggleFavorite={(next) => handleToggleFavorite(video.id, next)}
-                onToggleSelect={() => toggleSelected(video.id)}
+                onOpen={handleTileOpen}
+                onLink={handleTileLink}
+                onRemove={handleRemove}
+                onToggleFavorite={handleToggleFavorite}
+                onToggleSelect={toggleSelected}
               />
             ))}
           </div>
@@ -756,14 +857,41 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
       </div>
 
       <div className="library-column library-column--side">
-        <FilterPanel filters={filters} onChange={setFilters} />
+        <FilterPanel
+          filters={filters}
+          onChange={setFilters}
+          onBrowseAchievements={() => setShowAchievementCatalog(true)}
+        />
         {leadSwingLoading && (
           <p className="subtitle filter-leadswing-loading">Checking lead swing data...</p>
+        )}
+        {/* Achievements are evaluated from the row's own data first and
+            re-evaluated once the fuller per-match stats load, so a filter set
+            during that window can legitimately miss recordings that will match
+            a moment later. Saying so beats letting it look like a wrong answer.
+            Gated on the fetch being in flight rather than on which recordings
+            lack stats -- a match that was never downloaded never will have any,
+            so that condition would never clear. */}
+        {filters.achievementIds.length > 0 && bulkStatsLoading && (
+          <p className="subtitle filter-leadswing-loading">
+            Still reading match data -- a few achievement matches may be missing for a moment.
+          </p>
         )}
       </div>
 
       {showAddPopup && (
         <AddMediaPopup onClose={() => setShowAddPopup(false)} onImported={refresh} />
+      )}
+
+      {showAchievementCatalog && (
+        <AchievementCatalogPopup
+          onClose={() => setShowAchievementCatalog(false)}
+          selectedIds={filters.achievementIds}
+          onToggle={toggleAchievementFilter}
+          onClearSelection={clearAchievementFilter}
+          earnedCounts={achievementCounts}
+          countedRecordings={achievementsByVideo.size}
+        />
       )}
 
       {showLinkScope && (

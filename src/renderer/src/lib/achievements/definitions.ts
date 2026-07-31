@@ -12,6 +12,13 @@ import type { AchievementDefinition } from './types'
 //   - `condition` must return false when a needed fact is null, never throw.
 //   - `describe` should always include the number that earned it. "You cleared
 //     11 wards" reads as earned; "Good vision!" reads as filler.
+//   - `hint` is the opposite: it goes in the browse-all catalog, where nothing
+//     has been earned yet, so it must NOT include the number. "Make a habit of
+//     clearing enemy wards", never "clear 11 wards". Publishing the bar turns
+//     the catalog into a list to farm, and the bars move every calibration.
+//   - Rarity (R / S / SSR) is not written here. It's read off `priority` in
+//     tiers.ts, so there's one number to tune per rule rather than two that
+//     can disagree.
 //   - Rules sharing a `group` are mutually exclusive at display time; the
 //     highest-priority one wins. That's how Flawless suppresses Survivor.
 //   - Set `isEstimate` for anything reading LeagueVid's heuristics, so the UI
@@ -30,6 +37,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'penta_kill',
     title: 'Pentakill',
+    hint: 'Wipe out an entire enemy team by yourself in a single fight.',
     category: 'positive',
     group: 'multikill',
     priority: 100,
@@ -40,6 +48,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'quadra_kill',
     title: 'Quadra Kill',
+    hint: 'Cut down nearly a whole enemy team in one fight, on your own.',
     category: 'positive',
     group: 'multikill',
     priority: 92,
@@ -59,6 +68,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'tower_diver',
     title: 'Tower Diver',
+    hint: 'Chase a kill in under an enemy turret and get away with it.',
     category: 'positive',
     group: 'solo_combat',
     priority: 88,
@@ -73,6 +83,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'solo_slayer',
     title: 'Solo Slayer',
+    hint: 'Rack up kills with no teammate involved in them.',
     category: 'positive',
     group: 'solo_combat',
     priority: 78,
@@ -83,6 +94,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'duelist',
     title: 'Master Duelist',
+    hint: 'Keep winning your one-on-one fights across a game.',
     category: 'positive',
     group: 'solo_combat',
     priority: 70,
@@ -98,6 +110,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'killing_spree',
     title: 'Unstoppable',
+    hint: 'String kills together without dying in between.',
     category: 'positive',
     group: 'kill_volume',
     priority: 82,
@@ -108,6 +121,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'carnage',
     title: 'Bringer of Carnage',
+    hint: 'Finish a game with a kill count that turns heads.',
     category: 'positive',
     group: 'kill_volume',
     priority: 74,
@@ -118,6 +132,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'early_aggressor',
     title: 'Early Aggressor',
+    hint: 'Get on top of your lane with kills during the laning phase.',
     category: 'positive',
     group: 'kill_volume',
     priority: 60,
@@ -128,6 +143,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'crowd_control',
     title: 'Lockdown Artist',
+    hint: 'Spend a game holding enemies in place for your team.',
     category: 'positive',
     group: 'damage',
     priority: 52,
@@ -140,6 +156,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'damage_dealer',
     title: 'Ouch You Hurt',
+    hint: 'Put out heavy damage to enemy champions over a game.',
     category: 'positive',
     group: 'damage',
     priority: 72,
@@ -150,6 +167,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'team_carry_damage',
     title: 'Damage Leader',
+    hint: 'Be the biggest source of damage on your team.',
     category: 'positive',
     group: 'damage',
     priority: 68,
@@ -163,6 +181,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'iron_wall',
     title: 'Iron Wall',
+    hint: 'Absorb a great deal of punishment and stay alive through it.',
     category: 'positive',
     group: 'tanking',
     priority: 64,
@@ -175,6 +194,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'frontline',
     title: 'Frontline',
+    hint: 'Be the one soaking up the most damage on a team that wins.',
     category: 'positive',
     group: 'tanking',
     priority: 48,
@@ -187,6 +207,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'cs_machine',
     title: 'Farm Machine',
+    hint: 'Hold a high farming rate from the first minute to the last.',
     category: 'positive',
     group: 'farming',
     priority: 66,
@@ -197,6 +218,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'never_slacking',
     title: 'Never Slacking',
+    hint: 'Farm at least as well after laning ends as you did during it.',
     category: 'positive',
     group: 'farming',
     priority: 58,
@@ -211,6 +233,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'early_farmer',
     title: 'Early Game Farmer',
+    hint: 'Come out of the opening minutes with your farm well stocked.',
     category: 'positive',
     group: 'farming',
     priority: 56,
@@ -221,6 +244,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'lane_dominator',
     title: 'Lane Dominator',
+    hint: 'End the game with a clear gold lead over your lane opponent.',
     category: 'positive',
     group: 'lane_economy',
     priority: 76,
@@ -232,6 +256,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'out_farmed_them',
     title: 'Out-Farmed Them',
+    hint: 'Finish with more farm than the player you laned against.',
     category: 'positive',
     group: 'lane_economy',
     priority: 54,
@@ -244,6 +269,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'gold_hoarder',
     title: 'Goblin Hoarder',
+    hint: 'Generate gold at a strong rate all game long.',
     category: 'positive',
     group: 'gold_rate',
     priority: 50,
@@ -256,6 +282,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'wrecking_ball',
     title: 'Wrecking Ball',
+    hint: 'Spend your game putting damage into enemy structures.',
     category: 'positive',
     group: 'structures',
     priority: 62,
@@ -267,6 +294,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'tower_taker',
     title: 'Siege Master',
+    hint: 'Be the one who personally finishes off enemy turrets.',
     category: 'positive',
     group: 'structures',
     priority: 58,
@@ -277,6 +305,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'objective_hunter',
     title: 'Objective Hunter',
+    hint: 'Make a habit of turning up for dragons, heralds and Barons.',
     category: 'positive',
     group: 'objectives',
     priority: 65,
@@ -289,6 +318,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'dragon_tamer',
     title: 'Dragon Tamer',
+    hint: 'Be there when your team takes dragons down.',
     category: 'positive',
     group: 'objectives',
     priority: 57,
@@ -301,6 +331,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'baron_slayer',
     title: 'Baron Slayer',
+    hint: 'Take part in bringing Baron down.',
     category: 'positive',
     group: 'objectives',
     priority: 53,
@@ -314,6 +345,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'ward_hunter',
     title: 'Servant of Darkness',
+    hint: 'Make a habit of hunting down the enemy team\u2019s wards.',
     category: 'positive',
     group: 'vision_denied',
     priority: 61,
@@ -325,6 +357,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'visionary',
     title: 'Visionary',
+    hint: 'Lead your team in vision score, with a strong one.',
     category: 'positive',
     group: 'vision_provided',
     priority: 59,
@@ -338,6 +371,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'ward_provider',
     title: 'Eyes Everywhere',
+    hint: 'Keep the map lit up with wards for your team.',
     category: 'positive',
     group: 'vision_provided',
     priority: 46,
@@ -348,6 +382,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'control_freak',
     title: 'Control Freak',
+    hint: 'Keep spending on control wards to deny the enemy their vision.',
     category: 'positive',
     group: 'control_wards',
     priority: 47,
@@ -362,6 +397,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'flawless',
     title: 'Flawless',
+    hint: 'Get through an entire game without dying once.',
     category: 'positive',
     group: 'deaths',
     priority: 90,
@@ -372,6 +408,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'survivor',
     title: 'Survivor',
+    hint: 'Reach the end of a game having given away barely any deaths.',
     category: 'positive',
     group: 'deaths',
     priority: 63,
@@ -382,6 +419,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'untouchable',
     title: 'Untouchable',
+    hint: 'Go a long unbroken stretch of a game without dying.',
     category: 'positive',
     group: 'deaths',
     priority: 51,
@@ -403,6 +441,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'unfindable',
     title: 'Unfindable',
+    hint: 'Have them keep coming for your lane and never once catch you.',
     category: 'positive',
     group: 'gank_survival',
     // Rarest of the set at 2.2% of laner-games, and the one that best answers
@@ -421,6 +460,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'gank_turnaround',
     title: 'Turned the Tables',
+    hint: 'Make the players who rotate into your lane regret the trip.',
     category: 'positive',
     group: 'gank_survival',
     priority: 86,
@@ -433,6 +473,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'ganks_survived',
     title: 'Slippery',
+    hint: 'Walk away from early attempts to collapse on your lane.',
     category: 'positive',
     group: 'gank_survival',
     priority: 76,
@@ -444,6 +485,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'gank_punisher',
     title: 'Punished the Roam',
+    hint: 'Kill someone who came into your lane looking for you.',
     category: 'positive',
     group: 'gank_survival',
     // Fires in 22% of laner-games, so it sits in routine territory -- the
@@ -459,6 +501,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'held_under_pressure',
     title: 'Held the Lane',
+    hint: 'Get collapsed on repeatedly and still finish ahead of your laner.',
     category: 'positive',
     // Its own group: this is about the lane's economy surviving the ganks, not
     // about the ganks themselves, so it can stand next to a gank_survival tile.
@@ -477,6 +520,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'untouched_laning',
     title: 'Clean Laning Phase',
+    hint: 'Get through the whole laning phase alive while being hunted.',
     category: 'positive',
     group: 'gank_survival',
     priority: 80,
@@ -499,6 +543,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'medic',
     title: 'Field Medic',
+    hint: 'Spend your game keeping teammates topped up with healing.',
     category: 'positive',
     group: 'support_utility',
     priority: 60,
@@ -509,6 +554,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'guardian',
     title: 'Guardian',
+    hint: 'Take damage off your teammates by shielding them.',
     category: 'positive',
     group: 'support_utility',
     priority: 59,
@@ -519,6 +565,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'assist_king',
     title: 'Enabler',
+    hint: 'Lead your team in assists.',
     category: 'positive',
     group: 'support_utility',
     priority: 55,
@@ -530,6 +577,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'team_player',
     title: 'Team Player',
+    hint: 'Have a hand in most of the kills your team picks up.',
     category: 'positive',
     group: 'participation',
     priority: 67,
@@ -542,6 +590,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'fight_anchor',
     title: 'Fight Anchor',
+    hint: 'Be present for the teamfights rather than arriving after them.',
     category: 'positive',
     group: 'participation',
     priority: 64,
@@ -559,6 +608,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'comeback_king',
     title: 'Comeback King',
+    hint: 'Win a game your team had already fallen a long way behind in.',
     category: 'positive',
     group: 'outcome',
     priority: 95,
@@ -573,6 +623,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'stomp',
     title: 'Stomp',
+    hint: 'Win a game your team was never really in danger of losing.',
     category: 'positive',
     group: 'outcome',
     priority: 70,
@@ -583,6 +634,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'most_experienced',
     title: 'Most Experienced Player',
+    hint: 'Finish as the highest-level player of the ten.',
     category: 'positive',
     group: 'levels',
     priority: 45,
@@ -606,6 +658,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'win_secured',
     title: 'Got It Done',
+    hint: 'Close out a win that was not going to win any awards.',
     category: 'positive',
     group: 'outcome',
     priority: 30,
@@ -618,6 +671,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'decent_kda',
     title: 'Traded Well',
+    hint: 'Come out on the right side of your trades over a game.',
     category: 'positive',
     group: 'kda',
     priority: 28,
@@ -630,6 +684,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'objective_presence',
     title: 'Showed Up',
+    hint: 'Be there for some of the game\u2019s major objectives.',
     category: 'positive',
     group: 'objectives',
     priority: 26,
@@ -642,6 +697,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'steady_farm',
     title: 'Kept Farming',
+    hint: 'Keep your farm ticking along at a respectable rate.',
     category: 'positive',
     group: 'farming',
     priority: 24,
@@ -653,6 +709,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'fair_damage_share',
     title: 'Pulled Your Weight',
+    hint: 'Contribute your share of the damage your team put out.',
     category: 'positive',
     group: 'damage',
     priority: 22,
@@ -666,6 +723,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'soaked_pressure',
     title: 'Took the Hits',
+    hint: 'Take a real share of the damage flying around.',
     category: 'positive',
     group: 'tanking',
     priority: 20,
@@ -677,6 +735,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'structure_chip',
     title: 'Chipped In',
+    hint: 'Get some damage onto enemy structures.',
     category: 'positive',
     group: 'structures',
     priority: 18,
@@ -688,6 +747,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'some_vision',
     title: 'Eyes Out',
+    hint: 'Put wards down and build a vision score off them.',
     category: 'positive',
     group: 'vision_provided',
     priority: 16,
@@ -700,6 +760,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'held_on',
     title: 'Held On',
+    hint: 'Put together a decent run without dying somewhere in the game.',
     category: 'positive',
     group: 'longevity',
     priority: 14,
@@ -712,6 +773,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'took_fights',
     title: 'In the Mix',
+    hint: 'Be involved in a fair share of your team\u2019s kills.',
     category: 'positive',
     group: 'participation',
     priority: 12,
@@ -724,6 +786,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'even_lane',
     title: 'Even Lane',
+    hint: 'Come out of lane dead level with your opponent on farm.',
     category: 'positive',
     group: 'lane_economy',
     priority: 10,
@@ -738,6 +801,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'gold_summary',
     title: 'Banked It',
+    hint: 'A note on what you earned. Every game gets this one.',
     category: 'positive',
     group: 'gold_rate',
     priority: 8,
@@ -756,6 +820,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'rough_game',
     title: 'Rough Game',
+    hint: 'Give away a lot of deaths across one game.',
     category: 'negative',
     group: 'deaths',
     priority: 85,
@@ -766,6 +831,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'caught_out',
     title: 'Caught Out',
+    hint: 'Keep dying in places where no teammate was close enough to help.',
     category: 'negative',
     group: 'deaths',
     priority: 72,
@@ -777,6 +843,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'early_deaths',
     title: 'Rough Start',
+    hint: 'Fall behind by dying during the laning phase.',
     category: 'negative',
     group: 'deaths',
     priority: 60,
@@ -788,6 +855,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'gank_magnet',
     title: 'Gank Magnet',
+    hint: 'Lose your early deaths to enemies collapsing on your lane.',
     category: 'negative',
     // Its own group rather than 'deaths': being repeatedly collapsed on in lane
     // is a different problem from dying a lot overall, and the fix is different
@@ -803,6 +871,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'camped',
     title: 'Camped',
+    hint: 'Have the enemy jungler decide your lane is their project.',
     category: 'negative',
     group: 'gank_pressure',
     // Below gank_magnet, so when a camped lane also cost several deaths the
@@ -817,6 +886,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'only_died_to_ganks',
     title: 'Never Lost the 1v1',
+    hint: 'Lose your laning deaths to collapses, never to your matchup.',
     category: 'negative',
     // Sits in gank_pressure so it can't stack with Gank Magnet, which is the
     // same observation stated more bluntly.
@@ -835,6 +905,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'time_dead',
     title: 'Spectator Mode',
+    hint: 'Spend a sizeable chunk of the game waiting to respawn.',
     category: 'negative',
     group: 'deaths',
     priority: 55,
@@ -846,6 +917,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'no_control',
     title: 'No Control',
+    hint: 'Get through a full-length game without buying a control ward.',
     category: 'negative',
     group: 'control_wards',
     priority: 58,
@@ -862,6 +934,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'low_vision',
     title: 'Blind Spot',
+    hint: 'End a game with less vision than your role usually provides.',
     category: 'negative',
     group: 'vision_provided',
     priority: 50,
@@ -873,6 +946,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'nothing_cleared',
     title: 'Nothing Cleared',
+    hint: 'Leave every enemy ward standing for the whole game.',
     category: 'negative',
     group: 'vision_denied',
     priority: 40,
@@ -884,6 +958,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'low_cs',
     title: 'Farm Slipped',
+    hint: 'Finish on a farming rate below what your role should manage.',
     category: 'negative',
     group: 'farming',
     priority: 56,
@@ -894,6 +969,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'mid_game_dropoff',
     title: 'Lost the Thread',
+    hint: 'Farm well in lane, then let it slide once laning ends.',
     category: 'negative',
     group: 'farming',
     priority: 52,
@@ -908,6 +984,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'cs_deficit',
     title: 'Out-Farmed',
+    hint: 'Finish lane well behind your opponent on farm.',
     category: 'negative',
     group: 'lane_economy',
     priority: 54,
@@ -921,6 +998,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'low_participation',
     title: 'Off On Your Own',
+    hint: 'Miss most of the kills your team picked up.',
     category: 'negative',
     group: 'participation',
     priority: 62,
@@ -933,6 +1011,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'absent_fights',
     title: 'Missed the Fights',
+    hint: 'Be somewhere else for most of the teamfights your team took.',
     category: 'negative',
     group: 'participation',
     priority: 57,
@@ -948,6 +1027,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'low_damage',
     title: 'Quiet Game',
+    hint: 'Put out less damage than your role normally does.',
     category: 'negative',
     group: 'damage',
     priority: 51,
@@ -960,6 +1040,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'no_objectives',
     title: 'Objectives Without You',
+    hint: 'Let the game\u2019s major objectives happen without you there.',
     category: 'negative',
     group: 'objectives',
     priority: 48,
@@ -976,6 +1057,7 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   {
     id: 'threw_lead',
     title: 'Slipped Away',
+    hint: 'Lose a game your team was comfortably ahead in.',
     category: 'negative',
     group: 'outcome',
     priority: 88,

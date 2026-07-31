@@ -570,5 +570,24 @@ export const THRESHOLDS = {
      * shows something the player did right.
      */
     minPositive: 2
+  },
+
+  // --- Rarity tiers ---
+  //
+  // Cutoffs over `priority`, which the calibration above already tuned to
+  // track how unusual a rule is. Reusing it means the rarity badge can never
+  // disagree with the display ordering, which a separate hand-maintained
+  // rarity field inevitably would.
+  //
+  // Sized against the measured firing rates so the bands stay meaningful: SSR
+  // lands on the marquee set (pentakill, quadra, comeback, perfect game, a
+  // laning phase nobody could touch, a thrown lead) rather than on anything a
+  // decent game reaches. Raising `ssr` shrinks that set; lowering it cheapens
+  // the badge, which is the whole failure mode to avoid here.
+  tiers: {
+    /** Priority at or above this is SSR. */
+    ssr: 88,
+    /** Priority at or above this, but below `ssr`, is S. The rest are R. */
+    s: 60
   }
 } as const

@@ -1,6 +1,7 @@
-import { Filter, Star, X } from 'lucide-react'
+import { Filter, Star, Trophy, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import Autocomplete from '../components/Autocomplete'
+import { ACHIEVEMENTS, tierForDefinition, type AchievementTier } from '../lib/achievements'
 import {
   useDDragon,
   summonerSpellIconUrl,
@@ -34,9 +35,36 @@ export const ROLE_OPTIONS: Array<{ id: string; label: string }> = [
   { id: 'UTILITY', label: 'Support' }
 ]
 
+// Achievement ids as picker options, keyed by title. Static data, so built once
+// at module load rather than per render.
+const ACHIEVEMENT_OPTIONS = ACHIEVEMENTS.map((def) => ({
+  value: def.id,
+  label: def.title
+})).sort((a, b) => a.label.localeCompare(b.label))
+
+const ACHIEVEMENT_META = new Map<
+  string,
+  { title: string; tier: AchievementTier; category: 'positive' | 'negative' }
+>(
+  ACHIEVEMENTS.map((def) => [
+    def.id,
+    { title: def.title, tier: tierForDefinition(def), category: def.category }
+  ])
+)
+
 export interface MatchFilters {
   // Multiple champions OR'd together -- "any of these" rather than one.
   championsPlayed: string[]
+  /**
+   * Achievement ids the recording must have earned, OR'd together like
+   * championsPlayed -- a recording matches if it earned ANY of them.
+   *
+   * Evaluated in the renderer against the library's bulk stats rather than
+   * stored anywhere, since achievements are derived data and the rules change
+   * between releases; a persisted list would go stale the first time a
+   * threshold moved. See Library's achievementsByVideo.
+   */
+  achievementIds: string[]
   enemyLaner: string
   kills: ThresholdFilter
   deaths: ThresholdFilter
@@ -68,6 +96,7 @@ export interface MatchFilters {
 
 export const EMPTY_FILTERS: MatchFilters = {
   championsPlayed: [],
+  achievementIds: [],
   enemyLaner: '',
   kills: { value: '', comparison: 'gte' },
   deaths: { value: '', comparison: 'gte' },
@@ -93,12 +122,54 @@ export interface FilterPreset {
   filters: MatchFilters
 }
 
+/**
+ * Fills in fields a stored filter set predates.
+ *
+ * Presets are JSON in localStorage, so one saved before a filter existed
+ * deserializes without that key -- and the array fields are read with `.length`
+ * by both isFilterActive and the library's predicate, which would throw on
+ * undefined. Merging over EMPTY_FILTERS means an old preset loads as "that
+ * filter isn't set" rather than breaking the panel.
+ */
+export function normalizeFilters(raw: unknown): MatchFilters {
+  const stored = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+
+  // Copies known keys only rather than spreading. A preset saved by an older
+  // build can carry a filter field that has since been renamed or removed, and
+  // isFilterActive walks whatever keys it finds -- an unrecognised leftover
+  // would read as an active filter, leaving "Clear" showing with nothing to
+  // clear and no way to make it go away.
+  const next: MatchFilters = { ...EMPTY_FILTERS }
+  for (const key of Object.keys(EMPTY_FILTERS)) {
+    if (key in stored) {
+      ;(next as unknown as Record<string, unknown>)[key] = stored[key]
+    }
+  }
+
+  const asArray = (value: unknown): string[] =>
+    Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []
+
+  next.championsPlayed = asArray(stored.championsPlayed)
+  next.multikillTiers = asArray(stored.multikillTiers).filter((t): t is MultikillFilterType =>
+    (MULTIKILL_FILTER_TYPES as readonly string[]).includes(t)
+  )
+  // Achievement ids are dropped when the rule behind them no longer exists, so a
+  // preset from an older build filters on what it still can rather than on an id
+  // nothing will ever match.
+  next.achievementIds = asArray(stored.achievementIds).filter((id) => ACHIEVEMENT_META.has(id))
+
+  return next
+}
+
 function loadPresets(): FilterPreset[] {
   try {
     const raw = window.localStorage.getItem(PRESETS_STORAGE_KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .filter((p): p is FilterPreset => !!p && typeof p.name === 'string')
+      .map((p) => ({ name: p.name, filters: normalizeFilters(p.filters) }))
   } catch {
     return []
   }
@@ -111,6 +182,13 @@ function savePresets(presets: FilterPreset[]): void {
 interface FilterPanelProps {
   filters: MatchFilters
   onChange: (filters: MatchFilters) => void
+  /**
+   * Opens the browse-all achievement catalog, which doubles as a richer picker
+   * for the achievement filter (tiers, descriptions, search) than a typeahead
+   * in a narrow sidebar can be. Owned by the library, since the same catalog is
+   * reachable from the page header.
+   */
+  onBrowseAchievements: () => void
 }
 
 const MULTIKILL_ICONS: Record<MultikillFilterType, string> = {
@@ -166,6 +244,7 @@ export function isFilterActive(filters: MatchFilters): boolean {
       return !!v
     }
     if (key === 'championsPlayed') return (v as string[]).length > 0
+    if (key === 'achievementIds') return (v as string[]).length > 0
     if (key === 'multikillTiers') return (v as string[]).length > 0
     if (key === 'multikillSolo') return false // never "active" on its own, always paired with a tier
     if (key === 'leadSwingDirection' || key === 'leadSwingMinute') return false // paired with the threshold below
@@ -176,7 +255,7 @@ export function isFilterActive(filters: MatchFilters): boolean {
   })
 }
 
-function FilterPanel({ filters, onChange }: FilterPanelProps): JSX.Element {
+function FilterPanel({ filters, onChange, onBrowseAchievements }: FilterPanelProps): JSX.Element {
   const ddragon = useDDragon()
   const hasActiveFilters = isFilterActive(filters)
 
@@ -184,6 +263,7 @@ function FilterPanel({ filters, onChange }: FilterPanelProps): JSX.Element {
   const runeOpts = useMemo(() => (ddragon ? runeOptions(ddragon) : []), [ddragon])
 
   const [champPickerText, setChampPickerText] = useState('')
+  const [achievementPickerText, setAchievementPickerText] = useState('')
   const [presets, setPresets] = useState<FilterPreset[]>(loadPresets)
   const [presetNameInput, setPresetNameInput] = useState('')
   const [showSavePreset, setShowSavePreset] = useState(false)
@@ -201,6 +281,22 @@ function FilterPanel({ filters, onChange }: FilterPanelProps): JSX.Element {
     onChange({
       ...filters,
       championsPlayed: filters.championsPlayed.filter((c) => c !== championId)
+    })
+  }
+
+  function addAchievement(achievementId: string): void {
+    if (!achievementId || filters.achievementIds.includes(achievementId)) {
+      setAchievementPickerText('')
+      return
+    }
+    onChange({ ...filters, achievementIds: [...filters.achievementIds, achievementId] })
+    setAchievementPickerText('')
+  }
+
+  function removeAchievement(achievementId: string): void {
+    onChange({
+      ...filters,
+      achievementIds: filters.achievementIds.filter((a) => a !== achievementId)
     })
   }
 
@@ -286,6 +382,52 @@ function FilterPanel({ filters, onChange }: FilterPanelProps): JSX.Element {
                   </button>
                 </span>
               ))}
+            </div>
+          )}
+        </div>
+
+        {/* Achievement filter. The typeahead is the quick path when you already
+            know the name; the catalog button is the discoverable one, and the
+            only place the tiers and descriptions have room to be shown. */}
+        <div className="filter-row">
+          <label htmlFor="filter-achievement">Achievements earned</label>
+          <Autocomplete
+            id="filter-achievement"
+            placeholder="Add an achievement..."
+            value={achievementPickerText}
+            options={ACHIEVEMENT_OPTIONS}
+            onChange={(value) => addAchievement(value)}
+          />
+          <button
+            type="button"
+            className="secondary filter-browse-achievements"
+            onClick={onBrowseAchievements}
+          >
+            <Trophy size={14} /> Browse all achievements
+          </button>
+          {filters.achievementIds.length > 0 && (
+            <div className="filter-chip-row">
+              {filters.achievementIds.map((id) => {
+                const meta = ACHIEVEMENT_META.get(id)
+                return (
+                  <span
+                    key={id}
+                    className={`filter-chip filter-chip--achievement filter-chip--${
+                      meta?.category ?? 'positive'
+                    } filter-chip--tier-${(meta?.tier ?? 'R').toLowerCase()}`}
+                  >
+                    {meta?.title ?? id}
+                    <button
+                      type="button"
+                      className="filter-chip-remove"
+                      onClick={() => removeAchievement(id)}
+                      aria-label={`Remove ${meta?.title ?? id}`}
+                    >
+                      <X size={11} />
+                    </button>
+                  </span>
+                )
+              })}
             </div>
           )}
         </div>
@@ -514,7 +656,7 @@ function FilterPanel({ filters, onChange }: FilterPanelProps): JSX.Element {
                   <button
                     type="button"
                     className="filter-preset-load-btn"
-                    onClick={() => onChange(preset.filters)}
+                    onClick={() => onChange(normalizeFilters(preset.filters))}
                     title={`Load "${preset.name}"`}
                   >
                     {preset.name}

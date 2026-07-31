@@ -1,8 +1,9 @@
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 import { Check, Clock, FolderOpen, Star, X } from 'lucide-react'
 import { revealVideoInFolder } from '../lib/revealInFolder'
 import type { MatchRosterData, MatchStats, RosterParticipant, VideoRow } from '../../../shared/types'
-import { buildLiteMatchFacts, buildMatchFacts, selectAchievements } from '../lib/achievements'
+import type { EarnedAchievement } from '../lib/achievements'
+import { parseRoster } from '../lib/libraryAchievements'
 import {
   useDDragon,
   championIconUrl,
@@ -24,6 +25,16 @@ interface MatchTileProps {
    * something and a generic one.
    */
   stats?: MatchStats
+  /**
+   * Achievement chips to show, already evaluated and trimmed.
+   *
+   * Passed in rather than computed here: the library needs every recording's
+   * achievements anyway to back the achievement filter, and running ~75 rules
+   * per tile per render made scrolling and typing in the filter box cost a full
+   * pass over the rule set for every visible row. One evaluation per recording,
+   * shared by the filter and the chips, is the same work done once.
+   */
+  chips?: EarnedAchievement[]
   // True when every auto-generated bookmark on this video is clamped to
   // 0:00 -- the signature of a video linked to the wrong match (see
   // findVideosWithSuspiciousBookmarks). Surfaced so a bad link can be
@@ -37,21 +48,20 @@ interface MatchTileProps {
   // instead of opening the player.
   selectMode?: boolean
   selected?: boolean
-  onOpen: () => void
-  onLink: () => void
-  onRemove: () => void
-  onToggleFavorite?: (next: boolean) => void
-  onToggleSelect?: () => void
+  // Every callback takes the video id rather than closing over it, so the
+  // library can hand down one stable function per action instead of a fresh
+  // closure per tile per render -- which is what lets memo() below actually
+  // skip anything.
+  onOpen: (videoId: number) => void
+  onLink: (videoId: number) => void
+  onRemove: (videoId: number) => void
+  onToggleFavorite?: (videoId: number, next: boolean) => void
+  onToggleSelect?: (videoId: number) => void
 }
 
 // Item slots always rendered, so the grid keeps a stable shape whether or
 // not the player filled every slot (6 items + trinket).
 const ITEM_SLOT_COUNT = 7
-
-// Chips shown on a tile. The full Achievements tab shows up to six; a tile has
-// far less room and is meant to be scannable at a glance, so it takes the
-// highest-priority few and lets CSS hide any that don't fit the width.
-const TILE_CHIP_LIMIT = 5
 
 function formatCompact(value: number): string {
   return value >= 1000 ? `${(value / 1000).toFixed(1)}k` : String(value)
@@ -85,15 +95,6 @@ function friendlyGameMode(gameMode: string | null): string {
   if (gameMode === 'URF') return 'URF'
   if (gameMode === 'CHERRY') return 'Arena'
   return gameMode
-}
-
-function parseRoster(matchData: string | null): MatchRosterData | null {
-  if (!matchData) return null
-  try {
-    return JSON.parse(matchData) as MatchRosterData
-  } catch {
-    return null
-  }
 }
 
 /** One player line in the tile's scoreboard. */
@@ -166,10 +167,15 @@ function ScoreboardColumn({
           key={p.key}
           className={`match-tile-roster-row ${p.isMe ? 'match-tile-roster-row--me' : ''}`}
         >
+          {/* Every icon in a tile is CSS-sized, so deferring the load and the
+              decode can't shift the layout -- and there are twenty of them per
+              tile across a list that can run to hundreds of rows. */}
           <img
             className="match-tile-roster-icon"
             src={(ddragon && championIconUrl(ddragon, p.championName)) || undefined}
             alt={p.championName}
+            loading="lazy"
+            decoding="async"
           />
           {/* title carries the untruncated label, since it's ellipsised at
               medium widths and hidden entirely at narrow. */}
@@ -186,6 +192,7 @@ function ScoreboardColumn({
 function MatchTile({
   video,
   stats,
+  chips,
   suspiciousLink,
   lastViewed,
   selectMode,
@@ -197,7 +204,11 @@ function MatchTile({
   onToggleSelect
 }: MatchTileProps): JSX.Element {
   const ddragon = useDDragon()
-  const roster = parseRoster(video.match_data)
+  // JSON.parse of the stored roster snapshot, memoised on the raw string. It
+  // used to run on every render, and because it produced a fresh object each
+  // time it also invalidated every useMemo below that depends on it -- so the
+  // one uncached parse quietly un-cached everything else too.
+  const roster = useMemo(() => parseRoster(video.match_data), [video.match_data])
   const isWin = video.win === 1
   const isLinked = video.match_id !== null
 
@@ -223,15 +234,6 @@ function MatchTile({
 
   const myItems = roster?.allies.find((p) => p.isMe)?.items ?? []
 
-  // Achievement chips. Uses the bulk stats when the library has them (full rule
-  // coverage bar the timeline ones), and falls back to the row's own data so
-  // chips show up instantly rather than after a round trip.
-  //
-  // Fillers are excluded here: they exist to stop the player page's dedicated
-  // panel from looking broken when it's near-empty, but on a tile a chip has to
-  // mean something. With them on, over half of all tiles led with "Kept Farming"
-  // or "Banked It", which is exactly the noise the panel's real rules avoid. A
-  // tile with nothing notable shows no chips at all.
   const scoreboard = useMemo(
     () => buildScoreboard(stats, roster, ddragon),
     [stats, roster, ddragon]
@@ -239,19 +241,10 @@ function MatchTile({
 
   // The focus player's full stat line, once the bulk stats have loaded. Backs
   // the damage/vision cells, which the row snapshot alone can't provide.
-  const me = stats?.participants.find((p) => p.puuid === stats.ownerPuuid)
-
-  const chips = useMemo(() => {
-    const focus = stats?.participants.find((p) => p.puuid === stats.ownerPuuid)
-    const facts =
-      stats && focus
-        ? buildMatchFacts({ stats, focus })
-        : buildLiteMatchFacts({ video, roster })
-    if (!facts) return []
-
-    const selection = selectAchievements(facts, undefined, undefined, { includeFillers: false })
-    return [...selection.positive, ...selection.negative].slice(0, TILE_CHIP_LIMIT)
-  }, [video, roster, stats])
+  const me = useMemo(
+    () => stats?.participants.find((p) => p.puuid === stats.ownerPuuid),
+    [stats]
+  )
 
   return (
     <div
@@ -266,7 +259,7 @@ function MatchTile({
           className={`match-tile-select-checkbox ${selected ? 'match-tile-select-checkbox--checked' : ''}`}
           onClick={(e) => {
             e.stopPropagation()
-            onToggleSelect?.()
+            onToggleSelect?.(video.id)
           }}
           aria-pressed={selected}
           aria-label={selected ? 'Deselect recording' : 'Select recording'}
@@ -285,7 +278,7 @@ function MatchTile({
           className={`match-tile-favorite-btn ${video.is_favorite ? 'match-tile-favorite-btn--active' : ''}`}
           onClick={(e) => {
             e.stopPropagation()
-            onToggleFavorite(!video.is_favorite)
+            onToggleFavorite(video.id, !video.is_favorite)
           }}
           aria-pressed={!!video.is_favorite}
           title={video.is_favorite ? 'Unfavorite' : 'Mark as favorite'}
@@ -294,7 +287,7 @@ function MatchTile({
         </button>
       )}
 
-      <button className="match-tile-body" onClick={onOpen}>
+      <button className="match-tile-body" onClick={() => onOpen(video.id)}>
         {isLinked ? (
           <>
             <div className="match-tile-toprow">
@@ -340,6 +333,8 @@ function MatchTile({
                       className="match-tile-champ-icon"
                       src={championIconUrl(ddragon, video.champion_name) ?? undefined}
                       alt={championDisplayName(ddragon, video.champion_name)}
+                      loading="lazy"
+                      decoding="async"
                     />
                   )}
                 </div>
@@ -350,6 +345,8 @@ function MatchTile({
                         className="match-tile-mini-icon"
                         src={summonerSpellIconUrl(ddragon, video.summoner1_id) ?? undefined}
                         alt=""
+                        loading="lazy"
+                        decoding="async"
                       />
                     )}
                     {ddragon && video.summoner2_id && (
@@ -357,6 +354,8 @@ function MatchTile({
                         className="match-tile-mini-icon"
                         src={summonerSpellIconUrl(ddragon, video.summoner2_id) ?? undefined}
                         alt=""
+                        loading="lazy"
+                        decoding="async"
                       />
                     )}
                   </div>
@@ -366,6 +365,8 @@ function MatchTile({
                         className="match-tile-mini-icon match-tile-mini-icon--rune"
                         src={runeIconUrl(ddragon, video.keystone_id) ?? undefined}
                         alt=""
+                        loading="lazy"
+                        decoding="async"
                       />
                     )}
                   </div>
@@ -447,7 +448,7 @@ function MatchTile({
                     const url = itemId ? itemIconUrl(ddragon, itemId) : null
                     return (
                       <div key={i} className="match-tile-item-slot">
-                        {url && <img src={url} alt="" />}
+                        {url && <img src={url} alt="" loading="lazy" decoding="async" />}
                       </div>
                     )
                   })}
@@ -462,12 +463,12 @@ function MatchTile({
               )}
             </div>
 
-            {chips.length > 0 && (
+            {chips && chips.length > 0 && (
               <div className="match-tile-chips">
                 {chips.map((chip) => (
                   <span
                     key={chip.id}
-                    className={`match-chip match-chip--${chip.category}`}
+                    className={`match-chip match-chip--${chip.category} match-chip--tier-${chip.tier.toLowerCase()}`}
                     title={chip.description}
                   >
                     {chip.title}
@@ -494,7 +495,7 @@ function MatchTile({
             className="secondary match-tile-link-btn"
             onClick={(e) => {
               e.stopPropagation()
-              onLink()
+              onLink(video.id)
             }}
           >
             {isLinked ? 'Re-link' : 'Link match'}
@@ -519,7 +520,7 @@ function MatchTile({
                   `Remove "${video.file_name}" from LeagueVid? This won't delete the file.`
                 )
               ) {
-                onRemove()
+                onRemove(video.id)
               }
             }}
             title="Remove from library"
@@ -533,4 +534,12 @@ function MatchTile({
   )
 }
 
-export default MatchTile
+/**
+ * Memoised because the library re-renders on every filter keystroke, favorite
+ * toggle and stats arrival, and each tile is expensive: five nested regions,
+ * two scoreboard columns, and around twenty icon images. Nothing about a tile
+ * depends on library state beyond the props it's given, so a shallow compare is
+ * enough -- provided the callbacks stay stable, which is why they take a video
+ * id instead of closing over one.
+ */
+export default memo(MatchTile)

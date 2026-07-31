@@ -160,6 +160,21 @@ export interface MatchFacts {
 export type AchievementCategory = 'positive' | 'negative'
 
 /**
+ * Rarity band, used purely for presentation: the rarer the band, the louder
+ * the tile is allowed to look.
+ *
+ * Deliberately derived from `priority` rather than stored per rule (see
+ * tiers.ts). `priority` already encodes how unusual a rule is -- that's what
+ * the calibration in thresholds.ts tuned it for -- so a second hand-maintained
+ * rarity field could only ever drift out of agreement with it.
+ *
+ *   SSR  rare and match-defining
+ *   S    strong and uncommon
+ *   R    solid, but a regular occurrence
+ */
+export type AchievementTier = 'R' | 'S' | 'SSR'
+
+/**
  * Groups exist to suppress redundant tiles. Two rules in the same group
  * measure the same underlying thing, so only the highest-priority one that
  * fired is shown -- e.g. "Flawless" (0 deaths) hides "Survivor" (<=2 deaths).
@@ -199,6 +214,17 @@ export interface AchievementDefinition {
   /** Stable id. Persisted/filtered against, so never rename in place. */
   id: string
   title: string
+  /**
+   * What this achievement is about, for the browse-all catalog, where there is
+   * no match to describe and nothing has been earned yet.
+   *
+   * Deliberately vague: it says what the achievement recognises, never what it
+   * takes to get one. No numbers, no thresholds, no "at least N" -- that's
+   * `describe`'s job, once a match has actually earned the thing. Spelling out
+   * the exact bar turns the list into something to farm rather than something
+   * to discover, and the bars move between calibrations anyway.
+   */
+  hint: string
   category: AchievementCategory
   group: AchievementGroup
   /**
@@ -209,7 +235,13 @@ export interface AchievementDefinition {
    *   1-39    filler, only shown when little else qualified
    */
   priority: number
-  /** Icon key resolved to a component in AchievementsTab. */
+  /**
+   * Overrides the rarity band that `priority` would otherwise imply. Only
+   * needed when display order and rarity genuinely disagree -- leave it unset
+   * and let tiers.ts derive it.
+   */
+  tier?: AchievementTier
+  /** Icon key resolved to a component in achievementIcons.ts. */
   icon: string
   /** True when the rule leans on LeagueVid's estimates rather than Riot data. */
   isEstimate?: boolean
@@ -241,6 +273,7 @@ export interface EarnedAchievement {
   category: AchievementCategory
   group: AchievementGroup
   priority: number
+  tier: AchievementTier
   icon: string
   isEstimate: boolean
   isFiller: boolean

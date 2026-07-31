@@ -10,13 +10,28 @@
 
 export { buildMatchFacts } from './facts'
 export { buildLiteMatchFacts } from './liteFacts'
-export { evaluateAchievements, selectAchievements, type SelectOptions } from './evaluate'
+export {
+  dedupeEarnedByGroup,
+  evaluateAchievements,
+  selectAchievements,
+  selectFromEarned,
+  type SelectOptions
+} from './evaluate'
 export { ACHIEVEMENTS } from './definitions'
 export { THRESHOLDS, forRole } from './thresholds'
+export {
+  TIER_META,
+  TIER_ORDER,
+  byTierThenPriority,
+  tierForDefinition,
+  tierForPriority,
+  type TierMeta
+} from './tiers'
 export type {
   AchievementCategory,
   AchievementDefinition,
   AchievementGroup,
+  AchievementTier,
   EarnedAchievement,
   MatchFacts,
   RoleScaled,
