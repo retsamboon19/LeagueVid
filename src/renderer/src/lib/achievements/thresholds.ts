@@ -498,13 +498,14 @@ export const THRESHOLDS = {
     /** Team gold difference for "Stomp". Blended measured p90 is 12,789; fires ~10%. */
     stompGoldDiff: 12_800,
     /**
-     * Deficit the team recovered from, gated on a win. Measured against the
-     * original 5,000 bar this already fires at ~4% (appropriately rare per
-     * the marquee target), and the blended median deficit magnitude is 4,395
-     * -- so 5,000 already sits just past the middle of the distribution
-     * rather than needing to move. Left unchanged.
+     * Deficit the team recovered from, gated on a win. Lowered from the
+     * original 5,000 (which sat just past the blended median deficit
+     * magnitude of 4,395, and fired in only ~4% of games) to make this
+     * easier to earn without handing it out for a trivial deficit -- 3,500
+     * is still above where most losing-side deficits sit, it just no longer
+     * requires an above-average comeback on top of the win itself.
      */
-    comebackDeficit: 5_000,
+    comebackDeficit: 3_500,
     /** Lead the team held before losing, gated on a loss. Same reasoning as
      * comebackDeficit -- already measured at ~4% and near the blended
      * median magnitude (4,397). Left unchanged. */
@@ -584,9 +585,14 @@ export const THRESHOLDS = {
   // laning phase nobody could touch, a thrown lead) rather than on anything a
   // decent game reaches. Raising `ssr` shrinks that set; lowering it cheapens
   // the badge, which is the whole failure mode to avoid here.
+  //
+  // Nudged down from 88 to 85: still well clear of the routine 60-82 band,
+  // but it pulls priority-86 rules (currently just gank_turnaround) into the
+  // marquee set as a deliberate, small loosening -- not a redefinition of
+  // what SSR means.
   tiers: {
     /** Priority at or above this is SSR. */
-    ssr: 88,
+    ssr: 85,
     /** Priority at or above this, but below `ssr`, is S. The rest are R. */
     s: 60
   }

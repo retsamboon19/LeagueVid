@@ -72,6 +72,11 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     category: 'positive',
     group: 'solo_combat',
     priority: 88,
+    // Explicit override: priority alone would place this at the SSR
+    // boundary, but a single under-turret solo kill isn't as rare as the
+    // rest of that band. S keeps its display position (still near the top
+    // of solo_combat) without the SSR badge.
+    tier: 'S',
     icon: 'tower',
     condition: (f, t) =>
       f.towerDiveKills !== null && f.towerDiveKills >= t.combat.towerDives,
@@ -125,6 +130,9 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     category: 'positive',
     group: 'kill_volume',
     priority: 74,
+    // Explicit override: priority keeps its display position within
+    // kill_volume, but the badge itself is bumped to SSR.
+    tier: 'SSR',
     icon: 'skull',
     condition: (f, t) => f.kills >= t.combat.highKills,
     describe: (f) => `Destruction follows you around. ${f.kills} kills this game.`
@@ -160,6 +168,9 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     category: 'positive',
     group: 'damage',
     priority: 72,
+    // Explicit override: priority keeps its display position within
+    // damage, but the badge itself is bumped to SSR.
+    tier: 'SSR',
     icon: 'flame',
     condition: (f, t) => f.damageToChampions >= forRole(t.damage.highDamage, f.role),
     describe: (f) => `You did tons of damage, ${n(f.damageToChampions)} to be exact.`
@@ -396,14 +407,15 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
   // --- Survival -------------------------------------------------------------
   {
     id: 'flawless',
-    title: 'Flawless',
-    hint: 'Get through an entire game without dying once.',
+    title: 'Reaching Godlike',
+    hint: 'Make it all the way to the end of the game without dying once.',
     category: 'positive',
     group: 'deaths',
     priority: 90,
     icon: 'sparkles',
     condition: (f) => f.deaths === 0,
-    describe: (f) => `Not a single death. ${f.kills}/${f.deaths}/${f.assists} on the board.`
+    describe: (f) =>
+      `No deaths, all game. Reaching godlike. ${f.kills}/${f.deaths}/${f.assists} on the board.`
   },
   {
     id: 'survivor',
