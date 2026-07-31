@@ -406,16 +406,20 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
 
   // --- Survival -------------------------------------------------------------
   {
+    // Riot's own announcer names a kill streak "Godlike" at 7 kills without
+    // dying in between. This asks for both halves of that at once: the streak
+    // has to reach Godlike, and it can't have been reset by a death, so it has
+    // to hold all the way to the final whistle.
     id: 'flawless',
     title: 'Reaching Godlike',
-    hint: 'Make it all the way to the end of the game without dying once.',
+    hint: 'Run a kill streak all the way to the Godlike callout, and never die to end it.',
     category: 'positive',
     group: 'deaths',
     priority: 90,
     icon: 'sparkles',
-    condition: (f) => f.deaths === 0,
+    condition: (f, t) => f.deaths === 0 && f.largestKillingSpree >= t.combat.godlikeStreak,
     describe: (f) =>
-      `No deaths, all game. Reaching godlike. ${f.kills}/${f.deaths}/${f.assists} on the board.`
+      `A ${f.largestKillingSpree}-kill streak that reached Godlike, and you never died to end it. ${f.kills}/${f.deaths}/${f.assists} on the board.`
   },
   {
     id: 'survivor',

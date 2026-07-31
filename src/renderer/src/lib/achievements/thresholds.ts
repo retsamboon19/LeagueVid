@@ -77,6 +77,13 @@ export const THRESHOLDS = {
     highKills: 13,
     /** Killing spree length for "Unstoppable". Blended p90 is 6; fires ~14%. */
     killingSpree: 6,
+    /**
+     * Killing spree length for "Reaching Godlike". Riot's own announcer
+     * calls a 7-kill streak without dying in between "Godlike" -- this
+     * reuses that exact number rather than a calibrated one, since the
+     * achievement is explicitly about matching that in-game callout.
+     */
+    godlikeStreak: 7,
     /** Solo kills for "Solo Slayer". Blended p90 is 4; fires ~8%. */
     soloKills: 4,
     /** Laning-phase kills for "Early Aggressor". Blended p90 is 6; fires ~18%. */
