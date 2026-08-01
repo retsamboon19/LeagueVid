@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LeagueVid — Theme Mockup</title>
+<style>
+  :root {
+    /* ---- Palette ---- */
+    --bg-void: #07050c;          /* near-black backdrop */
+    --bg-deep: #0d0817;          /* base app background */
+    --bg-panel: #150f24;         /* card / panel surface */
+    --bg-panel-hover: #1c1430;
+    --border-subtle: rgba(180, 120, 255, 0.14);
+    --border-hover: rgba(216, 96, 255, 0.45);
+
+    --purple-deep: #3a1470;
+    --purple-mid: #6a2fd4;
+    --purple-bright: #9b4dff;
+    --pink-neon: #ff3ec8;
+    --pink-soft: #ff7fe0;
+
+    --text-primary: #f1eaff;
+    --text-secondary: #b9a9d9;
+    --text-muted: #7c6f97;
+
+    --radius: 14px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow: hidden;
+  }
+
+  /* ============================================================
+     BACKGROUND LAYERS
+     1. flat void gradient (base)
+     2. canvas starfield (twinkling, avoids wave band)
+     3. SVG wavy-line field (animated, blurred, ~55% of height)
+     4. cursor glow overlay
+     ============================================================ */
+
+  .bg-root {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background:
+      radial-gradient(ellipse 120% 80% at 50% 0%, #150a26 0%, var(--bg-void) 65%);
+  }
+
+  #stars-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .wave-wrap {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 62vh;
+    z-index: 2;
+    filter: blur(1.1px);
+    pointer-events: none;
+    mask-image: linear-gradient(to top, black 55%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to top, black 55%, transparent 100%);
+  }
+
+  .wave-wrap svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .cursor-glow {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 480px;
+    height: 480px;
+    z-index: 3;
+    pointer-events: none;
+    background: radial-gradient(circle, rgba(216, 96, 255, 0.16) 0%, rgba(155, 77, 255, 0.06) 45%, transparent 75%);
+    transform: translate(-50%, -50%);
+    will-change: transform;
+    transition: opacity 0.3s ease;
+  }
+
+  /* ============================================================
+     APP SHELL (foreground, above background layers)
+     ============================================================ */
+
+  .app {
+    position: relative;
+    z-index: 10;
+    height: 100vh;
+    display: flex;
+  }
+
+  /* ---- Sidebar ---- */
+  .sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    padding: 24px 16px;
+    background: rgba(13, 8, 23, 0.55);
+    border-right: 1px solid var(--border-subtle);
+    backdrop-filter: blur(18px);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px 22px;
+    font-weight: 700;
+    font-size: 1.05rem;
+    letter-spacing: 0.02em;
+  }
+
+  .brand-mark {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--purple-bright), var(--pink-neon));
+    box-shadow: 0 0 14px rgba(216, 96, 255, 0.55);
+  }
+
+  .brand span.accent { color: var(--pink-soft); }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    color: var(--text-secondary);
+    font-size: 0.92rem;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
+  }
+
+  .nav-item .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .nav-item:hover {
+    background: rgba(155, 77, 255, 0.10);
+    color: var(--text-primary);
+    transform: translateX(2px);
+  }
+
+  .nav-item:hover .dot {
+    background: var(--pink-neon);
+    box-shadow: 0 0 8px var(--pink-neon);
+  }
+
+  .nav-item.active {
+    background: linear-gradient(90deg, rgba(155, 77, 255, 0.22), rgba(255, 62, 200, 0.08));
+    color: var(--text-primary);
+    box-shadow: inset 0 0 0 1px var(--border-hover);
+  }
+
+  .nav-item.active .dot {
+    background: var(--pink-neon);
+    box-shadow: 0 0 8px var(--pink-neon);
+  }
+
+  /* ---- Main content ---- */
+  .main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 32px 40px;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+  }
+
+  .topbar h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+
+  .topbar .sub {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-top: 4px;
+  }
+
+  .btn {
+    border: none;
+    border-radius: 10px;
+    padding: 10px 18px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    color: white;
+    background: linear-gradient(135deg, var(--purple-mid), var(--purple-bright));
+    box-shadow: 0 4px 18px rgba(107, 47, 212, 0.35);
+    transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 26px rgba(255, 62, 200, 0.45), 0 0 0 1px rgba(255, 126, 224, 0.4) inset;
+    filter: brightness(1.08);
+  }
+
+  .btn:active { transform: translateY(0); }
+
+  .btn.ghost {
+    background: rgba(155, 77, 255, 0.08);
+    box-shadow: inset 0 0 0 1px var(--border-subtle);
+    color: var(--text-secondary);
+  }
+
+  .btn.ghost:hover {
+    color: var(--text-primary);
+    box-shadow: inset 0 0 0 1px var(--border-hover), 0 0 16px rgba(255, 62, 200, 0.18);
+  }
+
+  /* ---- Card grid ---- */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 18px;
+  }
+
+  .card {
+    --mx: 50%;
+    --my: 50%;
+    position: relative;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    padding: 16px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s ease, border-color 0.25s ease, background 0.25s ease;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(220px circle at var(--mx) var(--my), rgba(216, 96, 255, 0.16), transparent 60%);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    pointer-events: none;
+  }
+
+  .card:hover {
+    transform: translateY(-3px);
+    border-color: var(--border-hover);
+    background: var(--bg-panel-hover);
+  }
+
+  .card:hover::before { opacity: 1; }
+
+  .card-thumb {
+    height: 120px;
+    border-radius: 10px;
+    margin-bottom: 12px;
+    background: linear-gradient(135deg, #1a1030, #2a1240 60%, #3a1450);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card-thumb::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, transparent 30%, rgba(255, 126, 224, 0.18) 50%, transparent 70%);
+    transform: translateX(-100%);
+    transition: transform 0.6s ease;
+  }
+
+  .card:hover .card-thumb::after {
+    transform: translateX(100%);
+  }
+
+  .card-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0 0 4px;
+  }
+
+  .card-meta {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.7rem;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: rgba(155, 77, 255, 0.14);
+    color: var(--pink-soft);
+    border: 1px solid rgba(255, 62, 200, 0.25);
+    margin-top: 10px;
+  }
+
+  .chip.ssr {
+    background: linear-gradient(90deg, rgba(155, 77, 255, 0.25), rgba(255, 62, 200, 0.25));
+    color: #fff;
+    box-shadow: 0 0 10px rgba(255, 62, 200, 0.35);
+  }
+
+  .note {
+    position: fixed;
+    bottom: 18px;
+    right: 22px;
+    z-index: 20;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    background: rgba(13, 8, 23, 0.7);
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-subtle);
+    backdrop-filter: blur(10px);
+  }
+</style>
+</head>
+<body>
+
+  <div class="bg-root"></div>
+  <canvas id="stars-canvas"></canvas>
+  <div class="wave-wrap">
+    <svg id="wave-svg" viewBox="0 0 1440 500" preserveAspectRatio="none"></svg>
+  </div>
+  <div class="cursor-glow" id="cursor-glow"></div>
+
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><div class="brand-mark"></div>League<span class="accent">Vid</span></div>
+      <div class="nav-item active"><span class="dot"></span>Library</div>
+      <div class="nav-item"><span class="dot"></span>Player Stats</div>
+      <div class="nav-item"><span class="dot"></span>Clip Editor</div>
+      <div class="nav-item"><span class="dot"></span>Achievements</div>
+      <div class="nav-item"><span class="dot"></span>Settings</div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <h1>Recent Matches</h1>
+          <div class="sub">14 recordings &middot; linked to your last 20 ranked games</div>
+        </div>
+        <div style="display:flex; gap:10px;">
+          <button class="btn ghost">Add Media</button>
+          <button class="btn">+ Link Match</button>
+        </div>
+      </div>
+
+      <div class="grid" id="card-grid">
+        <!-- cards injected by JS to keep this file short and repeat cleanly -->
+      </div>
+    </main>
+  </div>
+
+  <div class="note">Theme mockup &mdash; dark purple / neon pink, animated vector wave + starfield, mouse-reactive UI</div>
+
+<script>
+  // ============================================================
+  // 1) STARFIELD — canvas, twinkling, avoids the lower wave band
+  // ============================================================
+  const starsCanvas = document.getElementById('stars-canvas');
+  const sctx = starsCanvas.getContext('2d');
+  let stars = [];
+
+  function resizeCanvas() {
+    starsCanvas.width = window.innerWidth * devicePixelRatio;
+    starsCanvas.height = window.innerHeight * devicePixelRatio;
+    starsCanvas.style.width = window.innerWidth + 'px';
+    starsCanvas.style.height = window.innerHeight + 'px';
+    sctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    seedStars();
+  }
+
+  function seedStars() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const waveTop = h * 0.38; // roughly where the wave band begins (62vh tall, masked)
+    const count = Math.round((w * h) / 9000);
+    stars = [];
+    for (let i = 0; i < count; i++) {
+      // Bias placement toward the area above the wave band, thinning out
+      // as we go down into it (mask on the wave already fades it too).
+      const y = Math.random() * h;
+      const weight = y < waveTop ? 1 : 0.35;
+      if (Math.random() > weight) continue;
+      stars.push({
+        x: Math.random() * w,
+        y,
+        r: Math.random() * 1.3 + 0.3,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.008 + Math.random() * 0.014
+      });
+    }
+  }
+
+  function drawStars(t) {
+    sctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    for (const s of stars) {
+      const twinkle = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(t * s.speed + s.phase));
+      sctx.beginPath();
+      sctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      sctx.fillStyle = `rgba(230, 210, 255, ${twinkle.toFixed(3)})`;
+      sctx.fill();
+    }
+  }
+
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  // ============================================================
+  // 2) WAVY LINE FIELD — SVG, vector, animated with layered sine waves
+  //    (small footprint, scales without pixelating, no video asset)
+  // ============================================================
+  const svg = document.getElementById('wave-svg');
+  const VIEW_W = 1440;
+  const VIEW_H = 500;
+  const LINE_COUNT = 46;
+  const POINTS = 60;
+
+  // Pre-build one <path> per line, reused every frame (attribute updates only).
+  const paths = [];
+  for (let i = 0; i < LINE_COUNT; i++) {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const t = i / (LINE_COUNT - 1);
+    // Purple -> neon pink gradient across the line set, brighter toward the
+    // "ridge" in the middle third, echoing the reference image.
+    const hueMix = Math.sin(t * Math.PI); // 0 at edges, 1 in the middle
+    const r = Math.round(120 + hueMix * 130);
+    const g = Math.round(40 + hueMix * 10);
+    const b = Math.round(200 + hueMix * 50);
+    const opacity = 0.10 + hueMix * 0.55;
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', `rgb(${r}, ${g}, ${b})`);
+    path.setAttribute('stroke-width', (0.9 + hueMix * 1.4).toFixed(2));
+    path.setAttribute('stroke-opacity', opacity.toFixed(2));
+    path.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(path);
+    paths.push({ el: path, t });
+  }
+
+  function buildLinePath(t, time) {
+    // Each line sits at a base height (t: 0 = back/top, 1 = front/bottom of
+    // the ridge) and undulates with several summed sine waves so no line is
+    // straight, and the whole field keeps rolling sideways and breathing in
+    // amplitude over time so it never settles into a static shape.
+    const baseY = VIEW_H * (0.26 + t * 0.64);
+    const amp1 = 40 + t * 74;
+    const amp2 = 18 + t * 34;
+    const amp3 = 10 + t * 20;
+    // Slow amplitude "breathing" so the ridge swells and settles instead of
+    // just scrolling -- distinct period per term to avoid a repeating loop.
+    const breathe1 = 0.75 + 0.25 * Math.sin(time * 0.07 + t * 1.6);
+    const breathe2 = 0.75 + 0.25 * Math.sin(time * 0.13 - t * 2.1);
+    let d = '';
+    for (let p = 0; p <= POINTS; p++) {
+      const px = (p / POINTS) * VIEW_W;
+      const nx = p / POINTS;
+      const wave =
+        Math.sin(nx * 4.4 + time * 0.34 + t * 2.4) * amp1 * breathe1 +
+        Math.sin(nx * 9.8 - time * 0.5 + t * 5.1) * amp2 * breathe2 +
+        Math.sin(nx * 2.1 + time * 0.19 - t * 1.1) * amp3 +
+        Math.sin(nx * 14.5 + time * 0.62 + t * 8.3) * (amp2 * 0.35);
+      const py = baseY + wave;
+      d += p === 0 ? `M ${px.toFixed(1)} ${py.toFixed(1)}` : ` L ${px.toFixed(1)} ${py.toFixed(1)}`;
+    }
+    return d;
+  }
+
+  // ============================================================
+  // 3) CURSOR REACTIVITY — glow follows pointer, cards get a spotlight
+  // ============================================================
+  const glow = document.getElementById('cursor-glow');
+  let mouseX = window.innerWidth / 2;
+  let mouseY = window.innerHeight / 2;
+
+  window.addEventListener('mousemove', (e) => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+    glow.style.transform = `translate(${mouseX}px, ${mouseY}px) translate(-50%, -50%)`;
+
+    const card = e.target.closest('.card');
+    if (card) {
+      const rect = card.getBoundingClientRect();
+      card.style.setProperty('--mx', `${e.clientX - rect.left}px`);
+      card.style.setProperty('--my', `${e.clientY - rect.top}px`);
+    }
+  });
+
+  // ============================================================
+  // 4) MAIN ANIMATION LOOP
+  // ============================================================
+  let start = performance.now();
+  function frame(now) {
+    const t = (now - start) / 1000;
+    for (const { el, t: lt } of paths) {
+      el.setAttribute('d', buildLinePath(lt, t));
+    }
+    drawStars(now);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // ============================================================
+  // 5) DEMO CARDS — just enough to preview the mouse-reactive UI
+  // ============================================================
+  const grid = document.getElementById('card-grid');
+  const demoCards = [
+    { title: 'Yorick vs. Malphite', meta: '23:41 &middot; Win', chip: 'Reaching Godlike', ssr: true },
+    { title: 'Jinx vs. Caitlyn', meta: '31:08 &middot; Loss', chip: 'Bringer of Carnage', ssr: true },
+    { title: 'Lee Sin Jungle', meta: '27:52 &middot; Win', chip: 'Comeback King', ssr: false },
+    { title: 'Thresh Support', meta: '19:14 &middot; Win', chip: 'Eyes Everywhere', ssr: false },
+    { title: 'Ahri Mid', meta: '25:36 &middot; Win', chip: 'Ouch You Hurt', ssr: true },
+    { title: 'Darius Top', meta: '33:02 &middot; Loss', chip: 'Rough Game', ssr: false }
+  ];
+
+  for (const c of demoCards) {
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.innerHTML = `
+      <div class="card-thumb"></div>
+      <div class="card-title">${c.title}</div>
+      <div class="card-meta">${c.meta}</div>
+      <div class="chip ${c.ssr ? 'ssr' : ''}">${c.chip}</div>
+    `;
+    grid.appendChild(el);
+  }
+</script>
+</body>
+</html>

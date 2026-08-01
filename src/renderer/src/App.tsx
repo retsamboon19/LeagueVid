@@ -4,6 +4,7 @@ import type { AppSettings } from '../../shared/types'
 import Settings from './views/Settings'
 import Library from './views/Library'
 import RecorderIndicator from './components/RecorderIndicator'
+import AnimatedBackground from './components/AnimatedBackground'
 
 function App(): JSX.Element {
   const [settings, setSettings] = useState<AppSettings | null>(null)
@@ -29,8 +30,17 @@ function App(): JSX.Element {
     )
   }
 
+  // Scoped to the Library's plain list view for now (see the visual overhaul
+  // notes in global.css): Settings and the video player keep their old look,
+  // so the animated backdrop only mounts when neither of those is showing.
+  // Otherwise the purple/pink glow would show through the 2rem app-shell
+  // padding around a still-unstyled view and read as a mismatch rather than
+  // a deliberate choice.
+  const showAnimatedBackground = !isPlayerActive && !showSettings && (settings?.accounts.length ?? 0) > 0
+
   return (
     <div className="app-shell">
+      {showAnimatedBackground && <AnimatedBackground />}
       {!isPlayerActive && (
         <header className="app-header">
           {/* The app title doubles as a "home" control. Any view that filters

@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LeagueVid — Main Page Mockup</title>
+<style>
+  :root {
+    --bg-void: #07050c;
+    --bg-deep: #0d0817;
+    --bg-panel: #150f24;
+    --bg-panel-hover: #1c1430;
+    --bg-row: rgba(21, 15, 36, 0.72);
+    --bg-row-hover: rgba(30, 20, 50, 0.82);
+    --border-subtle: rgba(180, 120, 255, 0.14);
+    --border-hover: rgba(216, 96, 255, 0.45);
+
+    --purple-deep: #3a1470;
+    --purple-mid: #6a2fd4;
+    --purple-bright: #9b4dff;
+    --pink-neon: #ff3ec8;
+    --pink-soft: #ff7fe0;
+
+    --win: #4fd68c;
+    --loss: #ff6f7d;
+
+    --text-primary: #f1eaff;
+    --text-secondary: #b9a9d9;
+    --text-muted: #7c6f97;
+
+    --radius: 14px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow: hidden;
+  }
+
+  /* ============================================================
+     BACKGROUND LAYERS — softened per feedback: everything gets a
+     gentle gaussian blur so nothing back here reads as crisp/sharp,
+     the app content stays the only in-focus layer.
+     ============================================================ */
+
+  .bg-root {
+    position: fixed;
+    inset: -10%; /* oversized so the blur below doesn't reveal edges */
+    z-index: 0;
+    background: radial-gradient(ellipse 120% 80% at 50% 0%, #180c2a 0%, var(--bg-void) 65%);
+    filter: blur(38px);
+  }
+
+  #stars-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    filter: blur(0.6px);
+    opacity: 0.9;
+  }
+
+  .wave-wrap {
+    position: fixed;
+    left: -5%;
+    right: -5%;
+    bottom: -5%;
+    height: 68vh;
+    z-index: 2;
+    /* Heavier blur than the first pass -- this is the "don't make it look so
+       crisp" ask. The lines stay readable as a shape, just soft-edged like
+       light through frosted glass rather than sharp vector strokes. */
+    filter: blur(6px);
+    pointer-events: none;
+    mask-image: linear-gradient(to top, black 50%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to top, black 50%, transparent 100%);
+  }
+
+  .wave-wrap svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* Extra soft glow layer behind the wave, blurred hard, so the ridge casts
+     ambient color onto the rest of the screen instead of stopping dead at its
+     own edge -- another pass at "not too crisp". */
+  .wave-glow {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: -10%;
+    height: 50vh;
+    z-index: 1;
+    background: radial-gradient(60% 100% at 50% 100%, rgba(155, 77, 255, 0.28), transparent 70%);
+    filter: blur(60px);
+    pointer-events: none;
+  }
+
+  .cursor-glow {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 520px;
+    height: 520px;
+    z-index: 3;
+    pointer-events: none;
+    background: radial-gradient(circle, rgba(216, 96, 255, 0.14) 0%, rgba(155, 77, 255, 0.05) 45%, transparent 75%);
+    transform: translate(-50%, -50%);
+    will-change: transform;
+    filter: blur(2px);
+  }
+
+  /* Vignette so the far corners settle even darker, keeping focus centered
+     on the content panel rather than the animated backdrop. */
+  .vignette {
+    position: fixed;
+    inset: 0;
+    z-index: 4;
+    pointer-events: none;
+    background: radial-gradient(120% 90% at 50% 40%, transparent 55%, rgba(4, 2, 8, 0.55) 100%);
+  }
+
+  /* ============================================================
+     APP SHELL
+     ============================================================ */
+
+  .app {
+    position: relative;
+    z-index: 10;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ---- Top header (mirrors App.tsx: title, account, settings) ---- */
+  .app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 28px;
+    border-bottom: 1px solid var(--border-subtle);
+    background: rgba(10, 6, 18, 0.45);
+    backdrop-filter: blur(20px);
+    flex-shrink: 0;
+  }
+
+  .app-home-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .brand-mark {
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
+    background: linear-gradient(135deg, var(--purple-bright), var(--pink-neon));
+    box-shadow: 0 0 14px rgba(216, 96, 255, 0.5);
+  }
+
+  .app-header h1 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: 0.01em;
+  }
+
+  .app-header h1 .accent { color: var(--pink-soft); }
+
+  .app-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .app-header-account {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+  }
+
+  .recorder-dot {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+
+  .recorder-dot .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #4fd68c;
+    box-shadow: 0 0 8px #4fd68c;
+  }
+
+  .icon-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    border: 1px solid var(--border-subtle);
+    background: rgba(155, 77, 255, 0.08);
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .icon-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--border-hover);
+    box-shadow: 0 0 14px rgba(255, 62, 200, 0.25);
+  }
+
+  /* ---- Two-column body (mirrors Library.tsx: tiles left, filters right) --- */
+  .body {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    padding: 22px 28px;
+    gap: 20px;
+  }
+
+  .col-tiles {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+    padding-right: 6px;
+  }
+
+  .col-side {
+    width: 300px;
+    flex-shrink: 0;
+    overflow-y: auto;
+  }
+
+  .view-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .view-header h2 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+  }
+
+  .view-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    border: none;
+    border-radius: 9px;
+    padding: 8px 14px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    color: white;
+    background: linear-gradient(135deg, var(--purple-mid), var(--purple-bright));
+    box-shadow: 0 4px 16px rgba(107, 47, 212, 0.3);
+    transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 22px rgba(255, 62, 200, 0.4), 0 0 0 1px rgba(255, 126, 224, 0.35) inset;
+    filter: brightness(1.08);
+  }
+
+  .btn.secondary {
+    background: rgba(155, 77, 255, 0.08);
+    box-shadow: inset 0 0 0 1px var(--border-subtle);
+    color: var(--text-secondary);
+  }
+
+  .btn.secondary:hover {
+    color: var(--text-primary);
+    box-shadow: inset 0 0 0 1px var(--border-hover), 0 0 14px rgba(255, 62, 200, 0.16);
+  }
+
+  .btn.secondary.active {
+    color: #fff;
+    box-shadow: inset 0 0 0 1px var(--pink-neon), 0 0 14px rgba(255, 62, 200, 0.3);
+    background: rgba(255, 62, 200, 0.12);
+  }
+
+  /* ---- Match tile rows (mirrors the real match-tile-list) ---- */
+  .match-tile-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .match-tile {
+    --mx: 50%;
+    --my: 50%;
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    background: var(--bg-row);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    overflow: hidden;
+    backdrop-filter: blur(14px);
+    cursor: pointer;
+    transition: border-color 0.22s ease, background 0.22s ease, transform 0.18s ease;
+  }
+
+  .match-tile::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(260px circle at var(--mx) var(--my), rgba(216, 96, 255, 0.14), transparent 62%);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    pointer-events: none;
+  }
+
+  .match-tile:hover {
+    border-color: var(--border-hover);
+    background: var(--bg-row-hover);
+    transform: translateY(-2px);
+  }
+
+  .match-tile:hover::before { opacity: 1; }
+
+  .match-tile-stripe {
+    width: 4px;
+    flex-shrink: 0;
+    background: var(--text-muted);
+  }
+
+  .match-tile--win .match-tile-stripe {
+    background: var(--win);
+    box-shadow: 0 0 10px rgba(79, 214, 140, 0.5);
+  }
+
+  .match-tile--loss .match-tile-stripe {
+    background: var(--loss);
+    box-shadow: 0 0 10px rgba(255, 111, 125, 0.4);
+  }
+
+  .match-tile-body {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 18px;
+    min-width: 0;
+  }
+
+  .champ-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #24163c, #3a1a52);
+    flex-shrink: 0;
+    border: 1px solid var(--border-subtle);
+  }
+
+  .tile-main {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 170px;
+  }
+
+  .tile-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  .tile-meta {
+    font-size: 0.76rem;
+    color: var(--text-muted);
+    display: flex;
+    gap: 8px;
+  }
+
+  .tile-meta .win-text { color: var(--win); }
+  .tile-meta .loss-text { color: var(--loss); }
+
+  .tile-chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.68rem;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(155, 77, 255, 0.14);
+    color: var(--pink-soft);
+    border: 1px solid rgba(255, 62, 200, 0.22);
+  }
+
+  .chip.ssr {
+    background: linear-gradient(90deg, rgba(155, 77, 255, 0.3), rgba(255, 62, 200, 0.3));
+    color: #fff;
+    box-shadow: 0 0 10px rgba(255, 62, 200, 0.35);
+  }
+
+  .items {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .item-slot {
+    width: 26px;
+    height: 26px;
+    border-radius: 5px;
+    background: #0f0a1c;
+    border: 1px solid var(--border-subtle);
+  }
+
+  .roster {
+    display: flex;
+    gap: 22px;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  .roster-col {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .roster-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+  }
+
+  .roster-row.me { color: var(--text-secondary); font-weight: 600; }
+
+  .roster-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    background: #24163c;
+    flex-shrink: 0;
+  }
+
+  .fav-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: rgba(10, 6, 18, 0.6);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .fav-btn:hover {
+    color: #f0c85a;
+    border-color: #f0c85a;
+  }
+
+  /* ---- Side filter panel ---- */
+  .panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    overflow: hidden;
+    backdrop-filter: blur(14px);
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    border-bottom: 1px solid var(--border-subtle);
+    background: rgba(155, 77, 255, 0.06);
+  }
+
+  .panel-section {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .panel-section:last-child { border-bottom: none; }
+
+  .panel-label {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 8px;
+  }
+
+  .pill-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .pill {
+    font-size: 0.74rem;
+    padding: 5px 11px;
+    border-radius: 999px;
+    background: rgba(155, 77, 255, 0.08);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.18s ease;
+  }
+
+  .pill:hover {
+    border-color: var(--border-hover);
+    color: var(--text-primary);
+  }
+
+  .pill.on {
+    background: linear-gradient(90deg, rgba(155, 77, 255, 0.28), rgba(255, 62, 200, 0.2));
+    border-color: var(--pink-neon);
+    color: #fff;
+  }
+</style>
+</head>
+<body>
+
+  <div class="bg-root"></div>
+  <div class="wave-glow"></div>
+  <canvas id="stars-canvas"></canvas>
+  <div class="wave-wrap">
+    <svg id="wave-svg" viewBox="0 0 1440 500" preserveAspectRatio="none"></svg>
+  </div>
+  <div class="cursor-glow" id="cursor-glow"></div>
+  <div class="vignette"></div>
+
+  <div class="app">
+    <header class="app-header">
+      <button class="app-home-btn">
+        <div class="brand-mark"></div>
+        <h1>League<span class="accent">Vid</span></h1>
+      </button>
+      <div class="app-header-actions">
+        <span class="recorder-dot"><span class="dot"></span>Recorder idle</span>
+        <span class="app-header-account">SummonerName#NA1</span>
+        <button class="icon-btn" title="Settings">&#9881;</button>
+      </div>
+    </header>
+
+    <div class="body">
+      <div class="col-tiles">
+        <div class="view-header">
+          <h2>Your recordings</h2>
+          <div class="view-header-actions">
+            <button class="btn secondary">&#127942; Achievements</button>
+            <button class="btn secondary">&#128279; Link matches</button>
+            <button class="btn secondary">&#9989; Select</button>
+            <button class="btn">+ Add</button>
+          </div>
+        </div>
+
+        <div class="match-tile-list" id="tile-list"></div>
+      </div>
+
+      <div class="col-side">
+        <div class="panel">
+          <div class="panel-header"><span>&#128269; Filters</span><span style="color:var(--text-muted); font-weight:400;">Clear</span></div>
+          <div class="panel-section">
+            <div class="panel-label">Result</div>
+            <div class="pill-row">
+              <div class="pill on">Any</div>
+              <div class="pill">Win</div>
+              <div class="pill">Loss</div>
+            </div>
+          </div>
+          <div class="panel-section">
+            <div class="panel-label">Role</div>
+            <div class="pill-row">
+              <div class="pill">Top</div>
+              <div class="pill on">Jungle</div>
+              <div class="pill">Mid</div>
+              <div class="pill">Bot</div>
+              <div class="pill">Support</div>
+            </div>
+          </div>
+          <div class="panel-section">
+            <div class="panel-label">Champions played</div>
+            <div class="pill-row">
+              <div class="pill on">Yorick</div>
+              <div class="pill on">Lee Sin</div>
+            </div>
+          </div>
+          <div class="panel-section">
+            <div class="panel-label">Achievements</div>
+            <div class="pill-row">
+              <div class="pill on">Reaching Godlike</div>
+              <div class="pill">Comeback King</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ============================================================
+  // STARFIELD
+  // ============================================================
+  const starsCanvas = document.getElementById('stars-canvas');
+  const sctx = starsCanvas.getContext('2d');
+  let stars = [];
+
+  function resizeCanvas() {
+    starsCanvas.width = window.innerWidth * devicePixelRatio;
+    starsCanvas.height = window.innerHeight * devicePixelRatio;
+    starsCanvas.style.width = window.innerWidth + 'px';
+    starsCanvas.style.height = window.innerHeight + 'px';
+    sctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    seedStars();
+  }
+
+  function seedStars() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const waveTop = h * 0.34;
+    const count = Math.round((w * h) / 9500);
+    stars = [];
+    for (let i = 0; i < count; i++) {
+      const y = Math.random() * h;
+      const weight = y < waveTop ? 1 : 0.3;
+      if (Math.random() > weight) continue;
+      stars.push({
+        x: Math.random() * w,
+        y,
+        r: Math.random() * 1.2 + 0.3,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.008 + Math.random() * 0.014
+      });
+    }
+  }
+
+  function drawStars(t) {
+    sctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    for (const s of stars) {
+      const twinkle = 0.35 + 0.55 * (0.5 + 0.5 * Math.sin(t * s.speed + s.phase));
+      sctx.beginPath();
+      sctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      sctx.fillStyle = `rgba(225, 205, 250, ${twinkle.toFixed(3)})`;
+      sctx.fill();
+    }
+  }
+
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  // ============================================================
+  // WAVY LINE FIELD
+  // ============================================================
+  const svg = document.getElementById('wave-svg');
+  const VIEW_W = 1440;
+  const VIEW_H = 500;
+  const LINE_COUNT = 46;
+  const POINTS = 60;
+
+  const paths = [];
+  for (let i = 0; i < LINE_COUNT; i++) {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const t = i / (LINE_COUNT - 1);
+    const hueMix = Math.sin(t * Math.PI);
+    const r = Math.round(120 + hueMix * 130);
+    const g = Math.round(40 + hueMix * 10);
+    const b = Math.round(200 + hueMix * 50);
+    const opacity = 0.10 + hueMix * 0.55;
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', `rgb(${r}, ${g}, ${b})`);
+    path.setAttribute('stroke-width', (0.9 + hueMix * 1.4).toFixed(2));
+    path.setAttribute('stroke-opacity', opacity.toFixed(2));
+    path.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(path);
+    paths.push({ el: path, t });
+  }
+
+  function buildLinePath(t, time) {
+    const baseY = VIEW_H * (0.26 + t * 0.64);
+    const amp1 = 40 + t * 74;
+    const amp2 = 18 + t * 34;
+    const amp3 = 10 + t * 20;
+    const breathe1 = 0.75 + 0.25 * Math.sin(time * 0.07 + t * 1.6);
+    const breathe2 = 0.75 + 0.25 * Math.sin(time * 0.13 - t * 2.1);
+    let d = '';
+    for (let p = 0; p <= POINTS; p++) {
+      const px = (p / POINTS) * VIEW_W;
+      const nx = p / POINTS;
+      const wave =
+        Math.sin(nx * 4.4 + time * 0.34 + t * 2.4) * amp1 * breathe1 +
+        Math.sin(nx * 9.8 - time * 0.5 + t * 5.1) * amp2 * breathe2 +
+        Math.sin(nx * 2.1 + time * 0.19 - t * 1.1) * amp3 +
+        Math.sin(nx * 14.5 + time * 0.62 + t * 8.3) * (amp2 * 0.35);
+      const py = baseY + wave;
+      d += p === 0 ? `M ${px.toFixed(1)} ${py.toFixed(1)}` : ` L ${px.toFixed(1)} ${py.toFixed(1)}`;
+    }
+    return d;
+  }
+
+  // ============================================================
+  // CURSOR REACTIVITY
+  // ============================================================
+  const glow = document.getElementById('cursor-glow');
+
+  window.addEventListener('mousemove', (e) => {
+    glow.style.transform = `translate(${e.clientX}px, ${e.clientY}px) translate(-50%, -50%)`;
+    const tile = e.target.closest('.match-tile');
+    if (tile) {
+      const rect = tile.getBoundingClientRect();
+      tile.style.setProperty('--mx', `${e.clientX - rect.left}px`);
+      tile.style.setProperty('--my', `${e.clientY - rect.top}px`);
+    }
+  });
+
+  document.querySelectorAll('.pill').forEach((pill) => {
+    pill.addEventListener('click', () => pill.classList.toggle('on'));
+  });
+
+  // ============================================================
+  // MAIN LOOP
+  // ============================================================
+  let start = performance.now();
+  function frame(now) {
+    const t = (now - start) / 1000;
+    for (const { el, t: lt } of paths) {
+      el.setAttribute('d', buildLinePath(lt, t));
+    }
+    drawStars(now);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // ============================================================
+  // DEMO MATCH TILES — mirrors the real match-tile-list row layout:
+  // result stripe, champion icon, title/meta, achievement chips, item
+  // slots, and a two-column ally/enemy roster pushed to the right.
+  // ============================================================
+  const demoTiles = [
+    {
+      win: true, title: 'Yorick — Summoner\u2019s Rift', meta: '23:41', chips: [['Reaching Godlike', true]],
+      allies: ['You', 'Lux', 'Vi', 'Jinx', 'Nautilus'], enemies: ['Malphite', 'Ahri', 'Kayn', 'Caitlyn', 'Thresh']
+    },
+    {
+      win: false, title: 'Jinx — Summoner\u2019s Rift', meta: '31:08', chips: [['Bringer of Carnage', true], ['Rough Game', false]],
+      allies: ['Garen', 'You', 'Lee Sin', 'Ashe', 'Braum'], enemies: ['Darius', 'Syndra', 'Kha\u2019Zix', 'Caitlyn', 'Thresh']
+    },
+    {
+      win: true, title: 'Lee Sin — Summoner\u2019s Rift', meta: '27:52', chips: [['Comeback King', false]],
+      allies: ['Sett', 'Ahri', 'You', 'Ezreal', 'Lulu'], enemies: ['Ornn', 'Zed', 'Sejuani', 'Varus', 'Nami']
+    },
+    {
+      win: true, title: 'Thresh — Summoner\u2019s Rift', meta: '19:14', chips: [['Eyes Everywhere', false]],
+      allies: ['Rumble', 'Akali', 'Viego', 'Kai\u2019Sa', 'You'], enemies: ['Gnar', 'Yone', 'Diana', 'Xayah', 'Rakan']
+    }
+  ];
+
+  const list = document.getElementById('tile-list');
+  for (const d of demoTiles) {
+    const el = document.createElement('div');
+    el.className = `match-tile ${d.win ? 'match-tile--win' : 'match-tile--loss'}`;
+    const rosterCol = (names) => names.map((n) =>
+      `<div class="roster-row ${n === 'You' ? 'me' : ''}"><span class="roster-dot"></span>${n}</div>`
+    ).join('');
+    const chips = d.chips.map(([label, ssr]) => `<div class="chip ${ssr ? 'ssr' : ''}">${label}</div>`).join('');
+    const items = Array.from({ length: 7 }).map(() => '<div class="item-slot"></div>').join('');
+    el.innerHTML = `
+      <div class="match-tile-stripe"></div>
+      <div class="match-tile-body">
+        <div class="champ-icon"></div>
+        <div class="tile-main">
+          <div class="tile-title">${d.title}</div>
+          <div class="tile-meta"><span class="${d.win ? 'win-text' : 'loss-text'}">${d.win ? 'Win' : 'Loss'}</span><span>${d.meta}</span></div>
+          <div class="tile-chips">${chips}</div>
+        </div>
+        <div class="items">${items}</div>
+        <div class="roster">
+          <div class="roster-col">${rosterCol(d.allies)}</div>
+          <div class="roster-col">${rosterCol(d.enemies)}</div>
+        </div>
+      </div>
+      <button class="fav-btn">&#9733;</button>
+    `;
+    list.appendChild(el);
+  }
+</script>
+</body>
+</html>
