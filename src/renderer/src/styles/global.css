@@ -80,20 +80,29 @@ body {
 .animated-bg {
   position: fixed;
   inset: 0;
+  /* Paired with .app-shell's z-index: 1. Both are positioned, so the shell
+     wins outright -- see the sibling-not-child note in App.tsx for why this
+     can't be left to depend on individual descendants creating their own
+     stacking contexts. */
   z-index: 0;
   overflow: hidden;
   pointer-events: none;
 }
 
+/* The inner layers are absolute rather than fixed on purpose: that makes
+   .animated-bg their containing block, so its overflow: hidden actually clips
+   the intentional overhang each one uses to keep its own blur from revealing a
+   hard edge. As fixed elements they'd be sized against the viewport and escape
+   the clip entirely. */
 .animated-bg-root {
-  position: fixed;
+  position: absolute;
   inset: -10%;
   background: radial-gradient(ellipse 120% 80% at 50% 0%, #160b28 0%, var(--lv-bg) 65%);
   filter: blur(40px);
 }
 
 .animated-bg-wave-glow {
-  position: fixed;
+  position: absolute;
   left: 0;
   right: 0;
   bottom: -10%;
@@ -103,13 +112,13 @@ body {
 }
 
 .animated-bg-stars {
-  position: fixed;
+  position: absolute;
   inset: 0;
   opacity: 0.6;
 }
 
 .animated-bg-wave-wrap {
-  position: fixed;
+  position: absolute;
   left: -5%;
   right: -5%;
   bottom: -5%;
@@ -127,7 +136,7 @@ body {
 }
 
 .animated-bg-cursor-glow {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   width: 480px;

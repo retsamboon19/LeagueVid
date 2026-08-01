@@ -10,10 +10,16 @@ import { useEffect, useRef } from 'react'
 // never needs to affect anything else in the tree. Everything here mutates
 // refs directly; the component itself renders once.
 //
-// Sits at a low z-index behind .app-shell (see App.tsx), fixed-position, and
-// `pointer-events: none` throughout, so it never intercepts clicks or scroll
-// and can't affect the match-tile list's own layout -- the two are visually
-// stacked, not structurally related.
+// Mounted as a SIBLING of .app-shell, never a child (see the note at the mount
+// site in App.tsx). As a child it painted over the header and toolbar, because
+// a positioned element with z-index 0 paints above static in-flow content in
+// the same stacking context -- and the opaque base gradient here made that
+// immediately visible. Kept outside, both are positioned and .app-shell's
+// z-index: 1 settles it.
+//
+// Fixed-position and `pointer-events: none` throughout, so it never intercepts
+// clicks or scroll and can't affect the match-tile list's own layout -- the two
+// are visually stacked, not structurally related.
 
 const LINE_COUNT = 40
 const POINTS = 56
