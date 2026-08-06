@@ -7,6 +7,7 @@ import {
   getLeadSwingBulk,
   getMatchActionTimeline,
   getMatchStats,
+  getMatchStatsBulk,
   getMatchStatsBulkLite,
   type GetLeadSwingBulkArgs,
   type GetMatchStatsArgs,
@@ -226,6 +227,13 @@ export function registerRiotHandlers(): void {
   // affordable for a whole library in one call -- see getMatchStatsBulkLite.
   ipcMain.handle('riot:getMatchStatsBulkLite', (_e, args: GetMatchStatsBulkArgs) => {
     return getMatchStatsBulkLite(args)
+  })
+
+  // Complete stats for achievement counts/filtering. The renderer requests
+  // these in small batches only when that UI is in use, avoiding the cost of
+  // parsing every cached timeline during an ordinary library visit.
+  ipcMain.handle('riot:getMatchStatsBulk', (_e, args: GetMatchStatsBulkArgs) => {
+    return getMatchStatsBulk(args)
   })
 
   // Match-wide action events (all 10 players) for the "where's the action"

@@ -124,9 +124,20 @@ export interface BuildFactsArgs {
    * recomputing here. Omit to leave that fact null.
    */
   tags?: TagRow[]
+  /**
+   * Pre-counted equivalent of tags for library-wide evaluation. Supplying 0
+   * means the tags were checked and no tower dive was found; omitting it means
+   * the evidence has not been loaded yet.
+   */
+  towerDiveKills?: number
 }
 
-export function buildMatchFacts({ stats, focus, tags }: BuildFactsArgs): MatchFacts {
+export function buildMatchFacts({
+  stats,
+  focus,
+  tags,
+  towerDiveKills: countedTowerDiveKills
+}: BuildFactsArgs): MatchFacts {
   const durationMinutes = stats.gameDurationSeconds / 60
   const teammates = stats.participants.filter((p) => p.teamId === focus.teamId)
   const laneOpponent = findLaneOpponent(stats.participants, focus)
@@ -149,9 +160,12 @@ export function buildMatchFacts({ stats, focus, tags }: BuildFactsArgs): MatchFa
   const goldSeries = stats.hasTimeline ? teamGoldSeries(stats, focus.teamId) : []
   const phases = csPhases(stats, focus.participantId)
 
-  const towerDiveKills = tags
-    ? tags.filter((t) => t.type === 'towerdive').length
-    : null
+  const towerDiveKills =
+    countedTowerDiveKills !== undefined
+      ? countedTowerDiveKills
+      : tags
+        ? tags.filter((t) => t.type === 'towerdive').length
+        : null
 
   // Strictly highest, not tied-highest: level ties are common (measured in
   // 64% of games), and "highest level in the game" alongside four other

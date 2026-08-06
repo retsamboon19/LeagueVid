@@ -112,6 +112,9 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
   // the multikill filters. Loaded once alongside the suspicious-bookmark
   // flags, since both are "extra facts about a video beyond its own row".
   const [multikillByVideo, setMultikillByVideo] = useState<Map<number, Set<string>>>(new Map())
+  // Tower-dive achievements use auto-tag evidence rather than Riot's match
+  // payload. null means the one grouped DB query has not completed yet.
+  const [towerDiveCounts, setTowerDiveCounts] = useState<Map<number, number> | null>(null)
   // Loaded lazily (only once the lead-swing filter has an actual threshold
   // typed in), since it costs reading+parsing cached match+timeline files
   // per video -- unlike the DB-backed suspicious/multikill facts above,
@@ -124,6 +127,13 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
   // Whether a bulk stats fetch is in flight. Only surfaced to explain that the
   // achievement filter may still be sharpening -- the list itself never waits.
   const [bulkStatsLoading, setBulkStatsLoading] = useState(false)
+  // Full stats are loaded lazily while the achievement catalog/filter is in
+  // use. The map remembers which match each video id was fully checked for, so
+  // re-linking the same video to a different match invalidates it naturally.
+  const [fullAchievementMatchByVideo, setFullAchievementMatchByVideo] = useState<
+    Map<number, string>
+  >(new Map())
+  const [fullAchievementStatsLoading, setFullAchievementStatsLoading] = useState(false)
   const [lastViewedVideoId, setLastViewedVideoId] = useState<number | null>(loadLastViewedVideoId)
   const [showRemoveAllConfirm, setShowRemoveAllConfirm] = useState(false)
   const [removingAll, setRemovingAll] = useState(false)
@@ -164,6 +174,9 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
         byVideo.set(m.videoId, set)
       }
       setMultikillByVideo(byVideo)
+
+      const towerDives = await window.api.db.listTowerDiveTagCounts()
+      setTowerDiveCounts(new Map(towerDives.map((row) => [row.videoId, row.count])))
     } finally {
       setLoading(false)
     }
@@ -438,7 +451,7 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
   useEffect(() => {
     if (settings.accounts.length === 0) return
     const uncovered = videos.filter(
-      (v) => v.match_id !== null && !statsByVideo.has(v.id)
+      (v) => v.match_id !== null && statsByVideo.get(v.id)?.matchId !== v.match_id
     )
     if (uncovered.length === 0) return
 
@@ -454,7 +467,10 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
         setStatsByVideo((prev) => {
           const next = new Map(prev)
           for (const [videoId, data] of Object.entries(result)) {
-            next.set(Number(videoId), data)
+            const id = Number(videoId)
+            // A full-stats request may have overtaken this lightweight one.
+            // Never replace its timeline-backed result with the lite payload.
+            if (!next.get(id)?.hasTimeline) next.set(id, data)
           }
           return next
         })
@@ -472,6 +488,76 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videos, settings.accounts.length])
+
+  const needsCompleteAchievementData =
+    showAchievementCatalog || filters.achievementIds.length > 0
+
+  // Achievement counts and filters are authoritative, so while either UI is
+  // in use they upgrade the lightweight tile stats to the exact same full
+  // MatchStats payload used by the player page. Small batches yield between
+  // timeline parses instead of freezing the app on a large library.
+  useEffect(() => {
+    if (!needsCompleteAchievementData || settings.accounts.length === 0) return
+
+    const uncovered = videos.filter(
+      (video) =>
+        video.match_id !== null &&
+        fullAchievementMatchByVideo.get(video.id) !== video.match_id
+    )
+    if (uncovered.length === 0) return
+
+    let cancelled = false
+    const accounts = settings.accounts.map((account) => ({
+      platform: account.platform,
+      puuid: account.puuid
+    }))
+    const batchSize = 8
+
+    setFullAchievementStatsLoading(true)
+    void (async () => {
+      try {
+        for (let index = 0; index < uncovered.length; index += batchSize) {
+          const batch = uncovered.slice(index, index + batchSize)
+          const result = await window.api.riot.getMatchStatsBulk({
+            matches: batch.map((video) => ({
+              videoId: video.id,
+              matchId: video.match_id as string
+            })),
+            accounts
+          })
+          if (cancelled) return
+
+          setStatsByVideo((prev) => {
+            const next = new Map(prev)
+            for (const [videoId, data] of Object.entries(result)) {
+              next.set(Number(videoId), data)
+            }
+            return next
+          })
+          setFullAchievementMatchByVideo((prev) => {
+            const next = new Map(prev)
+            // Mark every successfully checked match, including one whose
+            // timeline is unavailable. Retrying cannot create missing cache
+            // data, and the panel would degrade for that match in the same way.
+            for (const video of batch) next.set(video.id, video.match_id as string)
+            return next
+          })
+        }
+      } catch {
+        // Keep the already-completed batches. Reopening the catalog retries
+        // only the remainder instead of discarding useful work.
+      } finally {
+        if (!cancelled) setFullAchievementStatsLoading(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+    // The loop covers the snapshot's entire uncovered set. Depending on the
+    // per-batch completion map would cancel that same loop after batch one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsCompleteAchievementData, videos, settings.accounts])
 
   // "Go home": clear anything that could be hiding the list, and leave any
   // drilled-into view. Skipped on first mount (nothing to reset yet).
@@ -544,8 +630,19 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
   // recomputes twice in practice: once from the row data alone, then again when
   // getMatchStatsBulkLite lands and the chips can sharpen.
   const achievementsByVideo = useMemo(
-    () => buildAchievementsByVideo(videos, statsByVideo),
-    [videos, statsByVideo]
+    () => buildAchievementsByVideo(videos, statsByVideo, towerDiveCounts),
+    [videos, statsByVideo, towerDiveCounts]
+  )
+
+  const achievementCountsComplete = useMemo(
+    () =>
+      towerDiveCounts !== null &&
+      videos
+        .filter((video) => video.match_id !== null)
+        .every(
+          (video) => fullAchievementMatchByVideo.get(video.id) === (video.match_id as string)
+        ),
+    [videos, towerDiveCounts, fullAchievementMatchByVideo]
   )
 
   // How many recordings earned each achievement, for the catalog. Derived from
@@ -865,16 +962,13 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
         {leadSwingLoading && (
           <p className="subtitle filter-leadswing-loading">Checking lead swing data...</p>
         )}
-        {/* Achievements are evaluated from the row's own data first and
-            re-evaluated once the fuller per-match stats load, so a filter set
-            during that window can legitimately miss recordings that will match
-            a moment later. Saying so beats letting it look like a wrong answer.
-            Gated on the fetch being in flight rather than on which recordings
-            lack stats -- a match that was never downloaded never will have any,
-            so that condition would never clear. */}
-        {filters.achievementIds.length > 0 && bulkStatsLoading && (
+        {/* The list can legitimately be incomplete while the exact full-data
+            pass upgrades the lightweight tile results. Keep that state visible
+            instead of presenting a temporary empty result as the answer. */}
+        {filters.achievementIds.length > 0 &&
+          (bulkStatsLoading || fullAchievementStatsLoading || !achievementCountsComplete) && (
           <p className="subtitle filter-leadswing-loading">
-            Still reading match data -- a few achievement matches may be missing for a moment.
+            Checking full match data so achievement results match the recording details...
           </p>
         )}
       </div>
@@ -891,6 +985,7 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
           onClearSelection={clearAchievementFilter}
           earnedCounts={achievementCounts}
           countedRecordings={achievementsByVideo.size}
+          countsComplete={achievementCountsComplete}
         />
       )}
 

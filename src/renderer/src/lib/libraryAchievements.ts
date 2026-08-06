@@ -56,11 +56,14 @@ export function parseRoster(matchData: string | null): MatchRosterData | null {
 export function evaluateVideoAchievements(
   video: VideoRow,
   roster: MatchRosterData | null,
-  stats: MatchStats | undefined
+  stats: MatchStats | undefined,
+  towerDiveKills?: number
 ): VideoAchievements | null {
   const focus = stats?.participants.find((p) => p.puuid === stats.ownerPuuid)
   const facts =
-    stats && focus ? buildMatchFacts({ stats, focus }) : buildLiteMatchFacts({ video, roster })
+    stats && focus
+      ? buildMatchFacts({ stats, focus, towerDiveKills })
+      : buildLiteMatchFacts({ video, roster })
   if (!facts) return null
 
   const earned = evaluateAchievements(facts)
@@ -86,13 +89,18 @@ export function evaluateVideoAchievements(
  */
 const CACHE = new WeakMap<
   VideoRow,
-  { stats: MatchStats | undefined; value: VideoAchievements | null }
+  {
+    stats: MatchStats | undefined
+    towerDiveKills: number | undefined
+    value: VideoAchievements | null
+  }
 >()
 
 /** Evaluates a whole library, skipping unlinked recordings. */
 export function buildAchievementsByVideo(
   videos: VideoRow[],
-  statsByVideo: Map<number, MatchStats>
+  statsByVideo: Map<number, MatchStats>,
+  towerDiveCounts: Map<number, number> | null = null
 ): Map<number, VideoAchievements> {
   const byVideo = new Map<number, VideoAchievements>()
 
@@ -102,14 +110,23 @@ export function buildAchievementsByVideo(
     // Stats identity is part of the key: when the bulk stats land for a
     // recording the row hasn't changed, but its achievements have.
     const stats = statsByVideo.get(video.id)
+    // A loaded grouped query makes an absent row an authoritative zero. null
+    // means the query has not returned yet, so tag-fed rules must stay silent.
+    const towerDiveKills =
+      towerDiveCounts === null ? undefined : (towerDiveCounts.get(video.id) ?? 0)
     const cached = CACHE.get(video)
 
     let result: VideoAchievements | null
-    if (cached && cached.stats === stats) {
+    if (cached && cached.stats === stats && cached.towerDiveKills === towerDiveKills) {
       result = cached.value
     } else {
-      result = evaluateVideoAchievements(video, parseRoster(video.match_data), stats)
-      CACHE.set(video, { stats, value: result })
+      result = evaluateVideoAchievements(
+        video,
+        parseRoster(video.match_data),
+        stats,
+        towerDiveKills
+      )
+      CACHE.set(video, { stats, towerDiveKills, value: result })
     }
 
     if (result) byVideo.set(video.id, result)

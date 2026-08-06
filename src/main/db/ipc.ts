@@ -76,6 +76,8 @@ export function registerDbHandlers(): void {
 
   ipcMain.handle('db:listTags', (_e, videoId: number) => repo.listTags(videoId))
 
+  ipcMain.handle('db:listTowerDiveTagCounts', () => repo.listTowerDiveTagCounts())
+
   ipcMain.handle(
     'db:updateTag',
     (_e, input: { tagId: number; timestampMs?: number; label?: string; detail?: string | null }) =>

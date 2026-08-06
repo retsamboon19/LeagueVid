@@ -167,6 +167,13 @@ const api = {
     }): Promise<Record<number, MatchStats>> =>
       ipcRenderer.invoke('riot:getMatchStatsBulkLite', args),
 
+    // Full stats for exact achievement counts/filtering. Called lazily and in
+    // small batches because this reads each match's cached timeline.
+    getMatchStatsBulk: (args: {
+      matches: Array<{ videoId: number; matchId: string }>
+      accounts: Array<{ platform: PlatformRouting; puuid: string }>
+    }): Promise<Record<number, MatchStats>> => ipcRenderer.invoke('riot:getMatchStatsBulk', args),
+
     // Match-wide action events (every player, not just the linked account) --
     // backs the action-density curve so it reflects the whole game.
     getMatchActionTimeline: (args: {
@@ -259,6 +266,9 @@ const api = {
     clearAutoTags: (videoId: number): Promise<void> => ipcRenderer.invoke('db:clearAutoTags', videoId),
 
     listTags: (videoId: number): Promise<TagRow[]> => ipcRenderer.invoke('db:listTags', videoId),
+
+    listTowerDiveTagCounts: (): Promise<Array<{ videoId: number; count: number }>> =>
+      ipcRenderer.invoke('db:listTowerDiveTagCounts'),
 
     updateTag: (input: {
       tagId: number

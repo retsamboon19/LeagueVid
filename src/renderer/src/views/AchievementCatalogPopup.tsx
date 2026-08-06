@@ -29,6 +29,8 @@ interface AchievementCatalogPopupProps {
   earnedCounts: Map<string, number>
   /** Linked recordings the counts were taken over. Zero means "nothing to count". */
   countedRecordings: number
+  /** False while timeline/tag-backed results are still being filled in. */
+  countsComplete: boolean
 }
 
 /** One catalog entry: everything the list needs, and nothing match-specific. */
@@ -81,7 +83,8 @@ function AchievementCatalogPopup({
   onToggle,
   onClearSelection,
   earnedCounts,
-  countedRecordings
+  countedRecordings,
+  countsComplete
 }: AchievementCatalogPopupProps): JSX.Element {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<CategoryFilter>('all')
@@ -259,7 +262,7 @@ function AchievementCatalogPopup({
                           <button
                             className={`achv-catalog-card achv-catalog-card--${entry.category} achv-catalog-card--tier-${tier.toLowerCase()} ${
                               isSelected ? 'achv-catalog-card--selected' : ''
-                            } ${count === 0 ? 'achv-catalog-card--unearned' : ''}`}
+                            } ${countsComplete && count === 0 ? 'achv-catalog-card--unearned' : ''}`}
                             onClick={() => onToggle(entry.id)}
                             aria-pressed={isSelected}
                             title={
@@ -274,13 +277,17 @@ function AchievementCatalogPopup({
                             <span className="achv-catalog-card-text">
                               <span className="achievement-title">
                                 {entry.title}
-                                {countedRecordings > 0 && (
+                                {(countedRecordings > 0 || !countsComplete) && (
                                   <span
                                     className={`achv-catalog-count ${
-                                      count === 0 ? 'achv-catalog-count--zero' : ''
+                                      countsComplete && count === 0
+                                        ? 'achv-catalog-count--zero'
+                                        : ''
                                     }`}
                                   >
-                                    {count === 0
+                                    {!countsComplete
+                                      ? 'checking...'
+                                      : count === 0
                                       ? 'none yet'
                                       : `${count} recording${count === 1 ? '' : 's'}`}
                                   </span>
@@ -302,19 +309,18 @@ function AchievementCatalogPopup({
           )}
         </div>
 
-        {/* Says why a count can be missing, rather than letting "none yet" imply
-            the achievement has never been earned. The library evaluates the
-            rules from the lighter per-match data it loads in bulk; the ones
-            needing a full timeline (tower dives, early ganks, objective
-            participation) are only worked out when a recording is opened. */}
-        {countedRecordings > 0 && (
+        {!countsComplete ? (
+          <p className="achv-catalog-blurb achv-catalog-note">
+            Checking the full match details for timeline and bookmark-based achievements. Counts
+            and filters update as soon as that finishes.
+          </p>
+        ) : countedRecordings > 0 ? (
           <p className="achv-catalog-blurb achv-catalog-note">
             Counts come from the {countedRecordings} linked recording
-            {countedRecordings === 1 ? '' : 's'} in your library. Some achievements are only worked
-            out from a match&apos;s full timeline when you open that recording, so they stay at
-            &ldquo;none yet&rdquo; here even if you have earned them.
+            {countedRecordings === 1 ? '' : 's'} in your library, using the same full match details
+            as each recording&apos;s Achievements tab.
           </p>
-        )}
+        ) : null}
 
         <div className="settings-panel-footer achv-catalog-footer">
           <span className="subtitle">

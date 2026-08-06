@@ -487,6 +487,28 @@ export function getMatchStatsBulkLite(args: GetMatchStatsBulkArgs): Record<numbe
   return result
 }
 
+/**
+ * Full MatchStats for a batch of linked recordings.
+ *
+ * This is intentionally separate from getMatchStatsBulkLite: opening the
+ * library should stay cheap, but achievement counts and achievement filters
+ * must agree with the player page. Those rules use timeline-derived gank,
+ * objective, early-game, teamfight and gold-swing facts, so the renderer calls
+ * this heavier path only while the achievement catalog/filter is in use and
+ * sends small batches to keep the app responsive.
+ */
+export function getMatchStatsBulk(args: GetMatchStatsBulkArgs): Record<number, MatchStats> {
+  const result: Record<number, MatchStats> = {}
+
+  for (const { videoId, matchId } of args.matches) {
+    const stats = getMatchStats({ matchId, accounts: args.accounts })
+    if ('unavailable' in stats) continue
+    result[videoId] = stats
+  }
+
+  return result
+}
+
 export function getMatchStats(args: GetMatchStatsArgs): MatchStatsResult {
   const resolved = resolveMatchAndTimeline(args)
   if (!resolved) {

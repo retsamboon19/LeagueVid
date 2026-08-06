@@ -451,6 +451,23 @@ export function listTags(videoId: number): TagRow[] {
   ])
 }
 
+/**
+ * Tower-dive evidence for every recording in one query.
+ *
+ * The achievement panel receives a video's full tag list, while the library
+ * deliberately does not. Returning only this grouped count gives the catalog
+ * and filter the same Tower Diver result without shipping every bookmark for
+ * every recording to the renderer.
+ */
+export function listTowerDiveTagCounts(): Array<{ videoId: number; count: number }> {
+  return queryAll<{ video_id: number; count: number }>(
+    `SELECT video_id, COUNT(*) AS count
+     FROM tags
+     WHERE type = 'towerdive'
+     GROUP BY video_id`
+  ).map((row) => ({ videoId: row.video_id, count: row.count }))
+}
+
 export function updateTag(
   tagId: number,
   input: { timestampMs?: number; label?: string; detail?: string | null }

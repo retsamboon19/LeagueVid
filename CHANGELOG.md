@@ -2,6 +2,8 @@
 
 ## v0.3.0 — Visual Overhaul
 
+- Fixed achievement catalog counts and recording filters so timeline-based and
+  bookmark-based achievements match the recording details view.
 - Reworked the Library and player interface with a dark-purple, neon-pink theme.
 - Added an animated background while keeping the app header clear and readable.
 - Updated the project overview to match the current recording, achievement, and
