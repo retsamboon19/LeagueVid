@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">LeagueVid</title>
+  <rect x="2" y="2" width="60" height="60" rx="13" fill="#170f28" />
+  <path d="M6 10h11.3v34.3l8.2-4.5L33.3 54H6z" fill="#9b4dff" />
+  <path
+    d="M20.3 22.4h12.6l7 14 6.9-14H58L41.5 54h-3.3l-9-16.3 5.3-3.3-11.6-6.9z"
+    fill="#ff3ec8"
+  />
+  <path d="M17.25 21.5 34.55 34.45 17.25 45z" fill="#170f28" />
+</svg>

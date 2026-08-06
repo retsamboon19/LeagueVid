@@ -188,6 +188,53 @@ body {
   font-size: 1.4rem;
 }
 
+.brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.brand-lockup-icon {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  filter: drop-shadow(0 4px 12px rgba(155, 77, 255, 0.24));
+  transition: transform 0.15s ease, filter 0.2s ease;
+}
+
+.brand-mark-bg {
+  fill: var(--lv-panel-solid);
+}
+
+.brand-mark-l {
+  fill: var(--lv-purple-bright);
+}
+
+.brand-mark-v {
+  fill: var(--lv-pink-neon);
+}
+
+.brand-mark-play {
+  fill: var(--lv-panel-solid);
+}
+
+.brand-wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  font-size: 1.45rem !important;
+  font-weight: 760;
+  letter-spacing: -0.045em;
+  line-height: 1;
+}
+
+.brand-wordmark-league {
+  color: var(--lv-text);
+}
+
+.brand-wordmark-vid {
+  color: var(--lv-pink-soft);
+}
+
 .app-header-actions {
   display: flex;
   align-items: center;
@@ -3679,11 +3726,17 @@ select:focus {
   box-shadow: none;
 }
 
-.app-home-btn:hover h1 {
-  color: var(--lv-pink-soft);
+.app-home-btn:hover .brand-lockup-icon {
+  transform: scale(1.04);
+  filter: drop-shadow(0 5px 15px rgba(255, 62, 200, 0.34));
 }
 
-.app-home-btn h1 {
+.app-home-btn:hover .brand-wordmark-league {
+  color: #fff;
+}
+
+.brand-wordmark-league,
+.brand-wordmark-vid {
   transition: color 0.15s ease;
 }
 

@@ -26,8 +26,11 @@ asarUnpack:
 extraResources:
   - from: node_modules/sql.js/dist/sql-wasm.wasm
     to: sql-wasm.wasm
+  - from: resources/icon.png
+    to: icon.png
 
 win:
+  icon: resources/icon.ico
   target:
     - target: nsis
       arch:

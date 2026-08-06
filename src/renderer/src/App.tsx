@@ -5,6 +5,7 @@ import Settings from './views/Settings'
 import Library from './views/Library'
 import RecorderIndicator from './components/RecorderIndicator'
 import AnimatedBackground from './components/AnimatedBackground'
+import LeagueVidLogo from './components/LeagueVidLogo'
 
 function App(): JSX.Element {
   const [settings, setSettings] = useState<AppSettings | null>(null)
@@ -71,7 +72,7 @@ function App(): JSX.Element {
               }}
               title="Back to your recordings"
             >
-              <h1>LeagueVid</h1>
+              <LeagueVidLogo />
             </button>
             {settings && (
               <div className="app-header-actions">

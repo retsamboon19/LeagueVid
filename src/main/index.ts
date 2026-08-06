@@ -63,6 +63,9 @@ function createWindow(options: { show?: boolean } = {}): void {
     height: 800,
     show: false,
     autoHideMenuBar: true,
+    icon: is.dev
+      ? join(__dirname, '../../resources/icon.png')
+      : join(process.resourcesPath, 'icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
