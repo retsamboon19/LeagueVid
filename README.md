@@ -4,7 +4,81 @@ A desktop app for reviewing your own League of Legends VODs. LeagueVid records y
 
 Built with Electron + React + TypeScript.
 
-[Download the latest release](https://github.com/retsamboon19/LeagueVid/releases/latest) · [Use the pre-visual-overhaul version](https://github.com/retsamboon19/LeagueVid/releases/tag/v0.2.1-pre-visual-overhaul)
+[Download the latest Windows installer](https://github.com/retsamboon19/LeagueVid/releases/latest) · [View all releases](https://github.com/retsamboon19/LeagueVid/releases) · [Use the pre-visual-overhaul version](https://github.com/retsamboon19/LeagueVid/releases/tag/v0.2.1-pre-visual-overhaul)
+
+## Installation
+
+LeagueVid can be installed in two ways. The Windows installer is recommended
+for most people; running from source is intended for development, modification,
+or platforms other than Windows.
+
+### Option 1 — Windows installer (recommended)
+
+1. Open the [latest release](https://github.com/retsamboon19/LeagueVid/releases/latest).
+2. Expand **Assets** and download `LeagueVid.Setup.<version>.exe`.
+3. Run the installer, choose where LeagueVid should be installed, and launch it
+   from the desktop shortcut.
+4. Open **Settings**, paste in a Riot API key, link your Riot account, and choose
+   the folder(s) containing your recordings.
+
+This route includes the app and its required runtime. You do not need Node.js,
+the source code, `setup.bat`, or a terminal.
+
+> **Windows SmartScreen:** LeagueVid is not currently code-signed, so Windows may
+> show an "unrecognized app" warning. If you downloaded it from this repository's
+> release page, select **More info** and then **Run anyway**.
+
+### Option 2 — Run from source
+
+Choose this route if you want to inspect or modify the code, run the newest
+unreleased commit, or use the non-recording features on another operating system.
+
+#### Guided Windows source setup
+
+1. Click the green **Code** button near the top of this page, choose **Download
+   ZIP**, and extract it anywhere.
+2. Open the extracted `LeagueVid` folder and double-click `setup.bat`.
+   - The script checks for Node.js and opens its download page if needed.
+   - It installs LeagueVid's dependencies and helps you add a Riot API key.
+3. When setup finishes, launch LeagueVid with `run-dev.bat`.
+4. In **Settings**, link your Riot account and choose the folder(s) containing
+   your recordings.
+
+#### Manual source setup / other operating systems
+
+1. Install [Node.js](https://nodejs.org/) 18 or newer.
+2. Clone or download this repository, then install its dependencies:
+
+   ```bash
+   cd LeagueVid
+   npm install
+   ```
+
+3. Optionally copy `.env.example` to `.env` and add your Riot API key:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   ```text
+   RIOT_API_KEY=your-riot-api-key-here
+   ```
+
+   You can skip this and paste the key into **Settings** instead.
+
+4. Start the app in development mode:
+
+   ```bash
+   npm run dev
+   ```
+
+5. In **Settings**, link your Riot account and choose the folder(s) containing
+   your recordings.
+
+> **Riot API keys:** a personal development key from the
+> [Riot Developer Portal](https://developer.riotgames.com/) expires every 24
+> hours and has a low rate limit. Paste a fresh key into **Settings** when the
+> previous one expires. LeagueVid queues and throttles requests automatically.
 
 ## Features
 
@@ -62,59 +136,14 @@ By default, LeagueVid captures your screen, not the game. It never injects code 
 
 The optional OBS backend is different and worth knowing about before you turn it on: OBS's `game_capture` works by hooking the game's rendering process to read its frames directly, which is what capture tools that need to work in exclusive fullscreen generally have to do. It's the same capture method millions of streamers and content creators use, and Riot has never taken action against OBS, but it's not the same "screen only" guarantee as the default path. If that distinction matters to you, leave the OBS backend uninstalled -- the built-in screen-duplication path is what LeagueVid uses either way, with no setup required.
 
-You do **not** need to know how to code to use LeagueVid. The steps below are copy-paste and click-through -- no terminal commands required beyond what the setup script runs for you.
-
-## Getting started (the easy way)
-
-1. Download this project: click the green **Code** button near the top of this page → **Download ZIP**, then extract it anywhere (e.g. your Desktop).
-2. Open the extracted `LeagueVid` folder and double-click **`setup.bat`**.
-   - This checks whether you have Node.js installed, and opens the download page for you if you don't (just install it with the default options and re-run `setup.bat`).
-   - It then installs everything LeagueVid needs automatically -- this can take a couple of minutes, that's normal.
-   - It walks you through pasting in a Riot API key (it'll open the Riot Developer Portal for you). If you'd rather skip this step, just press Enter -- you can paste a key into the app's Settings screen later instead.
-3. When setup finishes, it offers to launch the app right away. From then on, just double-click **`run-dev.bat`** any time you want to open LeagueVid.
-4. In the app, go to **Settings** to link your Riot account (Riot ID + tag line, and your region), then point LeagueVid at the folder(s) where your recordings live.
-
-That's it -- LeagueVid will start matching your recordings to your match history in the background.
-
-> **Note on the Riot API key:** a personal ("development") key from the Riot Developer Portal expires every 24 hours and has a low rate limit. That's normal for a hobby project like this -- just grab a fresh one from the portal and paste it into Settings when the old one stops working. LeagueVid queues and throttles requests automatically either way.
-
-## Getting started (manual / other OS)
-
-1. Install [Node.js](https://nodejs.org/) 18 or newer.
-2. Clone or download the repository, then in a terminal:
-
-   ```bash
-   cd LeagueVid
-   npm install
-   ```
-
-3. Set up your Riot API key. Copy `.env.example` to `.env` and fill in your key:
-
-   ```bash
-   cp .env.example .env
-   ```
-
-   ```
-   RIOT_API_KEY=your-riot-api-key-here
-   ```
-
-   You can skip this and paste your key into the app's Settings screen instead, which lets you update it any time without restarting.
-
-4. Run the app in dev mode:
-
-   ```bash
-   npm run dev
-   ```
-
-5. In the app, go to **Settings** to link your Riot account (Riot ID + tag line, and your region), then point LeagueVid at the folder(s) where your recordings live.
-
 ## Building a distributable
 
 ```bash
-npm run build
+npm run dist
 ```
 
-This produces a packaged build under `out/`.
+This produces the Windows installer and unpacked app under `dist/`. Use
+`npm run build` when you only need the compiled application under `out/`.
 
 ## Project structure
 
