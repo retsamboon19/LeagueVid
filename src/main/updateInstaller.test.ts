@@ -11,9 +11,10 @@ describe('update installer hand-off', () => {
     expect(script).toContain('$env:TEMP = $updateTemp')
   })
 
-  it('pins the silent installer to the current custom directory', () => {
+  it('lets the installer reuse its registered custom directory', () => {
     const script = buildUpdateHelperScript()
-    expect(script).toContain("'/currentuser', '--force-run', ('/D=' + $InstallDirectory)")
+    expect(script).toContain("$arguments = @('/S', '/currentuser', '--force-run')")
+    expect(script).not.toContain("'/D=' + $InstallDirectory")
   })
 
   it('always records a result and reopens LeagueVid visibly', () => {
