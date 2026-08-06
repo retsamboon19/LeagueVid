@@ -42,6 +42,7 @@ win:
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
+  include: resources/installer.nsh
   # Recordings are written next to the app by default, so the user needs to know
   # where it landed.
   createDesktopShortcut: true

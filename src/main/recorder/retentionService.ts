@@ -1,4 +1,5 @@
 import { existsSync, statSync, unlinkSync } from 'fs'
+import { stat } from 'fs/promises'
 import { deleteVideos, getRecordingSettings, listRetentionCandidates } from '../db/repository'
 import { formatBytes } from './estimates'
 import { getFreeSpace } from './diskSpace'
@@ -45,6 +46,51 @@ function measure(filePath: string): number {
   } catch {
     return 0
   }
+}
+
+async function measureAsync(filePath: string): Promise<number> {
+  try {
+    return (await stat(filePath)).size
+  } catch {
+    return 0
+  }
+}
+
+/**
+ * Sizes uncached files without blocking Electron's main thread.
+ *
+ * Imported videos normally have a size in video_duration_cache already. The
+ * bounded fallback covers older or manually-created rows without firing
+ * hundreds of disk requests at once, which matters when a library lives on a
+ * slower external drive.
+ */
+async function withSizesAsync(
+  candidates: ReturnType<typeof listRetentionCandidates>
+): Promise<RetentionCandidate[]> {
+  const sized: RetentionCandidate[] = new Array(candidates.length)
+  let nextIndex = 0
+  const workerCount = Math.min(12, Math.max(1, candidates.length))
+
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      for (;;) {
+        const index = nextIndex++
+        if (index >= candidates.length) return
+        const candidate = candidates[index]
+        sized[index] = {
+          videoId: candidate.videoId,
+          filePath: candidate.filePath,
+          fileName: candidate.fileName,
+          sizeBytes: candidate.sizeBytes ?? (await measureAsync(candidate.filePath)),
+          recordedAt: candidate.recordedAt,
+          isFavorite: candidate.isFavorite,
+          source: candidate.source
+        }
+      }
+    })
+  )
+
+  return sized
 }
 
 function buildPlan(): RetentionPlan {
@@ -133,8 +179,8 @@ export interface DiskUsageReport {
   summary: string
 }
 
-export function getDiskUsage(): DiskUsageReport {
-  const candidates = withSizes(listRetentionCandidates())
+export async function getDiskUsage(): Promise<DiskUsageReport> {
+  const candidates = await withSizesAsync(listRetentionCandidates())
   const recorded = candidates.filter((candidate) => candidate.source === 'recorded')
 
   const libraryBytes = candidates.reduce((sum, candidate) => sum + candidate.sizeBytes, 0)

@@ -31,7 +31,7 @@ import type {
   VideoFileInfo,
   VideoRow
 } from '../shared/types'
-import type { UpdateCheckResult, UpdateProgress } from '../shared/updater'
+import type { UpdateCheckResult, UpdateInstallResult, UpdateProgress } from '../shared/updater'
 
 export interface MatchBundleParticipant {
   puuid: string
@@ -121,6 +121,8 @@ const api = {
   updater: {
     check: (): Promise<UpdateCheckResult> => ipcRenderer.invoke('updater:check'),
     install: (): Promise<{ restarting: true }> => ipcRenderer.invoke('updater:install'),
+    lastInstallResult: (): Promise<UpdateInstallResult | null> =>
+      ipcRenderer.invoke('updater:lastInstallResult'),
     onProgress: (callback: (progress: UpdateProgress) => void): (() => void) =>
       subscribe('updater:progress', callback)
   },

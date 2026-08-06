@@ -1033,9 +1033,13 @@ export function listRetentionCandidates(): Array<{
     size_bytes: number | null
   }>(
     `SELECT v.id, v.file_path, v.file_name, v.recorded_at, v.created_at, v.is_favorite, v.source,
-            (SELECT r.size_bytes FROM recordings r
-              WHERE r.video_id = v.id AND r.size_bytes IS NOT NULL
-              ORDER BY r.id DESC LIMIT 1) AS size_bytes
+            COALESCE(
+              (SELECT r.size_bytes FROM recordings r
+                WHERE r.video_id = v.id AND r.size_bytes IS NOT NULL
+                ORDER BY r.id DESC LIMIT 1),
+              (SELECT c.size_bytes FROM video_duration_cache c
+                WHERE c.file_path = v.file_path)
+            ) AS size_bytes
      FROM videos v`
   )
 

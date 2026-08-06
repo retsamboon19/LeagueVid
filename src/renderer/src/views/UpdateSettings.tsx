@@ -23,7 +23,18 @@ function UpdateSettings(): JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState<UpdateProgress | null>(null)
 
-  useEffect(() => window.api.updater.onProgress(setProgress), [])
+  useEffect(() => {
+    const unsubscribe = window.api.updater.onProgress(setProgress)
+    window.api.updater
+      .lastInstallResult()
+      .then((result) => {
+        if (!result) return
+        if (result.success) setMessage(result.message)
+        else setError(result.message)
+      })
+      .catch(() => undefined)
+    return unsubscribe
+  }, [])
 
   useEffect(() => {
     if (!available || installing) return undefined
@@ -153,4 +164,3 @@ function UpdateSettings(): JSX.Element {
 }
 
 export default UpdateSettings
-

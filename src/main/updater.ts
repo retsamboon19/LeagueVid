@@ -4,17 +4,21 @@ import { spawn } from 'child_process'
 import { once } from 'events'
 import {
   createWriteStream,
+  existsSync,
   mkdirSync,
+  readFileSync,
   renameSync,
   rmSync,
   writeFileSync
 } from 'fs'
-import { basename, join } from 'path'
+import { basename, dirname, join } from 'path'
 import {
   updateIsAvailable,
   type UpdateCheckResult,
+  type UpdateInstallResult,
   type UpdateProgress
 } from '../shared/updater'
+import { buildUpdateHelperScript } from './updateInstaller'
 
 declare const __LEAGUEVID_BUILD_COMMIT__: string
 
@@ -213,25 +217,26 @@ async function downloadInstaller(
   }
 }
 
-function launchUpdateHelper(installerPath: string): void {
+async function launchUpdateHelper(installerPath: string): Promise<void> {
   const dir = updaterDir()
   const helperPath = join(dir, 'install-update.ps1')
-  writeFileSync(
-    helperPath,
-    [
-      'param([int]$LeagueVidProcessId, [string]$InstallerPath, [string]$AppPath)',
-      'Wait-Process -Id $LeagueVidProcessId -ErrorAction SilentlyContinue',
-      "$installer = Start-Process -FilePath $InstallerPath -ArgumentList '/S' -Wait -PassThru -WindowStyle Hidden",
-      'if ($installer.ExitCode -eq 0) {',
-      '  Start-Process -FilePath $AppPath -WindowStyle Hidden',
-      '}',
-      'Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue'
-    ].join('\r\n'),
-    'utf8'
+  const resultPath = join(dir, 'install-result.json')
+  const logPath = join(dir, 'install-update.log')
+  const installDirectory = dirname(process.execPath)
+  rmSync(resultPath, { force: true })
+  writeFileSync(helperPath, buildUpdateHelperScript(), 'utf8')
+
+  const windowsRoot = process.env.SystemRoot || 'C:\\Windows'
+  const powershellPath = join(
+    windowsRoot,
+    'System32',
+    'WindowsPowerShell',
+    'v1.0',
+    'powershell.exe'
   )
 
   const helper = spawn(
-    'powershell.exe',
+    powershellPath,
     [
       '-NoProfile',
       '-ExecutionPolicy',
@@ -245,11 +250,46 @@ function launchUpdateHelper(installerPath: string): void {
       '-InstallerPath',
       installerPath,
       '-AppPath',
-      process.execPath
+      process.execPath,
+      '-InstallDirectory',
+      installDirectory,
+      '-ResultPath',
+      resultPath,
+      '-LogPath',
+      logPath
     ],
     { detached: true, stdio: 'ignore', windowsHide: true }
   )
+
+  await new Promise<void>((resolve, reject) => {
+    helper.once('spawn', resolve)
+    helper.once('error', reject)
+  }).catch((error) => {
+    rmSync(helperPath, { force: true })
+    throw new Error(`The update helper could not start: ${(error as Error).message}`)
+  })
   helper.unref()
+}
+
+function takeLastInstallResult(): UpdateInstallResult | null {
+  const path = join(updaterDir(), 'install-result.json')
+  if (!existsSync(path)) return null
+
+  try {
+    const parsed = JSON.parse(readFileSync(path, 'utf8').replace(/^\uFEFF/, '')) as Partial<UpdateInstallResult>
+    if (
+      typeof parsed.success !== 'boolean' ||
+      typeof parsed.message !== 'string' ||
+      typeof parsed.finishedAt !== 'string'
+    ) {
+      return null
+    }
+    return parsed as UpdateInstallResult
+  } catch {
+    return null
+  } finally {
+    rmSync(path, { force: true })
+  }
 }
 
 async function downloadAndInstall(sender: Electron.WebContents): Promise<{ restarting: true }> {
@@ -272,7 +312,7 @@ async function downloadAndInstall(sender: Electron.WebContents): Promise<{ resta
       totalBytes: resolved.installer.size,
       fraction: 1
     })
-    launchUpdateHelper(installerPath)
+    await launchUpdateHelper(installerPath)
     setTimeout(() => app.quit(), 350)
     return { restarting: true }
   } finally {
@@ -283,4 +323,5 @@ async function downloadAndInstall(sender: Electron.WebContents): Promise<{ resta
 export function registerUpdaterHandlers(): void {
   ipcMain.handle('updater:check', () => checkForUpdates())
   ipcMain.handle('updater:install', (event) => downloadAndInstall(event.sender))
+  ipcMain.handle('updater:lastInstallResult', () => takeLastInstallResult())
 }

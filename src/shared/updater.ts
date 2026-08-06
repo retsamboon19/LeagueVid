@@ -17,6 +17,12 @@ export interface UpdateCheckResult {
   releaseUrl: string
 }
 
+export interface UpdateInstallResult {
+  success: boolean
+  message: string
+  finishedAt: string
+}
+
 export function compareVersions(left: string, right: string): number {
   const a = left.split('.').map(Number)
   const b = right.split('.').map(Number)
