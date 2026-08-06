@@ -1,5 +1,6 @@
 appId: com.leaguevid.app
 productName: LeagueVid
+artifactName: LeagueVid.Setup.${version}.${ext}
 
 directories:
   buildResources: resources
