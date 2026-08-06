@@ -666,6 +666,97 @@ select:focus {
   gap: 0.6rem;
 }
 
+/* --- In-app updates --- */
+
+.update-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--lv-border);
+  border-radius: 12px;
+  background: var(--lv-panel);
+}
+
+.update-card-copy {
+  min-width: 0;
+}
+
+.update-card-copy .subtitle {
+  margin: 0.35rem 0 0;
+}
+
+.update-card > button {
+  flex: 0 0 auto;
+}
+
+.update-status {
+  margin: 0.65rem 0 0;
+}
+
+.update-confirm-panel {
+  width: 620px;
+  max-height: calc(100vh - 4rem);
+}
+
+.update-version-line {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0;
+  color: var(--lv-text-muted);
+}
+
+.update-release-notes {
+  max-height: 230px;
+  overflow: auto;
+  margin: 0.55rem 0 0;
+  padding: 0.85rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  line-height: 1.5;
+  color: var(--lv-text);
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--lv-border);
+  border-radius: 8px;
+}
+
+.update-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  color: var(--lv-text-muted);
+  font-size: 0.82rem;
+}
+
+.update-progress-track {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.update-progress-fill {
+  height: 100%;
+  min-width: 2px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--lv-purple), var(--lv-pink));
+  transition: width 180ms ease;
+}
+
+@media (max-width: 640px) {
+  .update-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .update-card > button {
+    align-self: flex-start;
+  }
+}
+
 .player-stage {
   position: relative;
   flex: 1;

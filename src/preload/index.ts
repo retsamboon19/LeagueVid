@@ -31,6 +31,7 @@ import type {
   VideoFileInfo,
   VideoRow
 } from '../shared/types'
+import type { UpdateCheckResult, UpdateProgress } from '../shared/updater'
 
 export interface MatchBundleParticipant {
   puuid: string
@@ -117,6 +118,12 @@ function subscribe<T>(channel: string, callback: (payload: T) => void): () => vo
 }
 
 const api = {
+  updater: {
+    check: (): Promise<UpdateCheckResult> => ipcRenderer.invoke('updater:check'),
+    install: (): Promise<{ restarting: true }> => ipcRenderer.invoke('updater:install'),
+    onProgress: (callback: (progress: UpdateProgress) => void): (() => void) =>
+      subscribe('updater:progress', callback)
+  },
   riot: {
     findAccount: (args: {
       platform: PlatformRouting

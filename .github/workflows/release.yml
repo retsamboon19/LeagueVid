@@ -64,11 +64,21 @@ jobs:
             throw 'The Windows installer was not produced.'
           }
 
+          # The in-app updater refuses to run an installer unless its SHA-256
+          # matches this separately published checksum.
+          $checksumPath = "$($installer.FullName).sha256"
+          $checksum = (Get-FileHash -LiteralPath $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          Set-Content -LiteralPath $checksumPath -Value "$checksum  $($installer.Name)" -NoNewline
+
           gh release view $env:RELEASE_TAG *> $null
           if ($LASTEXITCODE -eq 0) {
-            gh release upload $env:RELEASE_TAG $installer.FullName --clobber
+            # A normal fix moves the existing tag rather than bumping the
+            # version, so refresh the notes as well as the binary. The updater
+            # shows these notes before asking the user to install.
+            gh release edit $env:RELEASE_TAG --title $title --notes $notes
+            gh release upload $env:RELEASE_TAG $installer.FullName $checksumPath --clobber
           } else {
-            gh release create $env:RELEASE_TAG $installer.FullName `
+            gh release create $env:RELEASE_TAG $installer.FullName $checksumPath `
               --verify-tag `
               --title $title `
               --notes $notes

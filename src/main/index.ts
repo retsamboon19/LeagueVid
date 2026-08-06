@@ -26,6 +26,7 @@ import { startAutoRecording, stopAutoRecording, currentCaptureTarget } from './r
 import { getEncoderCapabilitiesCache, getRecordingSettings } from './db/repository'
 import { createRecorderTray, destroyRecorderTray, launchedHidden, refreshTray } from './tray'
 import { shutdownForQuit } from './recorder/shutdown'
+import { registerUpdaterHandlers } from './updater'
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -217,6 +218,7 @@ app.whenReady().then(async () => {
   // the setting from the moment the first window opens.
   initRecorderService()
   registerRecorderHandlers()
+  registerUpdaterHandlers()
 
   // The tray tooltip and menu follow the recorder, and the power-save blocker
   // is held for exactly as long as a session is in flight.

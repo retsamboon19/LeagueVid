@@ -3,6 +3,7 @@ import { FolderOpen, RefreshCw, Trash2 } from 'lucide-react'
 import type { AppSettings, PlatformRouting, RiotAccountLink } from '../../../shared/types'
 import LinkedFoldersManager from './LinkedFoldersManager'
 import RecordingSettingsSection from './RecordingSettings'
+import UpdateSettings from './UpdateSettings'
 
 const PLATFORM_OPTIONS: { value: PlatformRouting; label: string }[] = [
   { value: 'na1', label: 'North America (NA1)' },
@@ -243,6 +244,10 @@ function Settings({ onSaved }: SettingsProps): JSX.Element {
 
   return (
     <div className="view">
+      <UpdateSettings />
+
+      <hr style={{ border: 'none', borderTop: '1px solid #2f333f', margin: '0.5rem 0' }} />
+
       <h2>Riot API key</h2>
       <p className="subtitle">
         LeagueVid needs a Riot API key to fetch match data. Get one (development or personal) from
