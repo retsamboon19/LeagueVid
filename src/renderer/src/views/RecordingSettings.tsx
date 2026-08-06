@@ -376,6 +376,19 @@ function RecordingSettingsSection(): JSX.Element {
         </p>
       </div>
 
+      <h3 className="recorder-subheading">Windows startup</h3>
+      <div className="recorder-master-row">
+        <Toggle
+          label="Launch LeagueVid when Windows starts"
+          checked={settings.launchAtLogin}
+          onChange={(checked) => update({ launchAtLogin: checked })}
+        />
+        <p className="settings-row-hint">
+          Starts LeagueVid hidden in the system tray, so you do not have to open it manually. This
+          is separate from automatic recording.
+        </p>
+      </div>
+
       <h3 className="recorder-subheading">Capture method</h3>
       <p className="subtitle">
         How LeagueVid gets the picture. Game capture reads the frames the game itself draws; screen
@@ -1036,13 +1049,6 @@ function RecordingSettingsSection(): JSX.Element {
         moment the game stops responding. Currently {formatSeconds(settings.stopDelayMs)}.
       </p>
 
-      <div className="recorder-audio-block">
-        <Toggle
-          label="Start LeagueVid with Windows, hidden in the tray"
-          checked={settings.launchAtLogin}
-          onChange={(checked) => update({ launchAtLogin: checked })}
-        />
-      </div>
     </>
   )
 }
