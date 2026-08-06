@@ -483,7 +483,7 @@ select:focus {
 
 .player-subtitle {
   font-size: 0.8rem;
-  color: #a0a4ae;
+  color: var(--lv-text-muted);
 }
 
 .player-sync {
@@ -495,7 +495,7 @@ select:focus {
 
 .player-sync-label {
   font-size: 0.78rem;
-  color: #a0a4ae;
+  color: var(--lv-text-muted);
   white-space: nowrap;
 }
 
@@ -514,7 +514,7 @@ select:focus {
 .player-sync-status {
   text-align: right;
   margin: -0.4rem 0 0;
-  color: #7ed6a5;
+  color: var(--lv-win);
 }
 
 .player-settings-btn {
@@ -591,13 +591,13 @@ select:focus {
 
 .settings-row-input span {
   font-size: 0.82rem;
-  color: #a0a4ae;
+  color: var(--lv-text-muted);
 }
 
 .settings-row-hint {
   margin: 0;
   font-size: 0.78rem;
-  color: #7d818c;
+  color: var(--lv-text-muted);
   line-height: 1.4;
 }
 
@@ -651,8 +651,8 @@ select:focus {
   position: absolute;
   top: 1rem;
   left: 1rem;
-  background: rgba(15, 17, 23, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(12, 8, 22, 0.85);
+  border: 1px solid var(--lv-border-strong);
   border-radius: 8px;
   padding: 0.4rem 0.8rem;
   font-size: 0.85rem;
@@ -674,22 +674,27 @@ select:focus {
 }
 
 .player-icon-btn {
-  background: #1c1f28;
-  border: 1px solid #2f333f;
-  color: #e6e6e6;
-  border-radius: 6px;
+  background: rgba(155, 77, 255, 0.08);
+  border: 1px solid var(--lv-border);
+  color: var(--lv-text-dim);
+  border-radius: 8px;
   padding: 0.45rem 0.7rem;
   font-size: 0.95rem;
   min-width: 2.4rem;
+  box-shadow: none;
 }
 
 .player-icon-btn:hover {
-  background: #2a2d38;
+  background: rgba(155, 77, 255, 0.16);
+  border-color: var(--lv-border-hover);
+  color: var(--lv-text);
+  transform: none;
+  box-shadow: 0 0 12px rgba(255, 62, 200, 0.18);
 }
 
 .player-time {
   font-size: 0.85rem;
-  color: #a0a4ae;
+  color: var(--lv-text-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -701,6 +706,9 @@ select:focus {
 
 .player-volume {
   width: 90px;
+  /* Paints the filled portion and thumb of the native range control, which is
+     otherwise the one leftover browser-blue element in the player bar. */
+  accent-color: var(--lv-purple-bright);
 }
 
 .player-add-tag {
@@ -715,7 +723,8 @@ select:focus {
 .player-timeline-track {
   position: relative;
   height: 8px;
-  background: #1c1f28;
+  background: var(--lv-input-bg);
+  border: 1px solid var(--lv-border);
   border-radius: 4px;
 }
 
@@ -724,8 +733,9 @@ select:focus {
   top: 0;
   left: 0;
   height: 100%;
-  background: #3b6ea5;
+  background: linear-gradient(90deg, var(--lv-purple-mid), var(--lv-pink-neon));
   border-radius: 4px;
+  box-shadow: 0 0 10px rgba(255, 62, 200, 0.4);
 }
 
 .player-timeline-scrubber {
@@ -734,9 +744,11 @@ select:focus {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #e6e6e6;
+  background: var(--lv-text);
   transform: translate(-50%, -50%);
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.4);
+  box-shadow:
+    0 0 0 2px rgba(4, 2, 10, 0.6),
+    0 0 8px rgba(255, 62, 200, 0.5);
 }
 
 .player-timeline-marker {
@@ -752,7 +764,11 @@ select:focus {
   font-size: 11px;
   cursor: pointer;
   background: #d9534f;
-  border: 2px solid #0f1117;
+  /* Ring is meant to read as a cut-out from the page behind it, so it tracks
+     the app background rather than being a colour of its own. The marker fills
+     themselves are bookmark-type semantics (kill/death/assist/objective) shared
+     with the clip editor ticks and bookmark chips, so they stay put. */
+  border: 2px solid var(--lv-bg);
 }
 
 .player-timeline-marker--assist {
@@ -798,10 +814,11 @@ select:focus {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background: #171a22;
-  border: 1px solid #2f333f;
-  border-radius: 8px;
+  background: var(--lv-panel);
+  border: 1px solid var(--lv-border);
+  border-radius: 10px;
   overflow: hidden;
+  backdrop-filter: blur(10px);
 }
 
 .bookmark-column-header {
@@ -813,9 +830,9 @@ select:focus {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: #a0a4ae;
-  border-bottom: 1px solid #2f333f;
-  background: #1c1f28;
+  color: var(--lv-text-muted);
+  border-bottom: 1px solid var(--lv-border);
+  background: var(--lv-panel-header);
 }
 
 .bookmark-column--kill .bookmark-column-header {
@@ -857,19 +874,24 @@ select:focus {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  background: #1c1f28;
-  border: 1px solid #2f333f;
+  background: var(--lv-input-bg);
+  border: 1px solid var(--lv-border);
   border-radius: 6px;
   padding: 0.3rem 0.55rem;
   font-size: 0.78rem;
-  color: #e6e6e6;
+  color: var(--lv-text-dim);
   cursor: pointer;
   white-space: nowrap;
   text-align: left;
+  box-shadow: none;
 }
 
 .bookmark-chip:hover {
-  background: #2a2d38;
+  background: rgba(155, 77, 255, 0.16);
+  border-color: var(--lv-border-hover);
+  color: var(--lv-text);
+  transform: none;
+  box-shadow: none;
 }
 
 .bookmark-chip-time {
@@ -891,7 +913,7 @@ select:focus {
 
 .bookmark-chip-delete:hover {
   opacity: 1;
-  color: #ff8080;
+  color: var(--lv-loss);
 }
 
 /* --- Library layout (red/blue/green grid) --- */

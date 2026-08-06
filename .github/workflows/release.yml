@@ -1,0 +1,68 @@
+name: Publish release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out the tagged version
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm.cmd ci
+
+      - name: Verify the release
+        run: |
+          npm.cmd run typecheck
+          npm.cmd test
+
+      - name: Build the Windows installer
+        run: npm.cmd run dist
+
+      - name: Publish the GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $notes = (git for-each-ref "refs/tags/$env:RELEASE_TAG" --format="%(contents)" | Out-String).Trim()
+          if ([string]::IsNullOrWhiteSpace($notes)) {
+            $notes = "LeagueVid $env:RELEASE_TAG"
+          }
+
+          $summary = ($notes -split "`r?`n" | Select-Object -First 1).Trim()
+          $title = "LeagueVid $env:RELEASE_TAG — $summary"
+
+          $installer = Get-ChildItem -LiteralPath dist -Filter '*.exe' |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+
+          if ($null -eq $installer) {
+            throw 'The Windows installer was not produced.'
+          }
+
+          gh release view $env:RELEASE_TAG *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:RELEASE_TAG $installer.FullName --clobber
+          } else {
+            gh release create $env:RELEASE_TAG $installer.FullName `
+              --verify-tag `
+              --title $title `
+              --notes $notes
+          }
