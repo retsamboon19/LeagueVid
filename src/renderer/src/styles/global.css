@@ -3,18 +3,13 @@
    =========================================================================
 
    Introduced for the visual overhaul (see design/app-recolor-mockup.html for
-   the reference mockup this is built from). Scoped intentionally: the shared
-   primitives (button, input/select, .subtitle/.status, the app shell/header)
-   and the Library view's own rules below have been repainted to use these
-   tokens. Those primitives render throughout Library's toolbar and popups, so
-   leaving them on the old palette would look exactly as mismatched as the
-   purple panels next to old blue buttons that prompted this pass.
+   the reference mockup this is built from). The shared primitives, Library,
+   player chrome, and match-stats surfaces all use these tokens so moving from
+   the recordings list into a VOD feels like one continuous interface.
 
-   View-specific chrome that already overrides those primitives with its own,
-   more specific classes -- the video player's controls, the stats tables and
-   graphs, the clip editor, recorder settings -- still reference their old
-   literal hex values and keeps the previous look for now. That's deliberate,
-   not an oversight: repainting those is a separate, larger pass.
+   A few specialist tools whose colours communicate editing or recording state
+   (the clip editor and recorder settings) retain their more utilitarian local
+   palette. They sit above the themed viewer rather than defining its chrome.
    ------------------------------------------------------------------------- */
 :root {
   --lv-bg: #0c0816;
@@ -2702,14 +2697,18 @@ select:focus {
 /* --- Match stats panel --- */
 
 .stats-panel {
-  background: #171a22;
-  border: 1px solid #2f333f;
-  border-radius: 8px;
+  background: linear-gradient(150deg, rgba(29, 18, 48, 0.9), rgba(15, 9, 27, 0.78));
+  border: 1px solid var(--lv-border-strong);
+  border-radius: 12px;
   padding: 0.8rem;
   display: flex;
   flex-direction: column;
   gap: 0.7rem;
   min-width: 0;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 18px 44px rgba(3, 1, 8, 0.28);
+  backdrop-filter: blur(16px);
 }
 
 .stats-panel-head {
@@ -2743,7 +2742,7 @@ select:focus {
 
 .stats-panel-focus-meta {
   font-size: 0.75rem;
-  color: #a0a4ae;
+  color: var(--lv-text-muted);
 }
 
 .stats-panel-viewing {
@@ -2751,8 +2750,9 @@ select:focus {
   align-items: center;
   gap: 0.3rem;
   font-size: 0.75rem;
-  color: #d9a45a;
-  background: rgba(217, 164, 90, 0.12);
+  color: var(--lv-gold);
+  background: rgba(240, 200, 90, 0.1);
+  border: 1px solid rgba(240, 200, 90, 0.2);
   border-radius: 6px;
   padding: 0.2rem 0.4rem;
 }
@@ -2762,6 +2762,7 @@ select:focus {
   height: 30px;
   border-radius: 6px;
   flex-shrink: 0;
+  box-shadow: 0 0 0 1px var(--lv-border-strong);
 }
 
 /* --- Tabs --- */
@@ -2769,34 +2770,36 @@ select:focus {
 .stats-tablist {
   display: flex;
   gap: 0.2rem;
-  border-bottom: 1px solid #2f333f;
+  border-bottom: 1px solid var(--lv-border);
   overflow-x: auto;
 }
 
 .stats-tab {
-  background: none;
+  background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
   border-radius: 0;
-  color: #a0a4ae;
+  color: var(--lv-text-muted);
   font-size: 0.82rem;
   padding: 0.45rem 0.6rem;
   white-space: nowrap;
 }
 
 .stats-tab:hover {
-  background: #1c1f28;
-  color: #e6e6e6;
+  background: rgba(155, 77, 255, 0.08);
+  color: var(--lv-text-dim);
 }
 
 .stats-tab--active {
-  color: #e6e6e6;
-  border-bottom-color: #4a90d9;
+  color: var(--lv-text);
+  border-bottom-color: var(--lv-pink-neon);
+  background: linear-gradient(to top, rgba(255, 62, 200, 0.1), transparent 75%);
   font-weight: 600;
+  text-shadow: 0 0 12px rgba(255, 127, 224, 0.24);
 }
 
 .stats-tab:focus-visible {
-  outline: 2px solid #7fb3e0;
+  outline: 2px solid var(--lv-pink-soft);
   outline-offset: -2px;
 }
 
@@ -2822,7 +2825,7 @@ select:focus {
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #a0a4ae;
+  color: var(--lv-text-dim);
 }
 
 /* --- Tables (scoreboard / performance) --- */
@@ -2841,13 +2844,13 @@ select:focus {
 }
 
 .stats-table thead th {
-  color: #a0a4ae;
+  color: var(--lv-text-muted);
   font-weight: 600;
-  border-bottom: 1px solid #2f333f;
+  border-bottom: 1px solid var(--lv-border);
 }
 
 .stats-table tbody tr:nth-child(even) {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(155, 77, 255, 0.035);
 }
 
 .stats-cell-player {
@@ -2871,7 +2874,7 @@ select:focus {
 }
 
 .stats-player-btn:hover {
-  background: #22252f;
+  background: rgba(155, 77, 255, 0.1);
 }
 
 .stats-player-btn .stats-champ-icon {
@@ -2892,23 +2895,24 @@ select:focus {
   text-transform: uppercase;
   font-weight: 700;
   letter-spacing: 0.03em;
-  background: rgba(126, 214, 165, 0.18);
-  color: #7ed6a5;
+  background: rgba(70, 224, 163, 0.14);
+  color: var(--lv-win);
+  border: 1px solid rgba(70, 224, 163, 0.18);
   border-radius: 3px;
   padding: 0.05rem 0.25rem;
   flex-shrink: 0;
 }
 
 .stats-row--owner {
-  background: rgba(217, 164, 90, 0.1) !important;
+  background: rgba(240, 200, 90, 0.08) !important;
 }
 
 .stats-row--focus {
-  box-shadow: inset 2px 0 0 #4a90d9;
+  box-shadow: inset 2px 0 0 var(--lv-pink-neon);
 }
 
 .scoreboard-team {
-  border: 1px solid #2f333f;
+  border: 1px solid var(--lv-border);
   border-radius: 6px;
   overflow: hidden;
 }
@@ -2921,12 +2925,12 @@ select:focus {
   padding: 0.35rem 0.5rem;
   font-size: 0.78rem;
   font-weight: 700;
-  background: #1c1f28;
+  background: var(--lv-panel-header);
 }
 
 .scoreboard-team-totals {
   font-weight: 400;
-  color: #a0a4ae;
+  color: var(--lv-text-muted);
   font-size: 0.72rem;
 }
 
@@ -2954,7 +2958,7 @@ select:focus {
   display: block;
   height: 4px;
   margin-top: 2px;
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(195, 179, 230, 0.1);
   border-radius: 2px;
   overflow: hidden;
 }
@@ -2967,11 +2971,11 @@ select:focus {
 }
 
 .stats-bar--blue {
-  background: #4a90d9;
+  background: linear-gradient(90deg, var(--lv-purple-mid), var(--lv-purple-bright));
 }
 
 .stats-bar--red {
-  background: #d9534f;
+  background: linear-gradient(90deg, #e13f70, var(--lv-loss));
 }
 
 .stats-sort-btn {
@@ -2984,12 +2988,12 @@ select:focus {
 }
 
 .stats-sort-btn:hover {
-  background: #22252f;
-  color: #e6e6e6;
+  background: rgba(155, 77, 255, 0.1);
+  color: var(--lv-text);
 }
 
 .stats-sort-btn--active {
-  color: #7fb3e0;
+  color: var(--lv-pink-soft);
   font-weight: 700;
 }
 
@@ -3012,15 +3016,15 @@ select:focus {
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: #7d818c;
+  color: var(--lv-text-muted);
 }
 
 .rune-row {
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
-  background: #1c1f28;
-  border: 1px solid #2f333f;
+  background: rgba(155, 77, 255, 0.045);
+  border: 1px solid var(--lv-border);
   border-radius: 6px;
   padding: 0.35rem 0.45rem;
   min-width: 0;
@@ -3037,12 +3041,12 @@ select:focus {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: #0f1117;
+  background: var(--lv-input-bg);
   flex-shrink: 0;
 }
 
 .rune-row-icon--placeholder {
-  border: 1px dashed #3b3f4a;
+  border: 1px dashed var(--lv-border-strong);
 }
 
 .rune-row-name {
@@ -3063,16 +3067,16 @@ select:focus {
 .rune-row-empty {
   padding-left: 1.7rem;
   font-size: 0.7rem;
-  color: #6b6f7a;
+  color: var(--lv-text-muted);
 }
 
 .rune-var {
   font-size: 0.72rem;
-  color: #c4c8d1;
+  color: var(--lv-text-dim);
 }
 
 .rune-var-label {
-  color: #a0a4ae;
+  color: var(--lv-text-muted);
 }
 
 .rune-var-value {
@@ -3082,8 +3086,8 @@ select:focus {
 
 .rune-var-unlabeled {
   font-size: 0.65rem;
-  color: #d9a45a;
-  border-bottom: 1px dotted #d9a45a;
+  color: var(--lv-gold);
+  border-bottom: 1px dotted var(--lv-gold);
   cursor: help;
 }
 
@@ -3103,7 +3107,7 @@ select:focus {
   width: 1.1rem;
   font-size: 0.72rem;
   font-weight: 700;
-  color: #a0a4ae;
+  color: var(--lv-text-muted);
   flex-shrink: 0;
 }
 
@@ -3117,19 +3121,19 @@ select:focus {
 
 .skill-order-cell {
   aspect-ratio: 1;
-  background: #14161d;
-  border: 1px solid #2f333f;
+  background: var(--lv-input-bg);
+  border: 1px solid var(--lv-border);
   border-radius: 3px;
   font-size: 0.55rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #7d818c;
+  color: var(--lv-text-muted);
 }
 
 .skill-order-cell--taken {
-  background: #3b6ea5;
-  border-color: #4a90d9;
+  background: linear-gradient(135deg, var(--lv-purple-mid), var(--lv-pink-neon));
+  border-color: var(--lv-pink-soft);
   color: #fff;
   font-weight: 700;
 }
@@ -3156,8 +3160,8 @@ select:focus {
   width: 26px;
   height: 26px;
   border-radius: 4px;
-  background: #0f1117;
-  border: 1px solid #2f333f;
+  background: var(--lv-input-bg);
+  border: 1px solid var(--lv-border);
   overflow: hidden;
 }
 
@@ -3168,7 +3172,7 @@ select:focus {
 
 .item-build-time {
   font-size: 0.65rem;
-  color: #a0a4ae;
+  color: var(--lv-text-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -3188,19 +3192,20 @@ select:focus {
 }
 
 .graph-metric-btn {
-  background: #1c1f28;
-  border: 1px solid #2f333f;
-  color: #a0a4ae;
+  background: rgba(155, 77, 255, 0.06);
+  border: 1px solid var(--lv-border);
+  color: var(--lv-text-muted);
   font-size: 0.74rem;
   padding: 0.25rem 0.55rem;
   border-radius: 5px;
 }
 
 .graph-metric-btn--active {
-  background: #3b6ea5;
-  border-color: #4a90d9;
+  background: linear-gradient(100deg, var(--lv-purple-mid), var(--lv-pink-neon));
+  border-color: var(--lv-pink-soft);
   color: #fff;
   font-weight: 600;
+  box-shadow: 0 0 14px rgba(255, 62, 200, 0.2);
 }
 
 .graph-player-picker {
@@ -3210,8 +3215,8 @@ select:focus {
 }
 
 .graph-player-btn {
-  background: #14161d;
-  border: 1px solid #2f333f;
+  background: var(--lv-input-bg);
+  border: 1px solid var(--lv-border);
   border-radius: 5px;
   padding: 1px;
   width: 26px;
@@ -3228,25 +3233,27 @@ select:focus {
 
 .graph-player-btn--active {
   opacity: 1;
-  border-color: #4a90d9;
-  box-shadow: 0 0 0 1px #4a90d9;
+  border-color: var(--lv-pink-neon);
+  box-shadow:
+    0 0 0 1px var(--lv-purple-bright),
+    0 0 10px rgba(255, 62, 200, 0.25);
 }
 
 .graph-svg {
   width: 100%;
   height: auto;
-  background: #14161d;
-  border: 1px solid #2f333f;
+  background: rgba(12, 8, 22, 0.7);
+  border: 1px solid var(--lv-border);
   border-radius: 6px;
 }
 
 .graph-gridline {
-  stroke: #262a35;
+  stroke: rgba(178, 122, 255, 0.14);
   stroke-width: 1;
 }
 
 .graph-axis-label {
-  fill: #7d818c;
+  fill: #9c8dbb;
   font-size: 9px;
 }
 
@@ -3257,18 +3264,18 @@ select:focus {
 }
 
 .graph-hover-line {
-  stroke: #7fb3e0;
+  stroke: var(--lv-pink-soft);
   stroke-width: 1;
   stroke-dasharray: 3 3;
 }
 
 .graph-marker-line--playback {
-  stroke: #e6e6e6;
+  stroke: var(--lv-text);
   stroke-width: 1.5;
 }
 
 .graph-marker-line--bookmark {
-  stroke: #d9a45a;
+  stroke: var(--lv-gold);
   stroke-width: 1.5;
   stroke-dasharray: 4 3;
 }
@@ -3278,7 +3285,7 @@ select:focus {
   flex-wrap: wrap;
   gap: 0.6rem;
   font-size: 0.72rem;
-  color: #c4c8d1;
+  color: var(--lv-text-dim);
 }
 
 .graph-readout-item {
@@ -3295,7 +3302,7 @@ select:focus {
 
 .graph-table-details summary {
   font-size: 0.74rem;
-  color: #9fb8d9;
+  color: var(--lv-pink-soft);
   cursor: pointer;
 }
 
@@ -3334,7 +3341,7 @@ select:focus {
 
 .gauge-track {
   fill: none;
-  stroke: #262a35;
+  stroke: rgba(178, 122, 255, 0.14);
   stroke-width: 6;
 }
 
@@ -3345,15 +3352,15 @@ select:focus {
 }
 
 .gauge-fill--good {
-  stroke: #6fcf9a;
+  stroke: var(--lv-win);
 }
 
 .gauge-fill--bad {
-  stroke: #ee8d89;
+  stroke: var(--lv-loss);
 }
 
 .gauge-fill--neutral {
-  stroke: #4a90d9;
+  stroke: var(--lv-purple-bright);
 }
 
 .gauge-value {
@@ -3369,25 +3376,25 @@ select:focus {
 
 .gauge-name {
   font-size: 0.68rem;
-  color: #a0a4ae;
+  color: var(--lv-text-muted);
   line-height: 1.25;
 }
 
 .gauge-estimate {
   margin-left: 0.2rem;
   font-size: 0.6rem;
-  color: #d9a45a;
-  border-bottom: 1px dotted #d9a45a;
+  color: var(--lv-gold);
+  border-bottom: 1px dotted var(--lv-gold);
   cursor: help;
 }
 
 .gauge--unavailable .gauge-value {
-  color: #6b6f7a;
+  color: var(--lv-text-muted);
 }
 
 .gauge-unavailable-note {
   font-size: 0.6rem;
-  color: #6b6f7a;
+  color: var(--lv-text-muted);
 }
 
 /* --- Achievements tab --- */
@@ -3406,11 +3413,11 @@ select:focus {
 }
 
 .achievement-heading--good {
-  color: #4ecfa0;
+  color: var(--lv-win);
 }
 
 .achievement-heading--bad {
-  color: #e8629b;
+  color: var(--lv-pink-soft);
 }
 
 .achievement-list {
@@ -3428,10 +3435,12 @@ select:focus {
   gap: 0.6rem;
   padding: 0.45rem 0.3rem;
   border-radius: 6px;
+  border: 1px solid transparent;
 }
 
 .achievement:hover {
-  background: #23262f;
+  background: rgba(155, 77, 255, 0.08);
+  border-color: var(--lv-border);
 }
 
 /* Circular icon badge, echoing the reference layout's medallions. */
@@ -3443,15 +3452,16 @@ select:focus {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: #2a2d38;
+  background: rgba(155, 77, 255, 0.1);
+  box-shadow: inset 0 0 0 1px var(--lv-border);
 }
 
 .achievement--positive .achievement-icon {
-  color: #4ecfa0;
+  color: var(--lv-win);
 }
 
 .achievement--negative .achievement-icon {
-  color: #e8629b;
+  color: var(--lv-pink-neon);
 }
 
 .achievement-text {
@@ -3464,13 +3474,13 @@ select:focus {
 .achievement-title {
   font-size: 0.78rem;
   font-weight: 600;
-  color: #e8eaf0;
+  color: var(--lv-text);
 }
 
 .achievement-desc {
   font-size: 0.7rem;
   line-height: 1.35;
-  color: #a0a4ae;
+  color: var(--lv-text-dim);
 }
 
 /* --- Lane comparison strip --- */
@@ -3479,9 +3489,9 @@ select:focus {
   display: flex;
   align-items: center;
   gap: 0.7rem;
-  background: #1c1f28;
-  border: 1px solid #2f333f;
-  border-radius: 6px;
+  background: rgba(155, 77, 255, 0.045);
+  border: 1px solid var(--lv-border);
+  border-radius: 8px;
   padding: 0.4rem 0.55rem;
   flex-wrap: wrap;
 }
@@ -3501,7 +3511,7 @@ select:focus {
 
 .lane-strip-vs {
   font-size: 0.68rem;
-  color: #6b6f7a;
+  color: var(--lv-text-muted);
 }
 
 .lane-strip-metrics {
@@ -3519,7 +3529,7 @@ select:focus {
 }
 
 .lane-strip-metric-label {
-  color: #7d818c;
+  color: var(--lv-text-muted);
   text-transform: uppercase;
   font-size: 0.6rem;
   letter-spacing: 0.03em;
@@ -3527,7 +3537,7 @@ select:focus {
 
 .lane-strip-metric-values {
   font-variant-numeric: tabular-nums;
-  color: #e6e6e6;
+  color: var(--lv-text);
 }
 
 /* --- Objective timeline --- */
@@ -3536,7 +3546,7 @@ select:focus {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  border-top: 1px solid #2f333f;
+  border-top: 1px solid var(--lv-border);
   padding-top: 0.55rem;
 }
 
@@ -3550,29 +3560,30 @@ select:focus {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  background: #1c1f28;
-  border: 1px solid #2f333f;
+  background: rgba(155, 77, 255, 0.055);
+  border: 1px solid var(--lv-border);
   border-radius: 5px;
   padding: 0.2rem 0.4rem;
   font-size: 0.68rem;
-  color: #c4c8d1;
+  color: var(--lv-text-dim);
 }
 
 .objective-chip:hover {
-  background: #22252f;
+  background: rgba(155, 77, 255, 0.13);
+  border-color: var(--lv-border-hover);
 }
 
 .objective-chip--ours {
-  border-left: 3px solid #4caf7d;
+  border-left: 3px solid var(--lv-win);
 }
 
 .objective-chip--theirs {
-  border-left: 3px solid #d9534f;
+  border-left: 3px solid var(--lv-loss);
 }
 
 .objective-chip-time {
   font-variant-numeric: tabular-nums;
-  color: #a0a4ae;
+  color: var(--lv-text-muted);
 }
 
 .objective-chip-part {
@@ -3581,13 +3592,13 @@ select:focus {
   font-weight: 700;
   border-radius: 3px;
   padding: 0.05rem 0.2rem;
-  background: rgba(255, 255, 255, 0.08);
-  color: #7d818c;
+  background: rgba(195, 179, 230, 0.1);
+  color: var(--lv-text-muted);
 }
 
 .objective-chip--participated .objective-chip-part {
-  background: rgba(126, 214, 165, 0.18);
-  color: #7ed6a5;
+  background: rgba(70, 224, 163, 0.14);
+  color: var(--lv-win);
 }
 
 /* --- Gank source list (Insights > Ganks) --- */
@@ -3596,7 +3607,7 @@ select:focus {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  border-top: 1px solid #2f333f;
+  border-top: 1px solid var(--lv-border);
   padding-top: 0.55rem;
   margin-top: 0.6rem;
 }
@@ -3614,8 +3625,8 @@ select:focus {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  background: #1c1f28;
-  border: 1px solid #2f333f;
+  background: rgba(155, 77, 255, 0.045);
+  border: 1px solid var(--lv-border);
   border-radius: 5px;
   padding: 0.25rem 0.35rem;
   font-size: 0.68rem;
@@ -3624,15 +3635,15 @@ select:focus {
 /* Outcome is carried by the label text as well as this border, so the meaning
    never depends on colour alone. */
 .gank-row--died {
-  border-left: 3px solid #d9534f;
+  border-left: 3px solid var(--lv-loss);
 }
 
 .gank-row--survived {
-  border-left: 3px solid #d8b45a;
+  border-left: 3px solid var(--lv-gold);
 }
 
 .gank-row--turned_around {
-  border-left: 3px solid #4caf7d;
+  border-left: 3px solid var(--lv-win);
 }
 
 .gank-row-jump {
@@ -3643,18 +3654,18 @@ select:focus {
   border: none;
   border-radius: 4px;
   padding: 0.1rem 0.25rem;
-  color: #c4c8d1;
+  color: var(--lv-text-dim);
   cursor: pointer;
   font-size: 0.68rem;
 }
 
 .gank-row-jump:hover {
-  background: #262a35;
+  background: rgba(155, 77, 255, 0.1);
 }
 
 .gank-row-time {
   font-variant-numeric: tabular-nums;
-  color: #a0a4ae;
+  color: var(--lv-text-muted);
 }
 
 .gank-row-detail {
@@ -3667,11 +3678,11 @@ select:focus {
 
 .gank-row-outcome {
   font-weight: 600;
-  color: #c4c8d1;
+  color: var(--lv-text-dim);
 }
 
 .gank-row-gankers {
-  color: #7d818c;
+  color: var(--lv-text-muted);
   font-size: 0.62rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3685,26 +3696,26 @@ select:focus {
 }
 
 .gank-verdict-btn {
-  background: #22252f;
-  border: 1px solid #2f333f;
+  background: rgba(155, 77, 255, 0.06);
+  border: 1px solid var(--lv-border);
   border-radius: 4px;
   padding: 0.12rem 0.35rem;
   font-size: 0.6rem;
   text-transform: uppercase;
   font-weight: 700;
-  color: #7d818c;
+  color: var(--lv-text-muted);
   cursor: pointer;
 }
 
 .gank-verdict-btn:hover {
-  color: #c4c8d1;
-  border-color: #454a58;
+  color: var(--lv-text-dim);
+  border-color: var(--lv-border-hover);
 }
 
 .gank-verdict-btn--on {
-  background: rgba(126, 214, 165, 0.18);
-  border-color: #4caf7d;
-  color: #7ed6a5;
+  background: rgba(70, 224, 163, 0.14);
+  border-color: var(--lv-win);
+  color: var(--lv-win);
 }
 
 /* --- Multikill badges + bookmark colours --- */
@@ -3867,7 +3878,7 @@ select:focus {
   font-size: 0.66rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #7d818c;
+  color: var(--lv-text-muted);
   flex-shrink: 0;
 }
 
@@ -3875,22 +3886,23 @@ select:focus {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  background: #1c1f28;
-  border: 1px solid #2f333f;
+  background: rgba(155, 77, 255, 0.06);
+  border: 1px solid var(--lv-border);
   border-radius: 5px;
   padding: 0.2rem 0.45rem;
   font-size: 0.72rem;
-  color: #e6e6e6;
+  color: var(--lv-text);
   white-space: nowrap;
 }
 
 .highlight-chip:hover {
-  background: #2a2d38;
+  background: rgba(155, 77, 255, 0.14);
+  border-color: var(--lv-border-hover);
 }
 
 .highlight-chip-time {
   font-variant-numeric: tabular-nums;
-  color: #a0a4ae;
+  color: var(--lv-text-muted);
 }
 
 /* A solo multikill is the more impressive version, so it gets called out. */
@@ -3899,14 +3911,14 @@ select:focus {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #7ed6a5;
-  background: rgba(126, 214, 165, 0.18);
+  color: var(--lv-win);
+  background: rgba(70, 224, 163, 0.14);
   border-radius: 3px;
   padding: 0.05rem 0.24rem;
 }
 
 .highlight-chip--doublekill {
-  border-left: 3px solid #4a90d9;
+  border-left: 3px solid var(--lv-purple-bright);
 }
 
 .highlight-chip--triplekill {
@@ -3949,7 +3961,7 @@ select:focus {
 .link-scope-options .add-media-option > svg {
   flex-shrink: 0;
   margin-top: 0.1rem;
-  color: #7fb3e0;
+  color: var(--lv-pink-soft);
 }
 
 .link-scope-options .add-media-option-title {
@@ -3963,8 +3975,8 @@ select:focus {
 /* --- Action density curve --- */
 
 .clip-density-fill {
-  fill: rgba(74, 144, 217, 0.28);
-  stroke: #4a90d9;
+  fill: rgba(155, 77, 255, 0.25);
+  stroke: var(--lv-purple-bright);
   stroke-width: 1;
   vector-effect: non-scaling-stroke;
 }
@@ -4322,7 +4334,7 @@ select:focus {
   gap: 0.4rem;
   background: none;
   border: none;
-  color: #e6e6e6;
+  color: var(--lv-text);
   font-size: 0.85rem;
   font-weight: 700;
   padding: 0.3rem 0.1rem;
@@ -4332,7 +4344,7 @@ select:focus {
 
 .player-section-toggle:hover {
   background: none;
-  color: #9fcaf0;
+  color: var(--lv-pink-soft);
 }
 
 .player-section-toggle-chevron {

@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.3.2 — VOD Theme Completion
+
+- Extended the animated starfield and color-shifting background into the VOD
+  viewer.
+- Recolored match stats, achievements, tables, graphs, insights, objectives,
+  and player highlights to match the purple-and-pink visual system.
+- Corrected Conqueror's post-game rune statistic label from total damage to
+  total healing.
+
 ## v0.3.0 — Visual Overhaul
 
 - Fixed achievement catalog counts and recording filters so timeline-based and

@@ -31,13 +31,10 @@ function App(): JSX.Element {
     )
   }
 
-  // Scoped to the Library's plain list view for now (see the visual overhaul
-  // notes in global.css): Settings and the video player keep their old look,
-  // so the animated backdrop only mounts when neither of those is showing.
-  // Otherwise the purple/pink glow would show through the 2rem app-shell
-  // padding around a still-unstyled view and read as a mismatch rather than
-  // a deliberate choice.
-  const showAnimatedBackground = !isPlayerActive && !showSettings && (settings?.accounts.length ?? 0) > 0
+  // The library and VOD viewer now share one visual world. Settings remains a
+  // denser utility surface, so the animated treatment stays behind the two
+  // content views rather than becoming global app chrome.
+  const showAnimatedBackground = !showSettings && (settings?.accounts.length ?? 0) > 0
 
   return (
     <>

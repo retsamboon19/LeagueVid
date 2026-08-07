@@ -34,7 +34,7 @@ const RUNE_VAR_LABELS: Record<number, Array<RuneVarLabel | null>> = {
   8005: [{ label: 'Total damage' }, { label: 'Bonus damage' }, null], // Press the Attack
   8008: [{ label: 'Total damage' }, { label: 'Bonus damage' }, null], // Lethal Tempo
   8021: [{ label: 'Total damage' }, null, null], // Fleet Footwork
-  8010: [{ label: 'Total damage' }, null, null], // Conqueror
+  8010: [{ label: 'Total healing' }, null, null], // Conqueror
   9101: [{ label: 'Health overhealed' }, null, null], // Overheal
   9111: [{ label: 'Health restored' }, { label: 'Bonus gold' }, null], // Triumph
   8009: [{ label: 'Mana restored' }, null, null], // Presence of Mind
