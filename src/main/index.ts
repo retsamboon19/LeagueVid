@@ -24,7 +24,8 @@ import {
 } from './recorder/recorderService'
 import { startAutoRecording, stopAutoRecording, currentCaptureTarget } from './recorder/autoRecorderHost'
 import { getEncoderCapabilitiesCache, getRecordingSettings } from './db/repository'
-import { createRecorderTray, destroyRecorderTray, launchedHidden, refreshTray } from './tray'
+import { createRecorderTray, destroyRecorderTray, refreshTray } from './tray'
+import { launchedHidden } from './loginItem'
 import { shutdownForQuit } from './recorder/shutdown'
 import { registerUpdaterHandlers } from './updater'
 

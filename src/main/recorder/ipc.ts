@@ -19,7 +19,7 @@ import {
 } from '../db/repository'
 import { listAudioDevices } from './audioDevices'
 import { mapDisplaysToOutputs, resolveCaptureDisplay } from './displays'
-import { applyLaunchAtLogin } from '../tray'
+import { applyLaunchAtLogin } from '../loginItem'
 import { resolveAudioInputs } from './autoRecorderHost'
 import { probeEncoders } from './encoderCapabilities'
 import { estimateTotalBitrateKbps, formatStorageEstimate, gigabytesPerHour } from './estimates'

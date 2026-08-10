@@ -1,4 +1,4 @@
-import { Menu, Tray, app, nativeImage } from 'electron'
+import { Menu, Tray, nativeImage } from 'electron'
 import { join } from 'path'
 import { existsSync } from 'fs'
 import type { RecorderStateSnapshot } from '../shared/types'
@@ -124,32 +124,4 @@ export function refreshTray(state: RecorderStateSnapshot): void {
       { label: 'Quit LeagueVid', click: () => requestQuit?.() }
     ])
   )
-}
-
-/**
- * Whether this launch came from the login item.
- *
- * Checked two ways because the flag alone isn't reliable across Windows
- * versions: the explicit argument passed in the login-item registration, and
- * Electron's own report.
- */
-export function launchedHidden(): boolean {
-  return process.argv.includes('--hidden') || app.getLoginItemSettings().wasOpenedAsHidden
-}
-
-/**
- * Registers or removes the login item.
- *
- * Registered with --hidden so a boot doesn't put a window in the user's face.
- * The tray is how they get to it.
- */
-export function applyLaunchAtLogin(enabled: boolean): void {
-  // No-op on platforms where this isn't meaningful, rather than throwing.
-  if (process.platform !== 'win32' && process.platform !== 'darwin') return
-
-  app.setLoginItemSettings({
-    openAtLogin: enabled,
-    openAsHidden: true,
-    args: ['--hidden']
-  })
 }
