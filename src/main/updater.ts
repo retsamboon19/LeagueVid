@@ -1,6 +1,5 @@
 import { app, ipcMain } from 'electron'
 import { createHash } from 'crypto'
-import { spawn } from 'child_process'
 import { once } from 'events'
 import {
   createWriteStream,
@@ -18,7 +17,7 @@ import {
   type UpdateInstallResult,
   type UpdateProgress
 } from '../shared/updater'
-import { buildUpdateHelperScript } from './updateInstaller'
+import { buildUpdateHelperScript, startUpdateHelper } from './updateInstaller'
 
 declare const __LEAGUEVID_BUILD_COMMIT__: string
 
@@ -222,8 +221,12 @@ async function launchUpdateHelper(installerPath: string): Promise<void> {
   const helperPath = join(dir, 'install-update.ps1')
   const resultPath = join(dir, 'install-result.json')
   const logPath = join(dir, 'install-update.log')
+  const bootstrapLogPath = join(dir, 'install-update-bootstrap.log')
+  const readyPath = join(dir, 'install-ready')
   const installDirectory = dirname(process.execPath)
   rmSync(resultPath, { force: true })
+  rmSync(bootstrapLogPath, { force: true })
+  rmSync(readyPath, { force: true })
   writeFileSync(helperPath, buildUpdateHelperScript(), 'utf8')
 
   const windowsRoot = process.env.SystemRoot || 'C:\\Windows'
@@ -235,40 +238,24 @@ async function launchUpdateHelper(installerPath: string): Promise<void> {
     'powershell.exe'
   )
 
-  const helper = spawn(
-    powershellPath,
-    [
-      '-NoProfile',
-      '-ExecutionPolicy',
-      'Bypass',
-      '-WindowStyle',
-      'Hidden',
-      '-File',
+  try {
+    await startUpdateHelper({
+      powershellPath,
       helperPath,
-      '-LeagueVidProcessId',
-      String(process.pid),
-      '-InstallerPath',
+      readyPath,
+      leagueVidProcessId: process.pid,
       installerPath,
-      '-AppPath',
-      process.execPath,
-      '-InstallDirectory',
+      appPath: process.execPath,
       installDirectory,
-      '-ResultPath',
       resultPath,
-      '-LogPath',
-      logPath
-    ],
-    { detached: true, stdio: 'ignore', windowsHide: true }
-  )
-
-  await new Promise<void>((resolve, reject) => {
-    helper.once('spawn', resolve)
-    helper.once('error', reject)
-  }).catch((error) => {
+      logPath,
+      bootstrapLogPath
+    })
+  } catch (error) {
     rmSync(helperPath, { force: true })
+    rmSync(readyPath, { force: true })
     throw new Error(`The update helper could not start: ${(error as Error).message}`)
-  })
-  helper.unref()
+  }
 }
 
 function takeLastInstallResult(): UpdateInstallResult | null {
