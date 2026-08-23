@@ -265,7 +265,8 @@ export async function startRecording(
           // Cancels the readiness timeout: frames are arriving, so this capture
           // is real rather than a pipeline that opened a display and stalled.
           framesFlowingListener?.()
-        }
+        },
+        onWarning: reportRecorderProblem
       }
     )
   } catch (err) {

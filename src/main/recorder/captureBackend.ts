@@ -85,6 +85,8 @@ export interface CaptureHooks {
   onProgress?: (sample: RecorderProgress) => void
   /** Called once the backend is confident real frames are being encoded. */
   onFirstFrames?: (sample: RecorderProgress) => void
+  /** A recoverable problem the backend worked around. */
+  onWarning?: (message: string) => void
   /** Diagnostic output, for the recordings row when something goes wrong. */
   onStderr?: (line: string) => void
 }

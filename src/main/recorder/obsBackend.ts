@@ -17,6 +17,7 @@ import {
   type ObsInstall
 } from './obsBinary'
 import { DISPLAY_CAPTURE_SOURCE_NAME, GAME_CAPTURE_SOURCE_NAME } from './obsConfig'
+import { safeCaptureScope } from './captureConflicts'
 
 /** Name OBS gives the microphone input in a default scene collection. */
 const MIC_SOURCE_NAME = 'Mic/Aux'
@@ -120,7 +121,23 @@ export class ObsGameCaptureBackend implements CaptureBackend {
     const install = findObsInstall()
     if (!install) throw new Error('OBS is not available to record with.')
 
-    const session = new ObsSession(install, request, hooks)
+    // Game Capture and performance overlays both hook the game's Present call.
+    // When RTSS / Afterburner wins that race, OBS can attach successfully but
+    // receive only one shared texture forever. Its output counters still look
+    // perfect because OBS draws the cursor itself. Use OBS's non-injecting
+    // Windows Graphics Capture path for this session instead.
+    const safe = safeCaptureScope(request.scope)
+    const effectiveRequest =
+      safe.scope === request.scope ? request : { ...request, scope: safe.scope }
+
+    if (safe.conflicts.length > 0) {
+      hooks.onWarning?.(
+        `${safe.conflicts.join(' and ')} is running, so LeagueVid is using OBS screen capture ` +
+          'for this match to prevent frozen video.'
+      )
+    }
+
+    const session = new ObsSession(install, effectiveRequest, hooks)
     await session.start()
     this.session = session
 
