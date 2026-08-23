@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.3.4 — Recording Reliability
+
+- Avoided OBS Game Capture when RivaTuner or MSI Afterburner can leave an
+  entire League recording frozen on one frame.
+- Made the in-app installer handoff complete and reopen LeagueVid reliably.
+- Published the fixes under a newer version so existing 0.3.3 installations
+  can discover them through Check for Updates.
+
 ## v0.3.2 — VOD Theme Completion
 
 - Extended the animated starfield and color-shifting background into the VOD

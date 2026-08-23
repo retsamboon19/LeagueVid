@@ -1,6 +1,6 @@
 {
   "name": "leaguevid",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Tag key moments in your League of Legends recordings, auto-synced from Riot match data",
   "main": "./out/main/index.js",
   "author": "LeagueVid",
