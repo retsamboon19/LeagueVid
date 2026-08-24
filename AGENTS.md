@@ -1,5 +1,11 @@
 # LeagueVid repository instructions
 
+## Workspace roles
+
+- `H:\LeagueVid` is the development workspace. Make all source, configuration, documentation, and release-preparation changes here.
+- `LeagueVid Main` is the installed release-build test area. Do not edit, patch, or copy development files into it directly.
+- The only supported way to change `LeagueVid Main` is through LeagueVid's **Check for Updates** flow after a newer release has been published.
+
 ## GitHub and release policy
 
 - After every user-approved project change, run the relevant checks and commit the task files locally.
