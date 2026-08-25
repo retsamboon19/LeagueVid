@@ -24,7 +24,7 @@ interface GankSourceListProps {
   /** The player the list is about, so verdicts are stored against the right one. */
   participantId: number
   /** Seeks video playback to a game time. */
-  onSeekGameTime: (gameTimeMs: number) => void
+  onSeekGameTime?: (gameTimeMs: number) => void
 }
 
 const OUTCOME_LABEL: Record<GankOutcome, string> = {
@@ -135,9 +135,9 @@ function GankSourceList({
     <div className="gank-source">
       <h4 className="stats-section-title">Gank source</h4>
       <p className="settings-row-hint">
-        Every gank LeagueVid detected on your lane before 15 minutes. Click a time to jump there,
-        then tell it whether the call was right &mdash; those answers are used to improve the
-        detection.
+        Every gank LeagueVid detected on your lane before 15 minutes.
+        {onSeekGameTime ? ' Click a time to jump there,' : ''} Tell it whether the call was right
+        &mdash; those answers are used to improve the detection.
       </p>
 
       <ul className="gank-source-list">
@@ -153,10 +153,13 @@ function GankSourceList({
             <li key={key} className={`gank-row gank-row--${event.outcome}`}>
               <button
                 className="gank-row-jump"
-                onClick={() => onSeekGameTime(seekTarget)}
-                title={`${OUTCOME_HINT[event.outcome]} Click to jump to ${formatGameClock(
-                  event.timestampMs
-                )}${event.approximateTime ? ' (approximate)' : ''}.`}
+                onClick={onSeekGameTime ? () => onSeekGameTime(seekTarget) : undefined}
+                disabled={!onSeekGameTime}
+                title={`${OUTCOME_HINT[event.outcome]} ${
+                  onSeekGameTime ? 'Click to jump to ' : 'Occurred at '
+                }${formatGameClock(event.timestampMs)}${
+                  event.approximateTime ? ' (approximate)' : ''
+                }.`}
               >
                 <span aria-hidden="true">{OUTCOME_ICON[event.outcome]}</span>
                 <span className="gank-row-time">

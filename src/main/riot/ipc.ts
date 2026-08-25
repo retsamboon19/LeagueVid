@@ -16,8 +16,9 @@ import {
 import { requestBackfillNow } from './backfillService'
 import { listCachedMatchEntries } from '../db/repository'
 import type { PlatformRouting } from './types'
-import type { MatchRosterData } from '../../shared/types'
+import type { MatchHistorySummary, MatchRosterData } from '../../shared/types'
 import type { MatchInfoDto, ParticipantDto } from './types'
+import { buildMatchHistorySummary } from './matchHistory'
 
 const getClient = getRiotClient
 
@@ -206,6 +207,26 @@ export function registerRiotHandlers(): void {
     )
 
     return summaries.sort((a, b) => b.gameEndTimestamp - a.gameEndTimestamp)
+  })
+
+  // Richer version of the cached-match list for the Library's history view.
+  // Still cache-only: the background backfill owns all Riot requests, while
+  // opening and scrolling history simply reads what is already on disk.
+  ipcMain.handle('riot:listCachedMatchHistory', (_e, args: { accounts: AccountRef[] }) => {
+    const entries = listCachedMatchEntries<{ info: MatchInfoDto }>()
+    const history: MatchHistorySummary[] = []
+
+    for (const entry of entries) {
+      const info = entry.value?.info
+      if (!info?.participants) continue
+      for (const account of args.accounts) {
+        const participant = info.participants.find((candidate) => candidate.puuid === account.puuid)
+        if (!participant) continue
+        history.push(buildMatchHistorySummary(entry.matchId, info, participant, account))
+      }
+    }
+
+    return history.sort((a, b) => b.gameEndTimestamp - a.gameEndTimestamp)
   })
 
   // Forces an immediate re-walk of match history so anything not yet cached

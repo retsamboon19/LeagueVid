@@ -16,23 +16,26 @@ import {
 } from './stats/statsFormat'
 
 interface MatchStatsPanelProps {
-  video: VideoRow
+  video?: VideoRow
+  /** Used by cache-only history entries that have no VideoRow. */
+  matchId?: string
   /**
    * Every linked account. The main process works out which one played this
    * match -- picking one here would be a guess when several are linked.
    */
   accounts: AppSettings['accounts']
   /** Playback position converted to game time, or null if not known yet. */
-  currentGameTimeMs: number | null
+  currentGameTimeMs?: number | null
   /** Game time of the most recently selected bookmark. */
-  markedGameTimeMs: number | null
-  onSeekGameTime: (gameTimeMs: number) => void
+  markedGameTimeMs?: number | null
+  onSeekGameTime?: (gameTimeMs: number) => void
   /**
    * The video's auto-tags. Only the achievements tab uses these, for facts
    * LeagueVid derives at link time rather than from the match DTO (tower
    * dives). Optional so the panel still renders without them.
    */
   tags?: TagRow[]
+  standalone?: boolean
 }
 
 type TabKey = 'achievements' | 'scoreboard' | 'performance' | 'build' | 'graphs' | 'insights'
@@ -54,11 +57,13 @@ function isUnavailable(result: MatchStatsResult): result is { unavailable: true;
 
 function MatchStatsPanel({
   video,
+  matchId,
   accounts,
-  currentGameTimeMs,
-  markedGameTimeMs,
+  currentGameTimeMs = null,
+  markedGameTimeMs = null,
   onSeekGameTime,
-  tags
+  tags,
+  standalone
 }: MatchStatsPanelProps): JSX.Element {
   const [result, setResult] = useState<MatchStatsResult | null>(null)
   const [loading, setLoading] = useState(true)
@@ -68,9 +73,10 @@ function MatchStatsPanel({
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([])
 
   const ddragon = useDDragon()
+  const resolvedMatchId = matchId ?? video?.match_id ?? null
 
   useEffect(() => {
-    if (!video.match_id || accounts.length === 0) {
+    if (!resolvedMatchId || accounts.length === 0) {
       setLoading(false)
       return
     }
@@ -81,7 +87,7 @@ function MatchStatsPanel({
 
     window.api.riot
       .getMatchStats({
-        matchId: video.match_id,
+        matchId: resolvedMatchId,
         accounts: accounts.map((a) => ({ platform: a.platform, puuid: a.puuid }))
       })
       .then((next) => {
@@ -100,7 +106,7 @@ function MatchStatsPanel({
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [video.match_id, accounts.map((a) => a.puuid).join(',')])
+  }, [resolvedMatchId, accounts.map((a) => a.puuid).join(',')])
 
   // Arrow-key navigation across the tab strip.
   function handleTabKeyDown(e: React.KeyboardEvent, index: number): void {
@@ -112,7 +118,7 @@ function MatchStatsPanel({
     tabRefs.current[nextIndex]?.focus()
   }
 
-  if (!video.match_id) {
+  if (!resolvedMatchId) {
     return (
       <div className="stats-panel">
         <p className="subtitle">
@@ -169,7 +175,7 @@ function MatchStatsPanel({
     focus.displayName ?? (ddragon ? championDisplayName(ddragon, focus.championName) : focus.championName)
 
   return (
-    <div className="stats-panel">
+    <div className={`stats-panel ${standalone ? 'stats-panel--standalone' : ''}`}>
       <div className="stats-panel-head">
         <div className="stats-panel-focus">
           {ddragon && championIconUrl(ddragon, focus.championName) && (
@@ -260,8 +266,8 @@ function MatchStatsPanel({
           />
         )}
         {activeTab === 'insights' && (
-        <InsightsTab stats={stats} focus={focus} onSeekGameTime={onSeekGameTime} />
-      )}
+          <InsightsTab stats={stats} focus={focus} onSeekGameTime={onSeekGameTime} />
+        )}
       </div>
 
       {stats.hasTimeline && (

@@ -68,6 +68,8 @@ export interface VideoRow {
 export interface RosterParticipant {
   puuid: string
   championName: string
+  /** Available on cache-backed history cards; older saved video rows omit it. */
+  displayName?: string | null
   teamPosition: string
   isMe: boolean
   kills: number
@@ -212,6 +214,42 @@ export interface MatchPickerSummary {
   puuid: string
   platform: PlatformRouting
   accountLabel: string // "gameName#tagLine", for display when disambiguating
+}
+
+export interface MatchHistoryParticipantSummary {
+  puuid: string
+  teamId: number
+  championName: string
+  displayName: string | null
+  teamPosition: string
+  kills: number
+  deaths: number
+  assists: number
+  cs: number
+  goldEarned: number
+  items: number[]
+  summoner1Id: number
+  summoner2Id: number
+  keystoneId: number | null
+}
+
+/**
+ * One locally cached match, shaped for the history cards without sending the
+ * full Riot DTO to the renderer. Unlike MatchPickerSummary this includes the
+ * scoreboard and loadout data needed to make a useful at-a-glance match row.
+ */
+export interface MatchHistorySummary extends MatchPickerSummary {
+  queueId: number | null
+  cs: number
+  goldEarned: number
+  goldDiff: number | null
+  damageToChampions: number | null
+  visionScore: number | null
+  summoner1Id: number
+  summoner2Id: number
+  keystoneId: number | null
+  items: number[]
+  participants: MatchHistoryParticipantSummary[]
 }
 
 export interface PlayerPreferences {

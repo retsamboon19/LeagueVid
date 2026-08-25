@@ -5,7 +5,7 @@ interface ObjectiveTimelineProps {
   objectives: ObjectiveEvent[]
   focusTeamId: number
   /** Seeks video playback to a game time. */
-  onSeekGameTime: (gameTimeMs: number) => void
+  onSeekGameTime?: (gameTimeMs: number) => void
 }
 
 const KIND_ICONS: Record<string, string> = {
@@ -42,10 +42,13 @@ function ObjectiveTimeline({
               className={`objective-chip ${
                 isOurs ? 'objective-chip--ours' : 'objective-chip--theirs'
               } ${o.participated ? 'objective-chip--participated' : ''}`}
-              onClick={() => onSeekGameTime(o.timestampMs)}
+              onClick={onSeekGameTime ? () => onSeekGameTime(o.timestampMs) : undefined}
+              disabled={!onSeekGameTime}
               title={`${o.label} at ${formatGameClock(o.timestampMs)} \u2014 ${
                 isOurs ? 'your team' : 'enemy team'
-              }${o.participated ? ', you took part' : ', you were not involved'}. Click to jump here.`}
+              }${o.participated ? ', you took part' : ', you were not involved'}.${
+                onSeekGameTime ? ' Click to jump here.' : ''
+              }`}
             >
               <span aria-hidden="true">{KIND_ICONS[o.kind] ?? '\u2B50'}</span>
               <span className="objective-chip-time">{formatGameClock(o.timestampMs)}</span>

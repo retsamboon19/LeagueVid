@@ -4,6 +4,7 @@ import Toast from '../components/Toast'
 
 interface BackfillStatusBannerProps {
   puuids: string[]
+  onCachedCountChange?: (count: number) => void
 }
 
 // Poll faster while a download is in progress than when idle, so the counts
@@ -27,7 +28,10 @@ interface Status {
 // indicator that only appears mid-download can't answer it. There is
 // deliberately no dismiss control -- an earlier version had one, and closing
 // it left no way to get the information back.
-function BackfillStatusBanner({ puuids }: BackfillStatusBannerProps): JSX.Element | null {
+function BackfillStatusBanner({
+  puuids,
+  onCachedCountChange
+}: BackfillStatusBannerProps): JSX.Element | null {
   const [status, setStatus] = useState<Status | null>(null)
   const [requesting, setRequesting] = useState(false)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
@@ -36,6 +40,7 @@ function BackfillStatusBanner({ puuids }: BackfillStatusBannerProps): JSX.Elemen
   // start) can be told apart from simply already being caught up on first
   // load, which shouldn't pop a toast every time the app opens.
   const wasInProgressRef = useRef<boolean | null>(null)
+  const previousCachedCountRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (puuids.length === 0) return
@@ -48,6 +53,13 @@ function BackfillStatusBanner({ puuids }: BackfillStatusBannerProps): JSX.Elemen
         const next = await window.api.db.getBackfillStatus(puuids)
         if (cancelled) return
         setStatus(next)
+        if (
+          previousCachedCountRef.current !== null &&
+          previousCachedCountRef.current !== next.matchesCached
+        ) {
+          onCachedCountChange?.(next.matchesCached)
+        }
+        previousCachedCountRef.current = next.matchesCached
         const active = next.accountsFullyBackfilled < next.totalAccounts
 
         if (wasInProgressRef.current === true && !active) {
@@ -71,7 +83,7 @@ function BackfillStatusBanner({ puuids }: BackfillStatusBannerProps): JSX.Elemen
       cancelled = true
       if (timer) clearTimeout(timer)
     }
-  }, [puuids.join(',')])
+  }, [puuids.join(','), onCachedCountChange])
 
   async function handleDownload(): Promise<void> {
     setRequesting(true)

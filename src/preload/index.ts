@@ -10,6 +10,7 @@ import type {
   EncoderCapabilities,
   GankVerdict,
   LeadSwingResult,
+  MatchHistorySummary,
   MatchActionTimelineResult,
   MatchPickerSummary,
   MatchRosterData,
@@ -152,6 +153,12 @@ const api = {
     listCachedMatches: (args: {
       accounts: Array<{ platform: PlatformRouting; puuid: string; accountLabel: string }>
     }): Promise<MatchPickerSummary[]> => ipcRenderer.invoke('riot:listCachedMatches', args),
+
+    // Rich cached history for the Library. Includes compact scoreboard and
+    // loadout data, but remains local-only and consumes no Riot API budget.
+    listCachedMatchHistory: (args: {
+      accounts: Array<{ platform: PlatformRouting; puuid: string; accountLabel: string }>
+    }): Promise<MatchHistorySummary[]> => ipcRenderer.invoke('riot:listCachedMatchHistory', args),
 
     // Full stats payload for the player page's stats panel, derived from
     // locally cached match + timeline data. Issues no Riot API requests.

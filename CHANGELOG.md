@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Added a cache-backed match history to the Library so matches remain visible
+  even when no LeagueVid recording exists.
+- Added a full-width stats-only match view that removes recording controls and
+  timeline jump actions instead of leaving empty video space.
+- Kept linked recordings accessible from the same history while retaining a
+  dedicated Recordings view for recording management.
+
 ## v0.3.6 — First-Run Account Setup
 
 - Added focused first-run account onboarding so a new user is prompted to

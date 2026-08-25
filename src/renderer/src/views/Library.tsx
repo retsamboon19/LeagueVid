@@ -3,19 +3,28 @@ import {
   AlertTriangle,
   CheckSquare,
   DatabaseBackup,
+  History,
   Link2,
   Plus,
   Trash2,
   Trophy,
+  Video as VideoIcon,
   Wrench
 } from 'lucide-react'
-import type { AppSettings, LeadSwingResult, MatchStats, VideoRow } from '../../../shared/types'
+import type {
+  AppSettings,
+  LeadSwingResult,
+  MatchHistorySummary,
+  MatchStats,
+  VideoRow
+} from '../../../shared/types'
 import BackfillStatusBanner from './BackfillStatusBanner'
 import MatchLinker from './MatchLinker'
 import VideoPlayer from './VideoPlayer'
 import MatchTile from './MatchTile'
 import AddMediaPopup from './AddMediaPopup'
 import AchievementCatalogPopup from './AchievementCatalogPopup'
+import MatchHistoryDetail from './MatchHistoryDetail'
 import { buildAchievementsByVideo } from '../lib/libraryAchievements'
 import FilterPanel, {
   EMPTY_FILTERS,
@@ -30,8 +39,12 @@ import {
   rebuildBookmarks,
   searchMatchesForVideo
 } from '../lib/autoLinkVideo'
+import { historyMatchKey, historyMatchToVideoRow } from '../lib/matchHistory'
 
 type SortOrder = 'newest' | 'oldest'
+type LibraryMode = 'matches' | 'recordings'
+
+const HISTORY_PAGE_SIZE = 50
 
 // Which videos a bulk link run should cover. Re-linking an already-linked
 // video is a legitimate repair (a wrong match or mistimed bookmarks fix
@@ -99,6 +112,11 @@ function passesThreshold(actual: number | null, filter: ThresholdFilter): boolea
 function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): JSX.Element {
   const [videos, setVideos] = useState<VideoRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [libraryMode, setLibraryMode] = useState<LibraryMode>('matches')
+  const [historyMatches, setHistoryMatches] = useState<MatchHistorySummary[]>([])
+  const [historyLoading, setHistoryLoading] = useState(true)
+  const [historyVisibleCount, setHistoryVisibleCount] = useState(HISTORY_PAGE_SIZE)
+  const [viewingHistoryMatch, setViewingHistoryMatch] = useState<MatchHistorySummary | null>(null)
   const [linkingVideoId, setLinkingVideoId] = useState<number | null>(null)
   const [playingVideoId, setPlayingVideoId] = useState<number | null>(null)
   const [showAddPopup, setShowAddPopup] = useState(false)
@@ -181,6 +199,32 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
       setLoading(false)
     }
   }
+
+  const refreshMatchHistory = useCallback(async (): Promise<void> => {
+    if (settings.accounts.length === 0) {
+      setHistoryMatches([])
+      setHistoryLoading(false)
+      return
+    }
+
+    setHistoryLoading(true)
+    try {
+      const matches = await window.api.riot.listCachedMatchHistory({
+        accounts: settings.accounts.map((account) => ({
+          platform: account.platform,
+          puuid: account.puuid,
+          accountLabel: `${account.gameName}#${account.tagLine}`
+        }))
+      })
+      setHistoryMatches(matches)
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [settings])
+
+  const handleCachedCountChange = useCallback((): void => {
+    void refreshMatchHistory()
+  }, [refreshMatchHistory])
 
   // The tile-facing callbacks below are all useCallback'd with no dependencies,
   // which is what makes MatchTile's memo() worth having: they only ever touch
@@ -366,6 +410,10 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
   useEffect(() => {
     refresh()
   }, [])
+
+  useEffect(() => {
+    void refreshMatchHistory()
+  }, [refreshMatchHistory])
 
   // Links any recording that finished while no window was open.
   //
@@ -566,7 +614,9 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
     setFilters(EMPTY_FILTERS)
     setShowOnlySuspicious(false)
     setPlayingVideoId(null)
+    setViewingHistoryMatch(null)
     setLinkingVideoId(null)
+    setLibraryMode('matches')
     setBulkProgress(null)
     setShowLinkScope(false)
     setShowAchievementCatalog(false)
@@ -577,18 +627,18 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
   const playingVideo = videos.find((v) => v.id === playingVideoId) ?? null
 
   useEffect(() => {
-    onPlayerActiveChange?.(playingVideo !== null)
+    onPlayerActiveChange?.(playingVideo !== null || viewingHistoryMatch !== null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playingVideo])
+  }, [playingVideo, viewingHistoryMatch])
 
   // Restores the tile list's scroll position once it's back on screen --
   // the scroll container unmounts while the player/linker view is shown, so
   // scrollTop would otherwise reset to 0 every time you back out of a video.
   useEffect(() => {
-    if (!linkingVideo && !playingVideo && tilesScrollRef.current) {
+    if (!linkingVideo && !playingVideo && !viewingHistoryMatch && tilesScrollRef.current) {
       tilesScrollRef.current.scrollTop = savedScrollTop.current
     }
-  }, [linkingVideo, playingVideo])
+  }, [linkingVideo, playingVideo, viewingHistoryMatch])
 
   function handleTilesScroll(): void {
     if (tilesScrollRef.current) savedScrollTop.current = tilesScrollRef.current.scrollTop
@@ -773,6 +823,23 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
     achievementsByVideo
   ])
 
+  const sortedHistoryMatches = useMemo(() => {
+    return [...historyMatches].sort((a, b) =>
+      sortOrder === 'newest'
+        ? b.gameStartTimestamp - a.gameStartTimestamp
+        : a.gameStartTimestamp - b.gameStartTimestamp
+    )
+  }, [historyMatches, sortOrder])
+
+  const visibleHistoryMatches = sortedHistoryMatches.slice(0, historyVisibleCount)
+  const recordingByMatchId = useMemo(() => {
+    const result = new Map<string, VideoRow>()
+    for (const video of videos) {
+      if (video.match_id) result.set(video.match_id, video)
+    }
+    return result
+  }, [videos])
+
   if (linkingVideo) {
     return (
       <MatchLinker
@@ -801,12 +868,149 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
     )
   }
 
+  if (viewingHistoryMatch) {
+    return (
+      <MatchHistoryDetail
+        match={viewingHistoryMatch}
+        settings={settings}
+        onBack={() => setViewingHistoryMatch(null)}
+      />
+    )
+  }
+
+  if (libraryMode === 'matches') {
+    return (
+      <div className="library-view library-view--history">
+        <div
+          className="library-column library-column--tiles"
+          ref={tilesScrollRef}
+          onScroll={handleTilesScroll}
+        >
+          <div className="view-header">
+            <div className="library-heading-group">
+              <h2>Match history</h2>
+              <span className="subtitle">
+                {historyMatches.length.toLocaleString()} cached match
+                {historyMatches.length === 1 ? '' : 'es'}
+              </span>
+            </div>
+            <div className="view-header-actions">
+              <div className="library-mode-tabs" role="group" aria-label="Library view">
+                <button className="library-mode-tab library-mode-tab--active" aria-pressed="true">
+                  <History size={15} /> Matches
+                </button>
+                <button
+                  className="library-mode-tab"
+                  onClick={() => setLibraryMode('recordings')}
+                  aria-pressed="false"
+                >
+                  <VideoIcon size={15} /> Recordings ({videos.length})
+                </button>
+              </div>
+              <select
+                className="sort-select"
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as SortOrder)}
+                aria-label="Sort match history"
+              >
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+              </select>
+            </div>
+          </div>
+
+          <BackfillStatusBanner
+            puuids={settings.accounts.map((account) => account.puuid)}
+            onCachedCountChange={handleCachedCountChange}
+          />
+
+          {historyLoading ? (
+            <p className="subtitle">Loading match history...</p>
+          ) : historyMatches.length === 0 ? (
+            <div className="empty-state">
+              <p className="subtitle">
+                No cached matches yet. LeagueVid downloads match history in the background while
+                the app is open.
+              </p>
+              <button className="secondary" onClick={() => void refreshMatchHistory()}>
+                Refresh history
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="match-tile-list">
+                {visibleHistoryMatches.map((match, index) => {
+                  const recording = recordingByMatchId.get(match.matchId)
+                  if (recording) {
+                    return (
+                      <MatchTile
+                        key={historyMatchKey(match)}
+                        video={recording}
+                        stats={statsByVideo.get(recording.id)}
+                        chips={achievementsByVideo.get(recording.id)?.chips}
+                        suspiciousLink={suspiciousVideoIds.has(recording.id)}
+                        lastViewed={recording.id === lastViewedVideoId}
+                        onOpen={openVideo}
+                        onLink={handleTileLink}
+                        onRemove={handleRemove}
+                        onToggleFavorite={handleToggleFavorite}
+                      />
+                    )
+                  }
+
+                  const row = historyMatchToVideoRow(match, -(index + 1))
+                  return (
+                    <MatchTile
+                      key={historyMatchKey(match)}
+                      video={row}
+                      historyOnly
+                      historyAccountLabel={match.accountLabel}
+                      historyMetrics={{
+                        damageToChampions: match.damageToChampions,
+                        visionScore: match.visionScore
+                      }}
+                      onOpen={() => setViewingHistoryMatch(match)}
+                    />
+                  )
+                })}
+              </div>
+              {historyVisibleCount < sortedHistoryMatches.length && (
+                <button
+                  className="secondary match-history-load-more"
+                  onClick={() => setHistoryVisibleCount((count) => count + HISTORY_PAGE_SIZE)}
+                >
+                  Show {Math.min(HISTORY_PAGE_SIZE, sortedHistoryMatches.length - historyVisibleCount)}{' '}
+                  more matches
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="library-view">
       <div className="library-column library-column--tiles" ref={tilesScrollRef} onScroll={handleTilesScroll}>
         <div className="view-header">
           <h2>Your recordings</h2>
           <div className="view-header-actions">
+            <div className="library-mode-tabs" role="group" aria-label="Library view">
+              <button
+                className="library-mode-tab"
+                onClick={() => setLibraryMode('matches')}
+                aria-pressed="false"
+              >
+                <History size={15} /> Matches ({historyMatches.length})
+              </button>
+              <button
+                className="library-mode-tab library-mode-tab--active"
+                aria-pressed="true"
+              >
+                <VideoIcon size={15} /> Recordings
+              </button>
+            </div>
             <select
               className="sort-select"
               value={sortOrder}
@@ -897,7 +1101,10 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
           </div>
         </div>
 
-        <BackfillStatusBanner puuids={settings.accounts.map((a) => a.puuid)} />
+        <BackfillStatusBanner
+          puuids={settings.accounts.map((a) => a.puuid)}
+          onCachedCountChange={handleCachedCountChange}
+        />
 
         {bulkProgress && <p className="status add-media-progress">{bulkProgress}</p>}
 

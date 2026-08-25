@@ -1190,6 +1190,61 @@ select:focus {
   overflow-y: auto;
 }
 
+.library-view--history {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.library-heading-group {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.library-heading-group h2,
+.library-heading-group .subtitle {
+  margin: 0;
+}
+
+.library-mode-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  border: 1px solid var(--lv-border);
+  border-radius: 8px;
+  background: rgba(8, 5, 16, 0.46);
+}
+
+.library-mode-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.38rem 0.65rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--lv-text-muted);
+  font-size: 0.78rem;
+}
+
+.library-mode-tab:hover {
+  transform: none;
+  background: rgba(155, 77, 255, 0.12);
+  color: var(--lv-text);
+}
+
+.library-mode-tab--active {
+  background: linear-gradient(135deg, rgba(123, 63, 228, 0.42), rgba(224, 78, 192, 0.24));
+  color: var(--lv-text);
+}
+
+.match-history-load-more {
+  align-self: center;
+  margin: 0.25rem 0 1rem;
+}
+
 /* Below this width the sidebar squeezes the tiles harder than it earns its
    place, so it stacks above the list instead. The whole view scrolls as one
    column at that point, rather than each column scrolling separately. */
@@ -1383,6 +1438,19 @@ select:focus {
   gap: 0.3rem;
   font-size: 0.78rem;
   color: var(--lv-text-muted);
+}
+
+.match-history-only-badge {
+  color: var(--lv-pink-soft);
+  background: rgba(224, 78, 192, 0.12);
+  border: 1px solid rgba(224, 78, 192, 0.26);
+}
+
+.match-history-account-label {
+  max-width: 13rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .gold-positive {
@@ -2763,6 +2831,69 @@ select:focus {
   overflow-y: auto;
 }
 
+/* Cache-only match details have no fake video column or empty bookmark area:
+   the stats panel owns the full content width and scrolls as one report. */
+.match-history-detail {
+  width: min(100%, 1500px);
+  height: 100%;
+  margin-inline: auto;
+  padding-right: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.match-history-detail-topbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.match-history-detail-result {
+  justify-self: end;
+  font-size: 0.9rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.match-history-stat-only-note {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  align-self: flex-start;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--lv-border);
+  border-radius: 999px;
+  color: var(--lv-text-muted);
+  background: rgba(12, 8, 22, 0.55);
+  font-size: 0.76rem;
+}
+
+.stats-panel--standalone {
+  width: 100%;
+  padding: 1.1rem;
+  gap: 1rem;
+}
+
+@media (max-width: 720px) {
+  .match-history-detail-topbar {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  .match-history-detail-topbar .player-title {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .match-history-detail-result {
+    justify-self: start;
+  }
+}
+
 @media (max-width: 1100px) {
   .player-body {
     grid-template-columns: minmax(0, 1fr);
@@ -3667,6 +3798,15 @@ select:focus {
   border-color: var(--lv-border-hover);
 }
 
+.objective-chip:disabled,
+.objective-chip:disabled:hover {
+  opacity: 1;
+  cursor: default;
+  transform: none;
+  background: rgba(155, 77, 255, 0.055);
+  border-color: var(--lv-border);
+}
+
 .objective-chip--ours {
   border-left: 3px solid var(--lv-win);
 }
@@ -3755,6 +3895,14 @@ select:focus {
 
 .gank-row-jump:hover {
   background: rgba(155, 77, 255, 0.1);
+}
+
+.gank-row-jump:disabled,
+.gank-row-jump:disabled:hover {
+  opacity: 1;
+  cursor: default;
+  transform: none;
+  background: transparent;
 }
 
 .gank-row-time {

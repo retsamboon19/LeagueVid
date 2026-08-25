@@ -7,7 +7,7 @@ interface InsightsTabProps {
   stats: MatchStats
   focus: StatsParticipant
   /** Seeks video playback to a game time, for the gank list's timestamps. */
-  onSeekGameTime: (gameTimeMs: number) => void
+  onSeekGameTime?: (gameTimeMs: number) => void
 }
 
 type GroupKey = 'fighting' | 'ganks' | 'farming' | 'objectives' | 'vision'

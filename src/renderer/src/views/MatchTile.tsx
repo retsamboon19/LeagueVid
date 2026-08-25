@@ -48,13 +48,17 @@ interface MatchTileProps {
   // instead of opening the player.
   selectMode?: boolean
   selected?: boolean
+  /** Cache-backed match with no video file or recording-only actions. */
+  historyOnly?: boolean
+  historyAccountLabel?: string
+  historyMetrics?: { damageToChampions: number | null; visionScore: number | null }
   // Every callback takes the video id rather than closing over it, so the
   // library can hand down one stable function per action instead of a fresh
   // closure per tile per render -- which is what lets memo() below actually
   // skip anything.
   onOpen: (videoId: number) => void
-  onLink: (videoId: number) => void
-  onRemove: (videoId: number) => void
+  onLink?: (videoId: number) => void
+  onRemove?: (videoId: number) => void
   onToggleFavorite?: (videoId: number, next: boolean) => void
   onToggleSelect?: (videoId: number) => void
 }
@@ -146,7 +150,7 @@ function buildScoreboard(
   const toEntry = (p: RosterParticipant): ScoreboardEntry => ({
     key: p.puuid,
     championName: p.championName,
-    label: named(p.championName),
+    label: p.displayName ?? named(p.championName),
     kda: `${p.kills}/${p.deaths}/${p.assists}`,
     isMe: p.isMe
   })
@@ -197,6 +201,9 @@ function MatchTile({
   lastViewed,
   selectMode,
   selected,
+  historyOnly,
+  historyAccountLabel,
+  historyMetrics,
   onOpen,
   onLink,
   onRemove,
@@ -245,6 +252,8 @@ function MatchTile({
     () => stats?.participants.find((p) => p.puuid === stats.ownerPuuid),
     [stats]
   )
+  const damageToChampions = me?.damageToChampions ?? historyMetrics?.damageToChampions
+  const visionScore = me?.visionScore ?? historyMetrics?.visionScore
 
   return (
     <div
@@ -254,7 +263,7 @@ function MatchTile({
     >
       <div className="match-tile-stripe" />
 
-      {selectMode && (
+      {selectMode && !historyOnly && (
         <button
           className={`match-tile-select-checkbox ${selected ? 'match-tile-select-checkbox--checked' : ''}`}
           onClick={(e) => {
@@ -272,7 +281,7 @@ function MatchTile({
           so it's always in the same, predictable spot regardless of what
           else that row is showing -- and shown for unlinked videos too,
           since there's no reason favoriting should require a match link. */}
-      {!selectMode && onToggleFavorite && (
+      {!selectMode && !historyOnly && onToggleFavorite && (
         <button
           type="button"
           className={`match-tile-favorite-btn ${video.is_favorite ? 'match-tile-favorite-btn--active' : ''}`}
@@ -305,6 +314,14 @@ function MatchTile({
               <span className="match-tile-meta match-tile-toprow-time">
                 <Clock size={12} /> {timeAgo(video.recorded_at)}
               </span>
+              {historyOnly && (
+                <span className="auto-match-badge match-history-only-badge">Stats only</span>
+              )}
+              {historyOnly && historyAccountLabel && (
+                <span className="match-tile-meta match-history-account-label">
+                  {historyAccountLabel}
+                </span>
+              )}
               {suspiciousLink && (
                 <span
                   className="auto-match-badge auto-match-badge--warning"
@@ -421,18 +438,22 @@ function MatchTile({
                 {/* Only rendered once the bulk stats arrive, and hidden by CSS
                     below ~1100px. These exist so a wide row fills with real
                     numbers instead of spreading three cells over whitespace. */}
-                {me && (
+                {(me || historyMetrics) && (
                   <>
                     <span className="match-tile-stat match-tile-stat--wide">
                       <span className="match-tile-stat-value">
-                        {formatCompact(me.damageToChampions)}
+                        {damageToChampions === null || damageToChampions === undefined
+                          ? '--'
+                          : formatCompact(damageToChampions)}
                       </span>
                       <span className="match-tile-stat-sub">
                         <span className="match-tile-stat-label">damage</span>
                       </span>
                     </span>
                     <span className="match-tile-stat match-tile-stat--wide">
-                      <span className="match-tile-stat-value">{me.visionScore}</span>
+                      <span className="match-tile-stat-value">
+                        {visionScore ?? '--'}
+                      </span>
                       <span className="match-tile-stat-sub">
                         <span className="match-tile-stat-label">vision</span>
                       </span>
@@ -489,13 +510,13 @@ function MatchTile({
         )}
       </button>
 
-      {!selectMode && (
+      {!selectMode && !historyOnly && (
         <div className="match-tile-actions">
           <button
             className="secondary match-tile-link-btn"
             onClick={(e) => {
               e.stopPropagation()
-              onLink(video.id)
+              onLink?.(video.id)
             }}
           >
             {isLinked ? 'Re-link' : 'Link match'}
@@ -520,7 +541,7 @@ function MatchTile({
                   `Remove "${video.file_name}" from LeagueVid? This won't delete the file.`
                 )
               ) {
-                onRemove(video.id)
+                onRemove?.(video.id)
               }
             }}
             title="Remove from library"
