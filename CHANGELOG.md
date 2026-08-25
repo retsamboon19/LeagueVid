@@ -6,6 +6,8 @@
   official Cloud, Infernal, Mountain, and Ocean Drake names.
 - Standardized Hextech and Chemtech as Drakes while preserving Elder Dragon's
   official name in both live-event and match-history objective markers.
+- Added an opt-in private-beta installer build that can include the ignored
+  local Riot API key without affecting standard or GitHub release builds.
 
 ## v0.3.4 — Recording Reliability
 

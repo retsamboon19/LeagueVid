@@ -367,6 +367,7 @@ const api = {
     getRiotApiKeyStatus: (): Promise<{
       hasCustomKey: boolean
       hasEnvKey: boolean
+      hasBundledKey: boolean
       maskedKey: string | null
     }> => ipcRenderer.invoke('db:getRiotApiKeyStatus'),
     setRiotApiKey: (apiKey: string | null): Promise<void> =>

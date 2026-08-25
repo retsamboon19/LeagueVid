@@ -80,6 +80,14 @@ unreleased commit, or use the non-recording features on another operating system
 > hours and has a low rate limit. Paste a fresh key into **Settings** when the
 > previous one expires. LeagueVid queues and throttles requests automatically.
 
+### Private beta installer
+
+For a deliberately limited private test, `npm run dist:beta` builds an installer
+with the `RIOT_API_KEY` from the ignored local `.env` included in the packaged
+main process. Normal `npm run dist` builds and GitHub release builds never include
+that key. Keep the resulting installer private: a bundled desktop secret can be
+extracted by anyone who receives it, even though it is not committed to Git.
+
 ## Features
 
 ### Recording

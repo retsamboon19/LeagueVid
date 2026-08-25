@@ -38,6 +38,7 @@ function Settings({ onSaved }: SettingsProps): JSX.Element {
   const [apiKeyStatus, setApiKeyStatus] = useState<{
     hasCustomKey: boolean
     hasEnvKey: boolean
+    hasBundledKey: boolean
     maskedKey: string | null
   } | null>(null)
   const [apiKeyInput, setApiKeyInput] = useState('')
@@ -98,6 +99,8 @@ function Settings({ onSaved }: SettingsProps): JSX.Element {
       type: 'success',
       text: next.hasEnvKey
         ? 'Custom key removed. Falling back to the key in your .env file.'
+        : next.hasBundledKey
+          ? 'Custom key removed. Falling back to the included private beta key.'
         : 'Custom key removed. No key is currently set.'
     })
   }
@@ -267,7 +270,13 @@ function Settings({ onSaved }: SettingsProps): JSX.Element {
           ) : (
             <span className="status-error">none set</span>
           )}
-          {apiKeyStatus.hasCustomKey ? ' (saved in app settings)' : apiKeyStatus.hasEnvKey ? ' (from .env)' : ''}
+          {apiKeyStatus.hasCustomKey
+            ? ' (saved in app settings)'
+            : apiKeyStatus.hasEnvKey
+              ? ' (from .env)'
+              : apiKeyStatus.hasBundledKey
+                ? ' (included with private beta)'
+                : ''}
         </p>
       )}
 

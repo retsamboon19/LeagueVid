@@ -15,7 +15,12 @@ export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
     define: {
-      __LEAGUEVID_BUILD_COMMIT__: JSON.stringify(currentCommit())
+      __LEAGUEVID_BUILD_COMMIT__: JSON.stringify(currentCommit()),
+      // Empty for every normal/dev/release build. scripts/build-private-beta.mjs
+      // supplies this only for the deliberately opt-in private beta build.
+      __LEAGUEVID_BUNDLED_RIOT_API_KEY__: JSON.stringify(
+        process.env.LEAGUEVID_BUNDLED_RIOT_API_KEY?.trim() ?? ''
+      )
     },
     build: {
       rollupOptions: {

@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import * as repo from './repository'
 import { resetRiotClient } from '../riot/clientSingleton'
+import { getBundledRiotApiKey } from '../config'
 import { resumePersist, suspendPersist } from './index'
 
 export function registerDbHandlers(): void {
@@ -153,10 +154,18 @@ export function registerDbHandlers(): void {
   ipcMain.handle('db:getRiotApiKeyStatus', () => {
     const override = repo.getRiotApiKeyOverride()
     const hasEnvKey = !!process.env.RIOT_API_KEY
+    const bundledKey = getBundledRiotApiKey()
     return {
       hasCustomKey: !!override,
       hasEnvKey,
-      maskedKey: override ? maskApiKey(override) : hasEnvKey ? maskApiKey(process.env.RIOT_API_KEY as string) : null
+      hasBundledKey: !!bundledKey,
+      maskedKey: override
+        ? maskApiKey(override)
+        : hasEnvKey
+          ? maskApiKey(process.env.RIOT_API_KEY as string)
+          : bundledKey
+            ? maskApiKey(bundledKey)
+            : null
     }
   })
 
