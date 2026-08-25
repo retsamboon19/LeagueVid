@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.3.8 — Safe Match Detachment
 
 - Changed the X action in Match History to detach only the associated
   recording, keeping the match and its stats visible while preserving the
