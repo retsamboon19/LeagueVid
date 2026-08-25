@@ -1,15 +1,23 @@
 # Changelog
 
+## v0.4.0 — First-Run Account Setup
+
+- Added focused first-run account onboarding so a new user is prompted to
+  connect a Riot ID before entering the app.
+- Added a clear `+ Add another account` path during onboarding and retained
+  the existing multi-account support.
+- Limited onboarding to genuinely fresh profiles; retained account settings
+  skip it after reinstalling, and removing all accounts later does not bring it
+  back unexpectedly.
+- Added an opt-in private-beta installer build that can include the ignored
+  local Riot API key without affecting standard or GitHub release builds.
+
 ## v0.3.5 — Official Drake Names
 
 - Replaced Riot's internal Air, Fire, Earth, and Water dragon labels with the
   official Cloud, Infernal, Mountain, and Ocean Drake names.
 - Standardized Hextech and Chemtech as Drakes while preserving Elder Dragon's
   official name in both live-event and match-history objective markers.
-- Added an opt-in private-beta installer build that can include the ignored
-  local Riot API key without affecting standard or GitHub release builds.
-- Added focused first-run account onboarding with support for linking multiple
-  Riot IDs, while retained install data skips onboarding on reinstall.
 
 ## v0.3.4 — Recording Reliability
 
