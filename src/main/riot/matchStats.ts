@@ -11,6 +11,7 @@ import type {
   StatsTeam,
   TimelineFrameStats
 } from '../../shared/types'
+import { dragonDisplayName } from '../../shared/dragonLabels'
 import { getCachedApiValue } from '../db/repository'
 import { matchRegionForPlatform } from './client'
 import { analyzeGanks } from './gankAnalyzer'
@@ -141,9 +142,7 @@ function prettyMonster(event: {
 }): { kind: string; label: string } {
   const type = event.monsterType ?? ''
   if (type === 'DRAGON') {
-    const sub = (event.monsterSubType ?? '').replace(/_DRAGON$/, '').toLowerCase()
-    const name = sub ? sub.charAt(0).toUpperCase() + sub.slice(1) : 'Elemental'
-    return { kind: 'dragon', label: `${name} Dragon` }
+    return { kind: 'dragon', label: dragonDisplayName(event.monsterSubType) }
   }
   if (type === 'RIFTHERALD') return { kind: 'herald', label: 'Rift Herald' }
   if (type === 'BARON_NASHOR') return { kind: 'baron', label: 'Baron Nashor' }

@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.3.5 — Official Drake Names
+
+- Replaced Riot's internal Air, Fire, Earth, and Water dragon labels with the
+  official Cloud, Infernal, Mountain, and Ocean Drake names.
+- Standardized Hextech and Chemtech as Drakes while preserving Elder Dragon's
+  official name in both live-event and match-history objective markers.
+
 ## v0.3.4 — Recording Reliability
 
 - Avoided OBS Game Capture when RivaTuner or MSI Afterburner can leave an

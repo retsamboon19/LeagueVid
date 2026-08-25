@@ -158,16 +158,16 @@ describe('mapLiveEventsToTags', () => {
   })
 
   describe('objectives', () => {
-    it('names the dragon subtype', () => {
+    it('uses the official name for an elemental drake', () => {
       const tags = mapLiveEventsToTags(
-        feed({ EventName: 'DragonKill', KillerName: ME, DragonType: 'Infernal' }),
+        feed({ EventName: 'DragonKill', KillerName: ME, DragonType: 'Air' }),
         ME
       )
       expect(tags[0].type).toBe('dragon')
-      expect(tags[0].label).toBe('Infernal Dragon')
+      expect(tags[0].label).toBe('Cloud Drake')
     })
 
-    it('names the elder dragon properly rather than "Elder Dragon Dragon"', () => {
+    it('uses Elder Dragon rather than Elder Drake', () => {
       const tags = mapLiveEventsToTags(
         feed({ EventName: 'DragonKill', KillerName: ME, DragonType: 'Elder' }),
         ME

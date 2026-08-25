@@ -1,4 +1,5 @@
 import { multiKillTagType, type AutoTagEvent, type AutoTagType } from './types'
+import { dragonDisplayName } from './dragonLabels'
 
 // Turns League's in-game event feed into bookmarks.
 //
@@ -50,14 +51,6 @@ export function isSamePlayer(a: string | undefined, b: string | undefined): bool
 
 function secondsToMs(seconds: number): number {
   return Math.round(seconds * 1000)
-}
-
-/** Dragon subtype to a readable label, e.g. 'Infernal Dragon'. */
-function dragonLabel(event: LiveEventLike): string {
-  const type = event.DragonType
-  if (!type) return 'Dragon'
-  if (type.toLowerCase() === 'elder') return 'Elder Dragon'
-  return `${type} Dragon`
 }
 
 /**
@@ -141,7 +134,7 @@ export function mapLiveEventsToTags(
         tags.push({
           type: 'dragon',
           gameTimestampMs,
-          label: dragonLabel(event),
+          label: dragonDisplayName(event.DragonType),
           // Riot sends 'True'/'False' as strings here.
           detail: isTrue(event.Stolen) ? 'Stolen' : undefined
         })

@@ -296,7 +296,7 @@ export interface ObjectiveEvent {
   timestampMs: number
   /** 'dragon' | 'herald' | 'baron' | 'atakhan' | 'turret' | 'inhibitor' */
   kind: string
-  /** Human-readable subtype, e.g. 'Infernal Dragon', 'Outer turret'. */
+  /** Human-readable subtype, e.g. 'Infernal Drake', 'Outer turret'. */
   label: string
   teamId: number
   /** Whether the focus participant was the killer or an assister. */
