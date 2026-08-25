@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.4.0 — First-Run Account Setup
+## v0.3.6 — First-Run Account Setup
 
 - Added focused first-run account onboarding so a new user is prompted to
   connect a Riot ID before entering the app.
