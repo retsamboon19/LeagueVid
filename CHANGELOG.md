@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.3.7 — Complete Match History
 
 - Added a cache-backed match history to the Library so matches remain visible
   even when no LeagueVid recording exists.
