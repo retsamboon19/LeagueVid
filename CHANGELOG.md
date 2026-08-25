@@ -8,6 +8,8 @@
   official name in both live-event and match-history objective markers.
 - Added an opt-in private-beta installer build that can include the ignored
   local Riot API key without affecting standard or GitHub release builds.
+- Added focused first-run account onboarding with support for linking multiple
+  Riot IDs, while retained install data skips onboarding on reinstall.
 
 ## v0.3.4 — Recording Reliability
 

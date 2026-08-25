@@ -6,11 +6,14 @@ import Library from './views/Library'
 import RecorderIndicator from './components/RecorderIndicator'
 import AnimatedBackground from './components/AnimatedBackground'
 import LeagueVidLogo from './components/LeagueVidLogo'
+import FirstRunOnboarding from './views/FirstRunOnboarding'
+import { shouldShowFirstRunOnboarding } from './lib/firstRunOnboarding'
 
 function App(): JSX.Element {
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showFirstRun, setShowFirstRun] = useState(false)
   const [isPlayerActive, setIsPlayerActive] = useState(false)
   // Incremented when the title is clicked; the library watches it and resets
   // itself back to a plain, unfiltered list.
@@ -19,6 +22,7 @@ function App(): JSX.Element {
   useEffect(() => {
     window.api.db.getSettings().then((existing) => {
       setSettings(existing)
+      setShowFirstRun(shouldShowFirstRunOnboarding(existing))
       setLoaded(true)
     })
   }, [])
@@ -115,6 +119,12 @@ function App(): JSX.Element {
           )}
         </div>
       </div>
+      {showFirstRun && (
+        <FirstRunOnboarding
+          onAccountsChanged={(accounts) => setSettings({ accounts })}
+          onContinue={() => setShowFirstRun(false)}
+        />
+      )}
     </>
   )
 }
