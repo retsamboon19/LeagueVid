@@ -200,7 +200,11 @@ const api = {
       ipcRenderer.invoke('riot:getLeadSwingBulk', args),
 
     // Kicks off an immediate check for match data that isn't downloaded yet.
-    downloadMatchData: (): Promise<void> => ipcRenderer.invoke('riot:downloadMatchData')
+    downloadMatchData: (): Promise<void> => ipcRenderer.invoke('riot:downloadMatchData'),
+
+    // Checks Riot's latest match-id page immediately, waits for missing
+    // entries to cache, then lets Match History repaint from local data.
+    refreshRecentMatches: (): Promise<void> => ipcRenderer.invoke('riot:refreshRecentMatches')
   },
   ddragon: {
     getBundle: (): Promise<DDragonBundle> => ipcRenderer.invoke('ddragon:getBundle')
@@ -245,6 +249,11 @@ const api = {
       teamPosition?: string | null
       queueId?: number | null
     }): Promise<void> => ipcRenderer.invoke('db:linkVideoToMatch', input),
+
+    // Detaches a mistaken association while keeping both the recording row
+    // and the independently cached match-history entry.
+    unlinkVideoFromMatch: (videoId: number): Promise<void> =>
+      ipcRenderer.invoke('db:unlinkVideoFromMatch', videoId),
 
     updateSyncOffset: (input: { videoId: number; syncOffsetMs: number }): Promise<void> =>
       ipcRenderer.invoke('db:updateSyncOffset', input),

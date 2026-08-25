@@ -52,6 +52,8 @@ interface MatchTileProps {
   historyOnly?: boolean
   historyAccountLabel?: string
   historyMetrics?: { damageToChampions: number | null; visionScore: number | null }
+  /** Changes X from removing a recording to detaching it from this match. */
+  removeAction?: 'recording' | 'match-link'
   // Every callback takes the video id rather than closing over it, so the
   // library can hand down one stable function per action instead of a fresh
   // closure per tile per render -- which is what lets memo() below actually
@@ -204,6 +206,7 @@ function MatchTile({
   historyOnly,
   historyAccountLabel,
   historyMetrics,
+  removeAction = 'recording',
   onOpen,
   onLink,
   onRemove,
@@ -536,16 +539,20 @@ function MatchTile({
             className="player-icon-btn match-tile-remove-btn"
             onClick={(e) => {
               e.stopPropagation()
-              if (
-                window.confirm(
-                  `Remove "${video.file_name}" from LeagueVid? This won't delete the file.`
-                )
-              ) {
+              const confirmation =
+                removeAction === 'match-link'
+                  ? `Detach "${video.file_name}" from this match? The match and its stats will stay in Match History, and the recording will stay in Recordings.`
+                  : `Remove "${video.file_name}" from LeagueVid? This won't delete the file.`
+              if (window.confirm(confirmation)) {
                 onRemove?.(video.id)
               }
             }}
-            title="Remove from library"
-            aria-label="Remove from library"
+            title={
+              removeAction === 'match-link' ? 'Detach recording from match' : 'Remove from library'
+            }
+            aria-label={
+              removeAction === 'match-link' ? 'Detach recording from match' : 'Remove from library'
+            }
           >
             <X size={14} />
           </button>

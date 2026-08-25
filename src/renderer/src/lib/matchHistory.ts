@@ -78,3 +78,28 @@ export function historyMatchToVideoRow(match: MatchHistorySummary, id: number): 
 export function historyMatchKey(match: Pick<MatchHistorySummary, 'matchId' | 'puuid'>): string {
   return `${match.matchId}:${match.puuid}`
 }
+
+/** Mirrors the persisted unlink operation for an immediate renderer update. */
+export function detachedRecording(video: VideoRow): VideoRow {
+  return {
+    ...video,
+    match_id: null,
+    sync_offset_ms: null,
+    champion_name: null,
+    kda: null,
+    win: null,
+    kills: null,
+    deaths: null,
+    assists: null,
+    cs: null,
+    gold_diff: null,
+    enemy_champion_name: null,
+    summoner1_id: null,
+    summoner2_id: null,
+    keystone_id: null,
+    game_mode: null,
+    match_data: null,
+    team_position: null,
+    queue_id: null
+  }
+}

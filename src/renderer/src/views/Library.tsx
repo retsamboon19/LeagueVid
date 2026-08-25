@@ -6,6 +6,7 @@ import {
   History,
   Link2,
   Plus,
+  RefreshCw,
   Trash2,
   Trophy,
   Video as VideoIcon,
@@ -39,7 +40,7 @@ import {
   rebuildBookmarks,
   searchMatchesForVideo
 } from '../lib/autoLinkVideo'
-import { historyMatchKey, historyMatchToVideoRow } from '../lib/matchHistory'
+import { detachedRecording, historyMatchKey, historyMatchToVideoRow } from '../lib/matchHistory'
 
 type SortOrder = 'newest' | 'oldest'
 type LibraryMode = 'matches' | 'recordings'
@@ -115,6 +116,8 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
   const [libraryMode, setLibraryMode] = useState<LibraryMode>('matches')
   const [historyMatches, setHistoryMatches] = useState<MatchHistorySummary[]>([])
   const [historyLoading, setHistoryLoading] = useState(true)
+  const [historyRefreshing, setHistoryRefreshing] = useState(false)
+  const [historyRefreshError, setHistoryRefreshError] = useState<string | null>(null)
   const [historyVisibleCount, setHistoryVisibleCount] = useState(HISTORY_PAGE_SIZE)
   const [viewingHistoryMatch, setViewingHistoryMatch] = useState<MatchHistorySummary | null>(null)
   const [linkingVideoId, setLinkingVideoId] = useState<number | null>(null)
@@ -226,6 +229,25 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
     void refreshMatchHistory()
   }, [refreshMatchHistory])
 
+  const handleRefreshMatchHistory = useCallback(async (): Promise<void> => {
+    setHistoryRefreshing(true)
+    setHistoryRefreshError(null)
+    try {
+      // Repaint the current cache first (useful after a recording was removed
+      // by an older build), then wait for Riot's recent page and repaint once
+      // more with anything that was missing locally.
+      await refreshMatchHistory()
+      await window.api.riot.refreshRecentMatches()
+      await refreshMatchHistory()
+    } catch (error) {
+      setHistoryRefreshError(
+        error instanceof Error ? error.message : 'Could not refresh match history.'
+      )
+    } finally {
+      setHistoryRefreshing(false)
+    }
+  }, [refreshMatchHistory])
+
   // The tile-facing callbacks below are all useCallback'd with no dependencies,
   // which is what makes MatchTile's memo() worth having: they only ever touch
   // state through updater functions, so one identity can serve every tile for
@@ -234,6 +256,19 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
     await window.api.db.deleteVideo(videoId)
     setVideos((prev) => prev.filter((v) => v.id !== videoId))
     setSelectedIds((prev) => {
+      if (!prev.has(videoId)) return prev
+      const next = new Set(prev)
+      next.delete(videoId)
+      return next
+    })
+  }, [])
+
+  const handleDetachRecording = useCallback(async (videoId: number): Promise<void> => {
+    await window.api.db.unlinkVideoFromMatch(videoId)
+    setVideos((prev) =>
+      prev.map((video) => (video.id === videoId ? detachedRecording(video) : video))
+    )
+    setSuspiciousVideoIds((prev) => {
       if (!prev.has(videoId)) return prev
       const next = new Set(prev)
       next.delete(videoId)
@@ -907,6 +942,15 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
                   <VideoIcon size={15} /> Recordings ({videos.length})
                 </button>
               </div>
+              <button
+                className="secondary match-history-refresh-btn"
+                onClick={() => void handleRefreshMatchHistory()}
+                disabled={historyRefreshing || settings.accounts.length === 0}
+                title="Check Riot for recent matches and reload Match History"
+              >
+                <RefreshCw size={15} className={historyRefreshing ? 'spin' : undefined} />
+                {historyRefreshing ? 'Refreshing...' : 'Refresh'}
+              </button>
               <select
                 className="sort-select"
                 value={sortOrder}
@@ -923,6 +967,8 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
             puuids={settings.accounts.map((account) => account.puuid)}
             onCachedCountChange={handleCachedCountChange}
           />
+
+          {historyRefreshError && <p className="status error">{historyRefreshError}</p>}
 
           {historyLoading ? (
             <p className="subtitle">Loading match history...</p>
@@ -952,7 +998,8 @@ function Library({ settings, onPlayerActiveChange, homeSignal }: LibraryProps): 
                         lastViewed={recording.id === lastViewedVideoId}
                         onOpen={openVideo}
                         onLink={handleTileLink}
-                        onRemove={handleRemove}
+                        onRemove={handleDetachRecording}
+                        removeAction="match-link"
                         onToggleFavorite={handleToggleFavorite}
                       />
                     )

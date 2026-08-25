@@ -32,6 +32,10 @@ export function registerDbHandlers(): void {
     (_e, input: Parameters<typeof repo.linkVideoToMatch>[0]) => repo.linkVideoToMatch(input)
   )
 
+  ipcMain.handle('db:unlinkVideoFromMatch', (_e, videoId: number) =>
+    repo.unlinkVideoFromMatch(videoId)
+  )
+
   ipcMain.handle(
     'db:updateSyncOffset',
     (_e, input: { videoId: number; syncOffsetMs: number }) =>

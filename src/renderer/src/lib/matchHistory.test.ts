@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { MatchHistorySummary } from '../../../shared/types'
-import { historyMatchKey, historyMatchToVideoRow } from './matchHistory'
+import { detachedRecording, historyMatchKey, historyMatchToVideoRow } from './matchHistory'
 
 const match: MatchHistorySummary = {
   matchId: 'SG2_123',
@@ -87,5 +87,19 @@ describe('match history tile adapter', () => {
 
   it('keys the same game separately when two linked accounts played it', () => {
     expect(historyMatchKey(match)).toBe('SG2_123:mine')
+  })
+
+  it('detaches match fields without removing the recording identity or favorite', () => {
+    const linked = { ...historyMatchToVideoRow(match, 42), file_path: 'C:/vod.mp4', is_favorite: 1 }
+    const detached = detachedRecording(linked)
+
+    expect(detached).toMatchObject({
+      id: 42,
+      file_path: 'C:/vod.mp4',
+      is_favorite: 1,
+      match_id: null,
+      champion_name: null,
+      match_data: null
+    })
   })
 })

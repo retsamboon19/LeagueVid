@@ -1245,6 +1245,13 @@ select:focus {
   margin: 0.25rem 0 1rem;
 }
 
+.match-history-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
 /* Below this width the sidebar squeezes the tiles harder than it earns its
    place, so it stacks above the list instead. The whole view scrolls as one
    column at that point, rather than each column scrolling separately. */

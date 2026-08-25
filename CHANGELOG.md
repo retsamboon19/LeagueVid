@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Changed the X action in Match History to detach only the associated
+  recording, keeping the match and its stats visible while preserving the
+  recording as an unlinked entry in Recordings.
+- Added a Match History refresh control that checks Riot's recent matches,
+  waits for missing data to cache, and then reloads the displayed history.
+
 ## v0.3.7 — Complete Match History
 
 - Added a cache-backed match history to the Library so matches remain visible

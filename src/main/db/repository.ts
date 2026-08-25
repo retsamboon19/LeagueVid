@@ -337,6 +337,28 @@ export function linkVideoToMatch(input: {
   )
 }
 
+// Breaks a mistaken recording-to-match association without removing either
+// side of it. The recording stays importable/re-linkable in the Recordings
+// view, while the independently cached Riot match stays in Match History.
+// Manual bookmarks belong to the recording and are preserved; generated
+// match bookmarks are discarded because their timestamps came from this link.
+export function unlinkVideoFromMatch(videoId: number): void {
+  runBatch(() => {
+    execRaw(
+      `UPDATE videos
+       SET match_id = NULL, sync_offset_ms = NULL,
+           champion_name = NULL, kda = NULL, win = NULL,
+           kills = NULL, deaths = NULL, assists = NULL, cs = NULL, gold_diff = NULL,
+           enemy_champion_name = NULL, summoner1_id = NULL, summoner2_id = NULL,
+           keystone_id = NULL, game_mode = NULL, match_data = NULL,
+           team_position = NULL, queue_id = NULL
+       WHERE id = ?`,
+      [videoId]
+    )
+    execRaw(`DELETE FROM tags WHERE video_id = ? AND source = 'auto'`, [videoId])
+  })
+}
+
 export function updateSyncOffset(videoId: number, syncOffsetMs: number): void {
   run(`UPDATE videos SET sync_offset_ms = ? WHERE id = ?`, [syncOffsetMs, videoId])
 }

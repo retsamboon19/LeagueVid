@@ -13,7 +13,7 @@ import {
   type GetMatchStatsArgs,
   type GetMatchStatsBulkArgs
 } from './matchStats'
-import { requestBackfillNow } from './backfillService'
+import { refreshRecentMatchesNow, requestBackfillNow } from './backfillService'
 import { listCachedMatchEntries } from '../db/repository'
 import type { PlatformRouting } from './types'
 import type { MatchHistorySummary, MatchRosterData } from '../../shared/types'
@@ -235,6 +235,8 @@ export function registerRiotHandlers(): void {
   ipcMain.handle('riot:downloadMatchData', () => {
     requestBackfillNow()
   })
+
+  ipcMain.handle('riot:refreshRecentMatches', () => refreshRecentMatchesNow())
 
   // Derives the full stats payload for the player page's stats panel from
   // locally cached data only. Never touches the network -- browsing your own

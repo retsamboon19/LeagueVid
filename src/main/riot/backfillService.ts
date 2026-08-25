@@ -32,6 +32,7 @@ const STEADY_STATE_RECHECK_COUNT = 20
 
 let running = false
 let stopRequested = false
+let recentRefreshPromise: Promise<void> | null = null
 
 // Lets a long idle wait be cut short, so "Download match data" in the UI
 // takes effect immediately instead of after up to 10 minutes of sleeping.
@@ -201,4 +202,37 @@ export function requestBackfillNow(): void {
     resetBackfillTotal(account.puuid)
   }
   wake?.()
+}
+
+/**
+ * Foreground refresh used by Match History's Refresh button. It checks the
+ * most recent page immediately and resolves only after any missing matches
+ * and timelines have reached the cache, so the renderer can reliably reload
+ * the list when the promise completes. The normal full backfill remains a
+ * separate background operation.
+ */
+export function refreshRecentMatchesNow(): Promise<void> {
+  if (recentRefreshPromise) return recentRefreshPromise
+
+  recentRefreshPromise = (async () => {
+    const accounts = getSettings()?.accounts ?? []
+    for (const account of accounts) {
+      const region = matchRegionForPlatform(account.platform)
+      const ids = await getRiotClient().getMatchIdsByPuuid(region, account.puuid, {
+        start: 0,
+        count: PAGE_SIZE,
+        priority: 'foreground'
+      })
+
+      for (const id of ids) {
+        if (isMatchCached(region, id)) continue
+        await getMatchCached(region, id, 'foreground')
+        await getMatchTimelineCached(region, id, 'foreground')
+      }
+    }
+  })().finally(() => {
+    recentRefreshPromise = null
+  })
+
+  return recentRefreshPromise
 }
