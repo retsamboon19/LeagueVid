@@ -874,6 +874,12 @@ select:focus {
   border-radius: 0;
 }
 
+/* Blurring the live video behind the tag forces extra fullscreen compositor
+   work for a very subtle effect. The opaque overlay remains equally legible. */
+.player-stage:fullscreen .player-active-tag {
+  backdrop-filter: none;
+}
+
 .player-active-tag {
   position: absolute;
   top: 1rem;

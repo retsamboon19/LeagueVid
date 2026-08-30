@@ -172,17 +172,42 @@ function AnimatedBackground(): JSX.Element {
     }
 
     let rafId = 0
+    let animationRunning = false
     const start = performance.now()
     function frame(now: number): void {
+      if (!animationRunning) return
       const t = (now - start) / 1000
       for (const { el, t: lt } of paths) el.setAttribute('d', buildLinePath(lt, t))
       drawStars(now)
       rafId = requestAnimationFrame(frame)
     }
-    rafId = requestAnimationFrame(frame)
+
+    // A fullscreen element is painted in its own top layer, so none of this
+    // background is visible while a VOD is fullscreen. Continuing to rebuild
+    // 40 SVG paths and repaint a viewport-sized canvas every frame still uses
+    // the renderer/GPU, though, and competes directly with video playback.
+    // Pause the loop while fullscreen (and while the window is hidden), then
+    // resume the same animation when the app becomes visible again.
+    function syncAnimation(): void {
+      const shouldRun = !document.hidden && document.fullscreenElement === null
+      if (shouldRun === animationRunning) return
+      animationRunning = shouldRun
+      if (shouldRun) {
+        rafId = requestAnimationFrame(frame)
+      } else {
+        cancelAnimationFrame(rafId)
+      }
+    }
+
+    document.addEventListener('fullscreenchange', syncAnimation)
+    document.addEventListener('visibilitychange', syncAnimation)
+    syncAnimation()
 
     return () => {
+      animationRunning = false
       cancelAnimationFrame(rafId)
+      document.removeEventListener('fullscreenchange', syncAnimation)
+      document.removeEventListener('visibilitychange', syncAnimation)
       window.removeEventListener('resize', resize)
       window.removeEventListener('mousemove', onMouseMove)
     }

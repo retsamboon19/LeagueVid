@@ -117,6 +117,7 @@ function VideoPlayer({ video, settings, onBack, onVideoUpdated }: VideoPlayerPro
   const [tags, setTags] = useState<TagRow[]>([])
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTimeMs, setCurrentTimeMs] = useState(0)
+  const fullscreenTimeSecondRef = useRef<number | null>(null)
   const [durationMs, setDurationMs] = useState(0)
   const [volume, setVolume] = useState(1)
   const [playbackRate, setPlaybackRate] = useState(1)
@@ -627,7 +628,23 @@ function VideoPlayer({ video, settings, onBack, onVideoUpdated }: VideoPlayerPro
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
             onLoadedMetadata={(e) => setDurationMs(e.currentTarget.duration * 1000)}
-            onTimeUpdate={(e) => setCurrentTimeMs(e.currentTarget.currentTime * 1000)}
+            onTimeUpdate={(e) => {
+              const nextTimeMs = e.currentTarget.currentTime * 1000
+
+              // In fullscreen only the video and active-tag overlay are
+              // visible. Updating this root component on every native
+              // timeupdate needlessly reconciles the hidden stats, timeline,
+              // clip editor and bookmark trees. One update per second keeps
+              // the tag overlay accurate without stealing playback frames.
+              if (document.fullscreenElement) {
+                const nextSecond = Math.floor(nextTimeMs / 1000)
+                if (fullscreenTimeSecondRef.current === nextSecond) return
+                fullscreenTimeSecondRef.current = nextSecond
+              } else {
+                fullscreenTimeSecondRef.current = null
+              }
+              setCurrentTimeMs(nextTimeMs)
+            }}
           />
         )}
 

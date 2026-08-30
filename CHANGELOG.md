@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Improved fullscreen VOD playback smoothness by pausing the hidden animated
+  background, reducing hidden player updates, and avoiding live overlay blur.
+
 ## v0.3.8 — Safe Match Detachment
 
 - Changed the X action in Match History to detach only the associated
