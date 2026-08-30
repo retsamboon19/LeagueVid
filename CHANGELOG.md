@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.3.9 — Smooth Fullscreen Playback
 
 - Improved fullscreen VOD playback smoothness by pausing the hidden animated
   background, reducing hidden player updates, and avoiding live overlay blur.
