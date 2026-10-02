@@ -18,10 +18,45 @@ function FirstRunOnboarding({
   const [tagLine, setTagLine] = useState('')
   const [platform, setPlatform] = useState<PlatformRouting>('na1')
   const [showForm, setShowForm] = useState(true)
+  const [hasApiKey, setHasApiKey] = useState<boolean | null>(null)
+  const [apiKeyInput, setApiKeyInput] = useState('')
+  const [savingKey, setSavingKey] = useState(false)
+  const [keyMessage, setKeyMessage] = useState('')
   const [status, setStatus] = useState<{
     type: 'idle' | 'loading' | 'error'
     message?: string
   }>({ type: 'idle' })
+
+  useEffect(() => {
+    window.api.db.getRiotApiKeyStatus().then((key) => {
+      setHasApiKey(key.hasCustomKey || key.hasEnvKey || key.hasBundledKey)
+    }).catch(() => {
+      setHasApiKey(false)
+      setKeyMessage('Could not check your API key. Save a key below to continue.')
+    })
+  }, [])
+
+  async function handleSaveApiKey(e: React.FormEvent): Promise<void> {
+    e.preventDefault()
+    const key = apiKeyInput.trim()
+    if (!key) {
+      setKeyMessage('Enter a Riot API key.')
+      return
+    }
+    setSavingKey(true)
+    setKeyMessage('')
+    try {
+      await window.api.db.setRiotApiKey(key)
+      setHasApiKey(true)
+      setApiKeyInput('')
+      setKeyMessage('API key saved. Connect your account below.')
+      setStatus({ type: 'idle' })
+    } catch {
+      setKeyMessage('Could not save your API key. Please try again.')
+    } finally {
+      setSavingKey(false)
+    }
+  }
 
   useEffect(() => {
     function keepFocusInDialog(e: KeyboardEvent): void {
@@ -54,6 +89,7 @@ function FirstRunOnboarding({
 
   async function handleAddAccount(e: React.FormEvent): Promise<void> {
     e.preventDefault()
+    if (!hasApiKey || savingKey) return
     const trimmedGameName = gameName.trim()
     const trimmedTagLine = tagLine.trim()
     if (!trimmedGameName || !trimmedTagLine) {
@@ -122,6 +158,37 @@ function FirstRunOnboarding({
           </p>
         </div>
 
+        <form className="form first-run-form" onSubmit={handleSaveApiKey}>
+          <p className="subtitle" role="status">
+            {hasApiKey === null
+              ? 'Checking your Riot API key...'
+              : hasApiKey
+                ? 'A Riot API key is configured. You can replace it here if it has expired.'
+                : 'Add a Riot API key before connecting your account.'}
+            {' '}Get a key from the{' '}
+            <a href="https://developer.riotgames.com/" target="_blank" rel="noreferrer">
+              Riot Developer Portal
+            </a>.
+          </p>
+          <div className="form-row">
+            <label htmlFor="onboarding-api-key">{hasApiKey ? 'Replacement API key' : 'Riot API key'}</label>
+            <input
+              id="onboarding-api-key"
+              type="password"
+              placeholder="RGAPI-..."
+              value={apiKeyInput}
+              onChange={(e) => setApiKeyInput(e.target.value)}
+              autoComplete="off"
+              spellCheck={false}
+              disabled={savingKey || status.type === 'loading'}
+            />
+          </div>
+          <button type="submit" disabled={hasApiKey === null || savingKey || status.type === 'loading' || !apiKeyInput.trim()}>
+            {savingKey ? 'Saving key...' : 'Save API key'}
+          </button>
+          {keyMessage && <p className="subtitle" role="status">{keyMessage}</p>}
+        </form>
+
         {accounts.length > 0 && (
           <ul className="account-list first-run-account-list">
             {accounts.map((account) => (
@@ -185,7 +252,7 @@ function FirstRunOnboarding({
               </select>
             </div>
 
-            <button type="submit" disabled={status.type === 'loading'}>
+            <button type="submit" disabled={!hasApiKey || savingKey || status.type === 'loading'}>
               {status.type === 'loading' ? 'Connecting...' : 'Connect account'}
             </button>
             {status.type === 'error' && (

@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.3.10 — First-run API Key Setup
+
+- Added Riot API key setup to the welcome screen before connecting an account.
+- Kept key replacement available during onboarding so expired keys can be corrected without accessing Settings.
+- Disabled account lookup until a key is configured and handled key-save failures in place.
+
 ## v0.3.9 — Smooth Fullscreen Playback
 
 - Improved fullscreen VOD playback smoothness by pausing the hidden animated
