@@ -10,7 +10,7 @@ import {
   rmSync,
   writeFileSync
 } from 'fs'
-import { basename, dirname, join } from 'path'
+import { dirname, join } from 'path'
 import {
   updateIsAvailable,
   type UpdateCheckResult,
@@ -18,40 +18,17 @@ import {
   type UpdateProgress
 } from '../shared/updater'
 import { buildUpdateHelperScript, startUpdateHelper } from './updateInstaller'
+import {
+  createReleaseResolver,
+  UPDATE_USER_AGENT,
+  validateDownloadUrl,
+  type ReleaseAsset,
+  type ResolvedRelease
+} from './updateRelease'
 
 declare const __LEAGUEVID_BUILD_COMMIT__: string
 
-const RELEASE_API = 'https://api.github.com/repos/retsamboon19/LeagueVid/releases/latest'
-const USER_AGENT = 'LeagueVid-updater'
-const ALLOWED_DOWNLOAD_HOSTS = new Set([
-  'github.com',
-  'objects.githubusercontent.com',
-  'release-assets.githubusercontent.com'
-])
-
-interface ReleaseAsset {
-  name: string
-  size: number
-  updated_at: string
-  browser_download_url: string
-}
-
-interface GithubRelease {
-  name: string | null
-  tag_name: string
-  body: string | null
-  published_at: string
-  html_url: string
-  assets: ReleaseAsset[]
-}
-
-interface ResolvedRelease {
-  release: GithubRelease
-  version: string
-  commitSha: string
-  installer: ReleaseAsset
-  checksum: ReleaseAsset
-}
+const resolveLatestRelease = createReleaseResolver()
 
 let installInProgress = false
 
@@ -61,65 +38,20 @@ function updaterDir(): string {
   return dir
 }
 
-function parseVersion(tag: string): string {
-  const match = /^v?(\d+\.\d+\.\d+)$/.exec(tag.trim())
-  if (!match) throw new Error(`GitHub published an unsupported release tag: ${tag}`)
-  return match[1]
-}
-
 async function githubFetch(url: string): Promise<Response> {
+  validateDownloadUrl(url)
   const response = await fetch(url, {
     headers: {
-      Accept: 'application/vnd.github+json',
-      'User-Agent': USER_AGENT,
-      'X-GitHub-Api-Version': '2022-11-28'
+      Accept: '*/*',
+      'User-Agent': UPDATE_USER_AGENT
     }
   })
-  if (!response.ok) throw new Error(`GitHub returned ${response.status} while checking for updates.`)
+  if (!response.ok) throw new Error(`GitHub returned ${response.status} while downloading the update. Please try again later.`)
   return response
 }
 
 function validateDownloadResponse(response: Response): void {
-  const host = new URL(response.url).hostname.toLowerCase()
-  if (!ALLOWED_DOWNLOAD_HOSTS.has(host)) {
-    throw new Error('GitHub redirected the update download to an unexpected server.')
-  }
-}
-
-async function resolveLatestRelease(): Promise<ResolvedRelease> {
-  const response = await githubFetch(RELEASE_API)
-  const release = (await response.json()) as GithubRelease
-  const version = parseVersion(release.tag_name)
-  const installerName = `LeagueVid.Setup.${version}.exe`
-  const installer = release.assets.find((asset) => asset.name === installerName)
-  if (!installer) throw new Error(`The ${release.tag_name} release does not contain the Windows installer.`)
-  if (basename(installer.name) !== installer.name) throw new Error('The installer name is invalid.')
-
-  const checksum = release.assets.find((asset) => asset.name === `${installer.name}.sha256`)
-  if (!checksum) {
-    throw new Error('This update is missing its security checksum. Please wait for the release to finish.')
-  }
-
-  const commitSha = await resolveTagCommit(release.tag_name)
-  return { release, version, commitSha, installer, checksum }
-}
-
-async function resolveTagCommit(tag: string): Promise<string> {
-  const refResponse = await githubFetch(
-    `https://api.github.com/repos/retsamboon19/LeagueVid/git/ref/tags/${encodeURIComponent(tag)}`
-  )
-  let object = (await refResponse.json()) as { object?: { type?: string; sha?: string; url?: string } }
-
-  for (let depth = 0; depth < 3; depth++) {
-    const target = object.object
-    if (!target?.sha) throw new Error('GitHub returned an invalid release tag.')
-    if (target.type === 'commit') return target.sha
-    if (target.type !== 'tag' || !target.url) throw new Error('GitHub returned an unsupported release tag.')
-    const tagResponse = await githubFetch(target.url)
-    object = (await tagResponse.json()) as { object?: { type?: string; sha?: string; url?: string } }
-  }
-
-  throw new Error('The GitHub release tag points through too many nested tags.')
+  validateDownloadUrl(response.url)
 }
 
 function toCheckResult(resolved: ResolvedRelease): UpdateCheckResult {
