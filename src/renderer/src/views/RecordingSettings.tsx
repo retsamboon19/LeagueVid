@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import type {
   AudioCaptureDevice,
+  AudioOutputDevice,
   CaptureDisplay,
   DiskUsageInfo,
   EncoderCapabilities,
@@ -73,6 +74,9 @@ function RecordingSettingsSection(): JSX.Element {
   const [capabilityError, setCapabilityError] = useState<string | null>(null)
   const [displays, setDisplays] = useState<CaptureDisplay[]>([])
   const [audioDevices, setAudioDevices] = useState<AudioCaptureDevice[]>([])
+  const [outputDevices, setOutputDevices] = useState<AudioOutputDevice[]>([])
+  const [outputDevicesError, setOutputDevicesError] = useState<string | null>(null)
+  const [loadingOutputs, setLoadingOutputs] = useState(false)
   const [presets, setPresets] = useState<QualityPresetInfo[]>([])
   const [activePreset, setActivePreset] = useState<string>('custom')
   const [refreshHz, setRefreshHz] = useState<number | null>(null)
@@ -125,6 +129,7 @@ function RecordingSettingsSection(): JSX.Element {
     // "not connected" rather than showing a stale name.
     window.api.recorder.listDisplays().then(setDisplays).catch(() => setDisplays([]))
     window.api.recorder.listAudioDevices().then(setAudioDevices).catch(() => setAudioDevices([]))
+    void refreshOutputDevices()
     window.api.recorder.getDiskUsage().then(setUsage).catch(() => setUsage(null))
     window.api.recorder.getOutputDirInfo().then(setOutputDir).catch(() => setOutputDir(null))
 
@@ -163,6 +168,18 @@ function RecordingSettingsSection(): JSX.Element {
       .getCaptureBackends()
       .then((list) => setBackends(list as CaptureBackendInfo[]))
       .catch(() => setBackends([]))
+  }
+
+  async function refreshOutputDevices(): Promise<void> {
+    setLoadingOutputs(true)
+    setOutputDevicesError(null)
+    try {
+      setOutputDevices(await window.api.recorder.listOutputDevices())
+    } catch (err) {
+      setOutputDevicesError((err as Error).message)
+    } finally {
+      setLoadingOutputs(false)
+    }
   }
 
   async function handleInstallObs(): Promise<void> {
@@ -267,6 +284,7 @@ function RecordingSettingsSection(): JSX.Element {
     if (!settings) return
     const saved = await window.api.recorder.saveSettings({ ...settings, ...patch })
     setSettings(saved)
+    if ('captureBackend' in patch) refreshBackends()
     // Any earlier test result described different settings, so it no longer
     // applies -- leaving it on screen would be a stale reassurance.
     setPreflight(null)
@@ -336,6 +354,10 @@ function RecordingSettingsSection(): JSX.Element {
   }
 
   const microphones = audioDevices.filter((d) => !d.likelyLoopback)
+  const defaultOutput = outputDevices.find((device) => device.isDefault)
+  const selectedOutputMissing = settings.systemAudioDeviceId &&
+    !outputDevices.some((device) => device.id === settings.systemAudioDeviceId)
+  const usingFfmpeg = backends.some((backend) => backend.active && backend.id === 'ffmpeg-ddagrab')
 
   // What the current resolution choice actually produces, for the bitrate
   // suggestion. Falls back to 1080p when no display has been read yet.
@@ -781,36 +803,71 @@ function RecordingSettingsSection(): JSX.Element {
           <>
             <div className="recorder-field">
               <label htmlFor="rec-sysaudio">
-                <Volume2 size={14} aria-hidden="true" /> Device
+                <Volume2 size={14} aria-hidden="true" /> Output device
               </label>
               <select
                 id="rec-sysaudio"
-                value={settings.desktopAudioDeviceName ?? ''}
-                onChange={(e) =>
-                  update({ desktopAudioDeviceName: e.target.value === '' ? null : e.target.value })
-                }
+                value={settings.systemAudioDeviceId ?? (settings.desktopAudioDeviceName ? `input:${settings.desktopAudioDeviceName}` : '')}
+                onChange={(e) => {
+                  const value = e.target.value
+                  const legacy = value.startsWith('input:')
+                  update({
+                    desktopAudioDeviceName: legacy ? value.slice(6) : null,
+                    systemAudioDeviceId: legacy || !value ? null : value,
+                    systemAudioDeviceName: legacy ? null : outputDevices.find((device) => device.id === value)?.name ?? null
+                  })
+                }}
               >
-                <option value="">Windows (captured directly, no extra driver)</option>
-                {loopbackDevices.map((device) => (
-                  <option key={device.name} value={device.name}>
-                    {device.name}
+                <option value="">Windows default{defaultOutput ? ` — ${defaultOutput.name}` : ''}</option>
+                {selectedOutputMissing && (
+                  <option value={settings.systemAudioDeviceId!}>
+                    {settings.systemAudioDeviceName ?? 'Saved output'} — unavailable
+                  </option>
+                )}
+                {outputDevices.map((device) => (
+                  <option key={device.id} value={device.id} disabled={usingFfmpeg}>
+                    {device.name}{device.isDefault ? ' (Windows default)' : ''}
                   </option>
                 ))}
+                {(loopbackDevices.length > 0 || settings.desktopAudioDeviceName) && (
+                  <optgroup label="Stereo Mix / virtual audio cable">
+                    {settings.desktopAudioDeviceName && !loopbackDevices.some((device) => device.name === settings.desktopAudioDeviceName) && (
+                      <option value={`input:${settings.desktopAudioDeviceName}`}>
+                        {settings.desktopAudioDeviceName} — unavailable
+                      </option>
+                    )}
+                    {loopbackDevices.map((device) => (
+                      <option key={device.name} value={`input:${device.name}`}>{device.name}</option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </div>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => void refreshOutputDevices()} disabled={loadingOutputs}>
+              <RefreshCw size={14} aria-hidden="true" /> {loadingOutputs ? 'Refreshing...' : 'Refresh output devices'}
+            </button>
+            <p className="settings-row-hint">
+              Pick the speakers or headphones where you hear the game. Windows default follows
+              your Windows output selection. Changes apply to the next recording.
+            </p>
+            {outputDevicesError && <p className="settings-row-hint status-error">{outputDevicesError}</p>}
+            {!loadingOutputs && !outputDevicesError && selectedOutputMissing && (
+              <p className="settings-row-hint status-error">
+                The selected output is not connected. If it is still disconnected when recording
+                starts, Windows default will be used.
+              </p>
+            )}
+            {usingFfmpeg && (
+              <p className="settings-row-hint">
+                Select OBS capture to choose a specific output device. The current capture engine uses Windows default or a virtual audio cable.
+              </p>
+            )}
 
             <VolumeSlider
               id="rec-sysvolume"
               value={settings.systemAudioVolume}
               onChange={(value) => update({ systemAudioVolume: value })}
             />
-
-            {loopbackDevices.length === 0 && !settings.desktopAudioDeviceName && (
-              <p className="settings-row-hint">
-                You have no Stereo Mix or virtual audio cable installed, so game sound is captured
-                from Windows directly. Nothing to install.
-              </p>
-            )}
           </>
         )}
       </div>

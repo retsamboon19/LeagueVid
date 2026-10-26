@@ -18,6 +18,7 @@ import {
   updateRecording
 } from '../db/repository'
 import { listAudioDevices } from './audioDevices'
+import { listOutputDevices } from './outputDevices'
 import { mapDisplaysToOutputs, resolveCaptureDisplay } from './displays'
 import { applyLaunchAtLogin } from '../loginItem'
 import { resolveAudioInputs } from './autoRecorderHost'
@@ -137,6 +138,7 @@ export function registerRecorderHandlers(): void {
   ipcMain.handle('recorder:listDisplays', () => currentDisplays())
 
   ipcMain.handle('recorder:listAudioDevices', () => listAudioDevices(ffmpegBinaryPath()))
+  ipcMain.handle('recorder:listOutputDevices', () => listOutputDevices())
 
   // --- Where recordings are written ---
   // Mirrors the clips-folder handlers: a folder inside the app's own directory by

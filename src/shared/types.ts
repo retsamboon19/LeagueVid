@@ -668,17 +668,12 @@ export interface RecordingSettings {
 
   /** Master switch for game/desktop sound. */
   captureSystemAudio: boolean
-  /**
-   * Which device carries system sound, or null to capture it from Windows
-   * directly through the loopback bridge.
-   *
-   * Null is the normal case: the bundled ffmpeg has no WASAPI loopback input, so
-   * unless the user has installed a virtual cable there is no device to pick and
-   * the bridge is the only route. A single field rather than a separate
-   * "use the bridge" flag, because two overlapping switches for one decision is
-   * how settings rot.
-   */
+  /** Legacy Stereo Mix / virtual cable capture input; null uses output loopback. */
   desktopAudioDeviceName: string | null
+  /** Windows playback endpoint to capture; null follows the default output. */
+  systemAudioDeviceId: string | null
+  /** Last known label, retained so an unplugged output is identifiable. */
+  systemAudioDeviceName: string | null
   /** 0-100. Applied with ffmpeg's volume filter, so 100 is unchanged. */
   systemAudioVolume: number
 
@@ -748,6 +743,8 @@ export const DEFAULT_RECORDING_SETTINGS: RecordingSettings = {
   // to discover.
   captureSystemAudio: true,
   desktopAudioDeviceName: null,
+  systemAudioDeviceId: null,
+  systemAudioDeviceName: null,
   systemAudioVolume: 100,
 
   captureMicrophone: false,
@@ -984,6 +981,13 @@ export interface AudioCaptureDevice {
    * and never selected automatically.
    */
   likelyLoopback: boolean
+}
+
+export interface AudioOutputDevice {
+  /** Core Audio render endpoint ID, suitable for WASAPI loopback. */
+  id: string
+  name: string
+  isDefault: boolean
 }
 
 // --- Recording sessions ---

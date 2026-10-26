@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { DEFAULT_RECORDING_SETTINGS, type RecordingSettings } from '../../shared/types'
 import {
   buildAudioFilterChain,
+  audioInputArgs,
   buildCaptureArgs,
   buildVideoFilterChain,
   effectiveScaleHeight,
@@ -17,6 +18,11 @@ import {
 const TARGET_1440: CaptureTarget = { outputIdx: 0, width: 2560, height: 1440, isHdr: false }
 const TARGET_1080: CaptureTarget = { outputIdx: 1, width: 1920, height: 1080, isHdr: false }
 const TARGET_HDR: CaptureTarget = { outputIdx: 0, width: 3840, height: 2160, isHdr: true }
+
+it('does not mistake a WASAPI output endpoint for a DirectShow microphone', () => {
+  expect(() => audioInputArgs({ kind: 'wasapi-output', source: '{0.0.0.00000000}.{speakers}', role: 'desktop' }))
+    .toThrow('requires OBS')
+})
 
 const MIC: AudioInputSpec = { kind: 'dshow', source: 'Microphone (Blue Yeti)', role: 'mic' }
 const DESKTOP_DEVICE: AudioInputSpec = { kind: 'dshow', source: 'Stereo Mix', role: 'desktop' }

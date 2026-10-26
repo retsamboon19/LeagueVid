@@ -25,9 +25,10 @@ export interface AudioInputSpec {
    * device if the user has one). 'loopback-socket' is LeagueVid's own
    * Chromium loopback bridge feeding raw PCM over localhost, which exists
    * because the bundled ffmpeg has no WASAPI loopback input at all.
+   * 'wasapi-output' carries a playback endpoint for the OBS backend only.
    */
-  kind: 'dshow' | 'loopback-socket'
-  /** DirectShow device name, or the tcp:// url of the bridge. */
+  kind: 'dshow' | 'loopback-socket' | 'wasapi-output'
+  /** DirectShow name, loopback URL, or WASAPI playback endpoint ID. */
   source: string
   /** Track title, and what the settings called it. */
   role: 'mic' | 'desktop'
@@ -283,6 +284,9 @@ export function volumeFilter(volume: number | undefined): string | null {
 
 /** Input arguments for one audio source, in front of its -i. */
 export function audioInputArgs(input: AudioInputSpec): string[] {
+  if (input.kind === 'wasapi-output') {
+    throw new Error('Choosing an output device requires OBS capture. Select OBS in Recording settings.')
+  }
   if (input.kind === 'loopback-socket') {
     return ['-f', 'f32le', '-ar', '48000', '-ac', '2', '-i', input.source]
   }

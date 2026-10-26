@@ -249,7 +249,7 @@ describe('audioTrackCount', () => {
 })
 
 describe('buildSceneCollection', () => {
-  const desktop: AudioInputSpec = { kind: 'dshow', source: 'spk', role: 'desktop', volume: 100 }
+  const desktop: AudioInputSpec = { kind: 'wasapi-output', source: 'default', role: 'desktop', volume: 100 }
   const mic: AudioInputSpec = {
     kind: 'dshow',
     source: 'Microphone (HyperX QuadCast)',
@@ -355,6 +355,24 @@ describe('buildSceneCollection', () => {
     const result = collection()
     const audio = result.DesktopAudioDevice1 as Record<string, unknown>
     expect(audio.id).toBe('wasapi_output_capture')
+  })
+
+  it('writes the selected playback endpoint into the WASAPI source', () => {
+    const result = collection({ audioInputs: [{ ...desktop, source: '{0.0.0.00000000}.{speakers}' }, mic] })
+    expect(result.DesktopAudioDevice1).toMatchObject({
+      id: 'wasapi_output_capture', settings: { device_id: '{0.0.0.00000000}.{speakers}' },
+      muted: false, monitoring_type: 0, volume: 1, mixers: 255
+    })
+  })
+
+  it('uses capture input for a legacy virtual cable instead of ignoring it', () => {
+    const result = collection({ audioInputs: [{ ...desktop, kind: 'dshow', source: 'Stereo Mix' }] })
+    expect(result.DesktopAudioDevice1).toMatchObject({ id: 'wasapi_input_capture' })
+  })
+
+  it('routes a microphone-only session to the sole recorded track in separate mode', () => {
+    const result = collection({ audioInputs: [mic], audioTrackMode: 'separate' })
+    expect(result.AuxAudioDevice1).toMatchObject({ mixers: 1 })
   })
 
   // Deliberately the default rather than the chosen name. wasapi_input_capture's

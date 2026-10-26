@@ -3,6 +3,7 @@ import { electronAPI } from '@electron-toolkit/preload'
 import type {
   AppSettings,
   AudioCaptureDevice,
+  AudioOutputDevice,
   AutoTagEvent,
   CaptureDisplay,
   DDragonBundle,
@@ -477,6 +478,8 @@ const api = {
     // depends on either a virtual device listed here or the loopback bridge.
     listAudioDevices: (): Promise<AudioCaptureDevice[]> =>
       ipcRenderer.invoke('recorder:listAudioDevices'),
+    listOutputDevices: (): Promise<AudioOutputDevice[]> =>
+      ipcRenderer.invoke('recorder:listOutputDevices'),
 
     // --- Where recordings are written ---
     getOutputDirInfo: (): Promise<{ current: string; default: string; isCustom: boolean }> =>

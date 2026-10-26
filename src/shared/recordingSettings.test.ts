@@ -8,6 +8,16 @@ import {
 } from './types'
 
 describe('parseRecordingSettings', () => {
+  it('defaults old settings to Windows output and retains an explicit endpoint', () => {
+    expect(parseRecordingSettings(JSON.stringify({ captureSystemAudio: true }))).toMatchObject({
+      systemAudioDeviceId: null, systemAudioDeviceName: null
+    })
+    expect(parseRecordingSettings(JSON.stringify({
+      systemAudioDeviceId: '{0.0.0.00000000}.{speakers}', systemAudioDeviceName: 'Speakers'
+    }))).toMatchObject({
+      systemAudioDeviceId: '{0.0.0.00000000}.{speakers}', systemAudioDeviceName: 'Speakers'
+    })
+  })
   it('returns the defaults when there is no stored row', () => {
     expect(parseRecordingSettings(null)).toEqual(DEFAULT_RECORDING_SETTINGS)
     expect(parseRecordingSettings(undefined)).toEqual(DEFAULT_RECORDING_SETTINGS)

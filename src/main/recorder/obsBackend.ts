@@ -23,6 +23,35 @@ import { safeCaptureScope } from './captureConflicts'
 const MIC_SOURCE_NAME = 'Mic/Aux'
 import { writeObsConfig } from './obsConfigFiles'
 import { ObsWebSocketClient } from './obsWebSocket'
+import type { AudioInputSpec } from './ffmpegArgs'
+
+/** Resolve before recording so a disconnected endpoint cannot silently win. */
+export async function applyDesktopAudioChoice(
+  client: Pick<ObsWebSocketClient, 'audioDeviceOptions' | 'setInputSettings'>,
+  desktop: AudioInputSpec,
+  savedName: string | null,
+  warn?: (message: string) => void
+): Promise<void> {
+  const sourceName = 'Desktop Audio'
+  if (desktop.source === 'default' || desktop.kind === 'loopback-socket') return
+  try {
+    const devices = await client.audioDeviceOptions(sourceName)
+    // Endpoint IDs disambiguate identical headset names. Legacy virtual cables
+    // store a friendly capture name and must resolve through the input list.
+    const match = devices.find((device) => desktop.kind === 'wasapi-output'
+      ? device.value === desktop.source
+      : device.name.toLowerCase() === desktop.source.toLowerCase())
+    await client.setInputSettings(sourceName, { device_id: match?.value ?? 'default' })
+    if (!match) {
+      warn?.(`The audio device "${savedName ?? desktop.source}" is not connected. ` +
+        'Recording the Windows default device instead. Choose an output device in Recording settings.')
+    }
+  } catch {
+    // Do not leave the stale ID from the scene collection selected on failure.
+    await client.setInputSettings(sourceName, { device_id: 'default' })
+    warn?.('Could not select the audio device. Recording the Windows default device instead.')
+  }
+}
 
 // Recording through OBS's game capture.
 //
@@ -243,14 +272,13 @@ class ObsSession implements CaptureHandle {
     try {
       await this.connect()
 
-      // Before recording, not after. Both of these fill in identifiers that only
-      // OBS can supply, and the monitor one in particular decides whether there
+      // Resolve device choices before recording. The monitor selection decides whether there
       // is a picture at all -- applying it afterwards would put black frames at
       // the start of every manual recording.
       //
-      // Neither is allowed to fail the session: a recording with the default
-      // microphone is fine, and the monitor step reports its own problems.
+      // Missing devices fall back to Windows defaults and report the substitution.
       await this.applyMicrophoneChoice()
+      await this.applyDesktopAudioChoice()
       await this.applyMonitorChoice()
 
       await this.client.startRecord()
@@ -456,6 +484,13 @@ class ObsSession implements CaptureHandle {
     } catch (err) {
       this.hooks.onStderr?.(`Could not select the microphone: ${(err as Error).message}`)
     }
+  }
+
+  private async applyDesktopAudioChoice(): Promise<void> {
+    const desktop = this.request.audioInputs.find((input) => input.role === 'desktop')
+    if (!this.client?.isConnected || !desktop) return
+    await applyDesktopAudioChoice(this.client, desktop,
+      this.request.settings.systemAudioDeviceName, this.hooks.onWarning)
   }
 
   /**

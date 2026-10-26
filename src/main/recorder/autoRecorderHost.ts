@@ -93,9 +93,25 @@ export async function resolveAudioInputs(): Promise<AudioInputSpec[]> {
 
   if (!settings.captureSystemAudio) return inputs
 
+  const backend = await activeCaptureBackend()
+  if (settings.systemAudioDeviceId && backend.capturesDesktopAudioNatively) {
+    inputs.push({
+      kind: 'wasapi-output',
+      source: settings.systemAudioDeviceId,
+      role: 'desktop',
+      volume: settings.systemAudioVolume
+    })
+    return inputs
+  }
+  if (settings.systemAudioDeviceId && !backend.capturesDesktopAudioNatively) {
+    reportRecorderProblem(
+      'The selected output device requires OBS capture. This recording will use the Windows default output instead.'
+    )
+  }
+
   // A virtual loopback device the user has installed takes precedence over the
   // bridge: fewer moving parts, and they chose it deliberately.
-  if (settings.desktopAudioDeviceName) {
+  if (settings.desktopAudioDeviceName && !settings.systemAudioDeviceId) {
     inputs.push({
       kind: 'dshow',
       source: settings.desktopAudioDeviceName,
@@ -110,10 +126,9 @@ export async function resolveAudioInputs(): Promise<AudioInputSpec[]> {
   // socket whose url is then ignored -- and when that bridge timed out it
   // reported "System audio couldn't be captured" against a backend perfectly
   // capable of recording desktop sound, which is how this was noticed.
-  const backend = await activeCaptureBackend()
   if (backend.capturesDesktopAudioNatively) {
     inputs.push({
-      kind: 'dshow',
+      kind: 'wasapi-output',
       source: 'default',
       role: 'desktop',
       volume: settings.systemAudioVolume

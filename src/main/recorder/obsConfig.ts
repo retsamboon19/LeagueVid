@@ -312,6 +312,7 @@ export function buildSceneCollection(input: ObsSceneInput): Record<string, unkno
   }
 
   if (desktop) {
+    const isCaptureDevice = desktop.kind === 'dshow' && desktop.source !== 'default'
     collection.DesktopAudioDevice1 = audioSource({
       uuid: nextUuid(),
       name: 'Desktop Audio',
@@ -319,8 +320,8 @@ export function buildSceneCollection(input: ObsSceneInput): Record<string, unkno
       // bridge existed: the bundled ffmpeg has no loopback input on Windows, so
       // desktop sound had to be routed through a hidden renderer and a socket.
       // OBS ships win-wasapi, so none of that is needed here.
-      id: 'wasapi_output_capture',
-      deviceId: 'default',
+      id: isCaptureDevice ? 'wasapi_input_capture' : 'wasapi_output_capture',
+      deviceId: desktop.kind === 'wasapi-output' ? desktop.source : 'default',
       volume: volumeScalar(desktop.volume),
       // Track 1 always carries desktop audio; separate mode simply stops the
       // microphone sharing it.
@@ -349,7 +350,7 @@ export function buildSceneCollection(input: ObsSceneInput): Record<string, unkno
       // to an id -- see ObsSession.applyMicrophoneChoice.
       deviceId: 'default',
       volume: volumeScalar(mic.volume),
-      mixers: separate ? 2 : 255
+      mixers: separate ? (desktop ? 2 : 1) : 255
     })
   }
 

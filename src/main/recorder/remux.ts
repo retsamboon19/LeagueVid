@@ -68,6 +68,12 @@ export async function remuxToMp4(options: RemuxOptions): Promise<RemuxResult> {
     'error',
     '-i',
     sourcePath,
+    // Automatic selection keeps just one audio stream, losing the other
+    // source when desktop and microphone were recorded on separate tracks.
+    '-map',
+    '0:v?',
+    '-map',
+    '0:a?',
     '-c',
     'copy',
     // Without this a copied stream can carry timestamps that make players
